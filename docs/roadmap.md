@@ -108,6 +108,8 @@ A release ships when **all** of the following are true:
 
 ## Per-release progress tracking
 
+> **Target dates.** All releases are marked `TBD`. Concrete targets will be set after the v1.0 project is scaffolded and we have measured velocity data; this section will be revised in a follow-up commit at that point.
+
 ### v1.0 — Foundation (target: TBD)
 
 **Core I/O**

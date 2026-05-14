@@ -18,11 +18,13 @@ var sheet = wb.AddSheet("Sales");
 sheet["A1"].Value("Region").Bold();
 sheet["B1"].Value("Revenue").Bold();
 
-sheet["A2"].Value("North");
-sheet["B2"].Value(1234.56m).NumberFormat("$#,##0.00");
+sheet[2, 1].Value("North");                          // row 2, col 1 == A2 (1-indexed)
+sheet[2, 2].Value(1234.56m).NumberFormat("$#,##0.00");
 
 sheet.Column("B").Width(18);
 sheet.FreezeRows(1);
 
 await wb.SaveAsync("sales.xlsx");
 ```
+
+Integer cell coordinates are **1-indexed** to match Excel's UI (`sheet[1, 1]` is `A1`).
