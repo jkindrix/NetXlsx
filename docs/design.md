@@ -534,6 +534,8 @@ The cell and range parser accepts these forms. All accepted forms are normalized
 | `Sheet1!A1`         | **no**                 | **no**                      | —                       | Sheet-qualified refs are only valid in named-range formulas |
 | Anything else       | throws                 | throws                      | —                       | `InvalidCellAddressException`           |
 
+> **Dense operations on whole-row / whole-column ranges.** `Range("1:1").Value(0)` materializes ~16K cells; `Range("A:A").Value(0)` materializes ~1M. Prefer `ForEachPopulated` for read-side iteration over whole lines. For deliberate fills of a whole row/column, the dense `Value` call is allowed but the cost is the caller's to own.
+
 ### 6.11 Built-in number formats
 
 ```csharp
@@ -552,6 +554,7 @@ public static class NumberFormats
 
     public const string Currency          = "$#,##0.00";
     public const string CurrencyNoSymbol  = "#,##0.00";
+    public const string Accounting        = "$#,##0.00;[Red]-$#,##0.00";  // negative in red
 
     public const string Date              = "yyyy-mm-dd";
     public const string DateTime          = "yyyy-mm-dd hh:mm:ss";
@@ -569,11 +572,11 @@ The `[Worksheet]` source generator emits diagnostics under the `NXLS` prefix. v1
 | ID            | Severity | Meaning                                                                                  |
 |---------------|----------|------------------------------------------------------------------------------------------|
 | `NXLS0001` | Error    | `[Worksheet]` type has duplicate `[Column]` orders                                       |
-| `NXLS0002` | Error    | `[Worksheet]` type has no public parameterless constructor and no `[JsonConstructor]`-style designated ctor |
+| `NXLS0002` | Error    | `[Worksheet]` type has no public parameterless constructor and no designated constructor. **Records with primary constructors satisfy this rule** — the primary constructor *is* the designated ctor |
 | `NXLS0003` | Error    | `[Column]` attribute references a `Format` string that fails the parser smoke check       |
 | `NXLS0004` | Warning  | `[Worksheet]` type has properties not marked `[Column]` or `[Ignore]` (silent skip is ambiguous) |
-| `NXLS0005` | Error    | `[Worksheet]` type is not `partial` (required for source-gen extension method emission)   |
-| `NXLS0006` | Error    | Property type has no built-in converter and no `[ColumnConverter]` attribute              |
+| `NXLS0005` | Error    | `[Worksheet]` type is not `partial`. Required so the generator can emit nested helper types alongside it in later versions without breaking source layout; future-proofing decision recorded in v1.0 |
+| `NXLS0006` | Error    | Property type has no built-in converter (v1.0). In v1.1 this expands to: "and no `[ColumnConverter]` attribute" once custom converters ship |
 
 Generator behavior summary:
 

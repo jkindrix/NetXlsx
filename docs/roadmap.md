@@ -265,7 +265,13 @@ These govern *how* the roadmap is executed. They are referenced from `docs/desig
 ### Test fixture provenance
 
 - Hand-crafted fixtures (built with Excel) are committed as binary `.xlsx` under `tests/NetXlsx.GoldenFiles/fixtures/`. Each has an entry in `tests/NetXlsx.GoldenFiles/README.md` documenting how it was produced.
-- Generated fixtures live alongside a `.gen.cs` file that produces them on demand. CI verifies that the committed binary matches the generator output (within the documented byte-tolerance band) to catch silent drift on NPOI bumps.
+- Generated fixtures live alongside a `.gen.cs` file that produces them on demand. CI verifies that the committed binary matches the generator output, modulo normalized non-deterministic OPC parts:
+  - `docProps/core.xml` `created` and `modified` timestamps → normalized to a fixed sentinel before comparison
+  - `docProps/app.xml` application name and version → normalized
+  - ZIP central-directory entry ordering → sorted by part name before comparison
+  - ZIP per-entry timestamps → zeroed
+  
+  Any other byte difference is a failure to investigate; it usually indicates an NPOI behavior change that warrants a workaround note in `docs/npoi-workarounds.md`.
 
 ## Explicit non-goals (forever)
 
