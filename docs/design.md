@@ -69,6 +69,9 @@ Provide an idiomatic, modern, ergonomic C# API for creating and reading `.xlsx` 
 | 47 | OOXML schema variant              | Read Strict + Transitional; write Transitional                               | Strict is rare in the wild; Transitional is what Excel emits |
 | 48 | Time / duration support           | `ICell.SetTime(TimeOnly)` and `SetDuration(TimeSpan)`; stored as Excel time fraction | Common need; cheap to add; format-string responsibility remains the caller's |
 | 49 | Cell error values                 | `CellError` enum + `ICell.GetError()`; `CellKind.Error` already present       | Reading error states is a real need; without this users would have to dive into `.Underlying` |
+| 50 | Stream position contract on Open  | Stream must be readable and at position 0; we do not `Seek`                  | Explicit position requirements are standard BCL practice (cf. `XmlReader`, `ZipArchive`) |
+| 51 | Wrong-format file on Open         | Opening a non-`.xlsx` file (e.g., `.xls`) throws `MalformedFileException` with format hint | Fail loud with an actionable message; never attempt to coerce |
+| 52 | Read-side thread safety           | Concurrent reads of a workbook are not safe; reads + any mutation throw       | NPOI is not thread-safe for reads either; consistent with #43 |
 
 ## 4. Performance targets (v1)
 
