@@ -59,6 +59,16 @@ Provide an idiomatic, modern, ergonomic C# API for creating and reading `.xlsx` 
 | 37 | Excel hard-limit enforcement      | Throw `ResourceLimitExceededException` on overflow (rows, cols, string length, etc.) | Fail loud at the boundary, never silently truncate |
 | 38 | Cancellation under `Task.Run`     | `CancellationToken` honored only at offload boundaries, not mid-NPOI         | NPOI is not cancellation-aware; over-promising would mislead callers |
 | 39 | Format-string culture handling    | Format strings are pass-through bytes; rendering is Excel's responsibility   | Spec-correct; clarifies that `DisplayCulture` only affects read-side displayed strings |
+| 40 | Cell-materialization semantics    | Accessing an unwritten cell auto-materializes as blank (`CellKind.Empty`)    | Matches Excel's "every cell exists" mental model; mirrors NPOI `CREATE_NULL_AS_BLANK` |
+| 41 | Sheet-name collision policy       | `AddSheet` throws `SheetNameException`; `Workbook.SuggestSheetName` available | Auto-suffix is surprising at the library layer; helper makes the intent explicit |
+| 42 | Disposal contract                 | Double-dispose: safe no-op. Use-after-dispose: `ObjectDisposedException`. Streaming dispose without prior `Save`: discard, no auto-save | BCL convention; auto-save on dispose silently hides bugs |
+| 43 | Concurrent-access policy          | Detect concurrent mutation via reentry counter; throw `InvalidOperationException` | Fail loud rather than corrupt; we explicitly decline to add locks (#11) |
+| 44 | Round-trip preservation           | All OPC parts we don't model are preserved verbatim on `Open → Save`         | Pivot caches, custom XML, conditional formatting, vendor extensions must survive untouched; protects user data |
+| 45 | String storage policy             | Shared strings by default for in-memory workbooks; inline strings for streaming writes | Matches Excel and NPOI defaults; streaming inline avoids holding the SST in memory |
+| 46 | Formula value cache               | Formulas written with no cached value; Excel recalculates on open            | Pre-computing via NPOI's evaluator is slow, fragile, and diverges from Excel for non-trivial formulas |
+| 47 | OOXML schema variant              | Read Strict + Transitional; write Transitional                               | Strict is rare in the wild; Transitional is what Excel emits |
+| 48 | Time / duration support           | `ICell.SetTime(TimeOnly)` and `SetDuration(TimeSpan)`; stored as Excel time fraction | Common need; cheap to add; format-string responsibility remains the caller's |
+| 49 | Cell error values                 | `CellError` enum + `ICell.GetError()`; `CellKind.Error` already present       | Reading error states is a real need; without this users would have to dive into `.Underlying` |
 
 ## 4. Performance targets (v1)
 
@@ -106,6 +116,13 @@ public static class Workbook
 
     public static string SanitizeSheetName(string proposed);
     public static bool IsValidSheetName(string proposed);
+
+    /// <summary>
+    /// Returns <paramref name="proposed"/> if no sheet with that name exists in
+    /// <paramref name="wb"/>; otherwise returns "<paramref name="proposed"/> (2)",
+    /// "(3)", etc., until an unused name is found. Truncates to the 31-char limit.
+    /// </summary>
+    public static string SuggestSheetName(IWorkbook wb, string proposed);
 }
 
 public sealed class WorkbookOptions
@@ -271,6 +288,8 @@ public interface ICell
     ICell SetNumber(decimal value);               // rounded via (double)value; see §7.4 on precision
     ICell SetDate(DateTime value);
     ICell SetDate(DateOnly value);
+    ICell SetTime(TimeOnly value);                // stored as Excel time fraction; needs time format string
+    ICell SetDuration(TimeSpan value);            // stored as Excel time fraction; use [h]:mm:ss for elapsed
     ICell SetBool(bool value);
     ICell SetFormula(string formula);
     ICell Clear();
@@ -279,8 +298,11 @@ public interface ICell
     string? GetString();
     double? GetNumber();
     DateTime? GetDate();
+    TimeOnly? GetTime();
+    TimeSpan? GetDuration();
     bool? GetBool();
     string? GetFormula();
+    CellError? GetError();
     T? GetValue<T>();
     CellKind Kind { get; }
 
@@ -310,6 +332,7 @@ public interface ICell
 }
 
 public enum CellKind { Empty, String, Number, Date, Bool, Formula, Error }
+public enum CellError { Null, DivByZero, Value, Ref, Name, Num, NotAvailable, GettingData }
 [Flags] public enum BorderSide { None=0, Top=1, Right=2, Bottom=4, Left=8, All=15 }
 public enum BorderStyle { None, Thin, Medium, Thick, Double, Dashed, Dotted }
 public enum HAlign { General, Left, Center, Right, Fill, Justify }
@@ -546,16 +569,45 @@ Writes that would exceed Excel's hard format limits throw `ResourceLimitExceeded
 
 Defaults match Excel's hard caps; consumers can lower them but cannot raise them above what Excel itself accepts.
 
+### 7.7 Round-trip preservation of unknown XML parts
+
+Workbooks routinely contain parts NetXlsx does not model in v1: pivot caches, conditional formatting, custom XML, threaded comments, vendor `<ext>` elements, and any future Microsoft additions. **`Open → Save` preserves every such part verbatim, by reference, via the OPC package layer.** The facade never reaches into parts it does not understand.
+
+Consequences:
+
+- A round-trip with no fluent modifications produces a byte-equivalent file (modulo deterministic whitespace / part-ordering normalization from the OPC writer).
+- Workbooks containing v2 features (charts, conditional formatting) can be opened and minimally edited in v1.0 without losing those features.
+- A dedicated round-trip preservation test in the golden-file corpus (`OpenEditSave` recipe — see §8.1) is a v1.0 ship-blocker. It opens a workbook containing every part type we don't model, modifies one cell, saves, and asserts the unmodeled parts are bit-identical.
+
+If `Open → modify → Save` *does* drop an unknown part, that is a bug, not a feature.
+
+### 7.8 Formula values are not pre-computed
+
+When a formula is written via `cell.SetFormula("=A1+B1")`, the cell is stored with no cached value. Excel, LibreOffice, Google Sheets, and any other competent consumer recalculates on open.
+
+NetXlsx does **not** invoke NPOI's formula evaluator on save. Pre-computation is slow on large workbooks, fragile for any formula touching newer functions, and produces results that may diverge from Excel's own evaluation. Letting the consumer recompute is both faster and more correct.
+
+The trade: a file briefly viewed by a tool that does not recalculate (rare) will show blank values for formula cells until the user triggers a recalc. We consider this an acceptable cost.
+
+### 7.9 Time and duration handling
+
+Excel has no native time type. `SetTime(TimeOnly)` stores the time-of-day as a fraction of a day (`0.5` = noon). `SetDuration(TimeSpan)` stores the same way; durations beyond 24h require an elapsed-time format string like `[h]:mm:ss`.
+
+Format strings are the caller's responsibility — without one, the cell shows as a fractional number. The cookbook ships a `TimeAndDuration` recipe demonstrating the common patterns.
+
+`GetTime` and `GetDuration` reverse the conversion; they accept any numeric cell and interpret it as a time fraction. Callers must apply judgment about whether the cell semantically represents a time.
+
 ## 8. Repository layout
 
 ```
 NetXlsx/
 ├─ src/
-│  ├─ NetXlsx/                  # main library
+│  ├─ NetXlsx/                  # main library — NetXlsx namespace
+│  │   └─ Streaming/               # IStreamingWorkbook etc. — NetXlsx.Streaming namespace
 │  ├─ NetXlsx.SourceGen/        # source generator for [Worksheet] mapping
-│  └─ NetXlsx.Analyzers/        # Roslyn analyzers (v2+)
+│  └─ NetXlsx.Analyzers/        # Roslyn analyzers (v2+) — NXLS#### diagnostic IDs
 ├─ tests/
-│  ├─ NetXlsx.Tests/            # unit tests
+│  ├─ NetXlsx.Tests/            # xUnit unit tests
 │  ├─ NetXlsx.GoldenFiles/      # reference workbooks + round-trip tests
 │  └─ NetXlsx.PublicApi/        # public-API snapshot tests
 ├─ benchmarks/
@@ -564,9 +616,19 @@ NetXlsx/
 │  └─ NetXlsx.Cookbook/         # runnable recipes (see §8.1)
 ├─ docs/
 │  ├─ design.md                    # this document
-│  └─ roadmap.md                   # feature roadmap + binary scope per release
-├─ Directory.Build.props
-├─ Directory.Packages.props
+│  ├─ roadmap.md                   # feature roadmap + binary scope per release
+│  └─ npoi-workarounds.md          # bug catalogue for NPOI issues we work around
+├─ build/
+│  ├─ build.ps1                    # local + CI entry point (Windows)
+│  └─ build.sh                     # local + CI entry point (Linux/macOS)
+├─ .teamcity/                      # TeamCity Kotlin DSL pipeline config
+├─ .editorconfig                   # code style (whole repo)
+├─ Directory.Build.props           # shared MSBuild settings (TFM, nullable, deterministic, signing)
+├─ Directory.Packages.props        # central package management (single NPOI pin)
+├─ nuget.config                    # public NuGet feed
+├─ CODEOWNERS                      # PR review routing
+├─ CHANGELOG.md                    # Keep-a-Changelog format
+├─ LICENSE                         # MIT
 ├─ NetXlsx.sln
 └─ README.md
 ```
@@ -585,11 +647,98 @@ Each recipe is a single runnable program under `samples/NetXlsx.Cookbook/` that 
 8. **HyperlinksAndComments** — Annotated cells with comments and external hyperlinks.
 9. **StreamingMillionRows** — `Workbook.CreateStreaming()` to write a million rows under the perf budget.
 10. **NPOIEscapeHatch** — Use `.Underlying` to do something the facade doesn't cover (e.g., set a print area).
-11. **OpenEditSave** — Open an existing workbook, modify a few cells, save — demonstrate the no-churn styles guarantee (§7.5).
+11. **OpenEditSave** — Open an existing workbook, modify a few cells, save — demonstrate the no-churn styles guarantee (§7.5) *and* the unknown-parts preservation guarantee (§7.7).
+12. **TimeAndDuration** — Demonstrate `SetTime(TimeOnly)` and `SetDuration(TimeSpan)` with appropriate format strings, including elapsed-time formatting via `[h]:mm:ss`.
+13. **CellErrors** — Read a workbook containing formula errors; classify them via `GetError()` and the `CellError` enum.
 
 Each recipe is also a golden-file test: the produced workbook is compared byte-by-byte (or structurally for non-deterministic parts) against a reference under `tests/NetXlsx.GoldenFiles/`.
 
-## 9. Definition of "extraordinary" for this project
+## 9. Engineering substrate
+
+The decisions in §3 govern the API and contracts. The decisions below govern the project itself — toolchain, distribution, hygiene. They are made up-front so that an agent (or human) can scaffold the v1.0 project without further pause.
+
+### 9.1 Toolchain
+
+| #  | Decision                       | Choice                                                                       | Rationale                                                          |
+|----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| S1 | Test framework                 | xUnit                                                                        | Idiomatic for modern .NET libraries; parallel by default; ubiquitous tooling support |
+| S2 | Assertion library              | `Microsoft.Testing.Platform` runner with xUnit; assertions via xUnit's `Assert` plus `FluentAssertions` for readable golden-file diffs | Standard pairing; FluentAssertions earns its weight for structural comparisons |
+| S3 | Benchmark framework            | BenchmarkDotNet                                                              | Industry standard; produces statistically valid measurements        |
+| S4 | Test naming convention         | `Method_Scenario_Expected`                                                   | Concise; matches Microsoft guidance; greps cleanly                  |
+| S5 | Code-style file                | `.editorconfig` at repo root, enforced in CI                                 | One source of truth for whitespace, ordering, naming               |
+| S6 | Public-API surface tracking    | `Microsoft.CodeAnalysis.PublicApiAnalyzers` (Shipped/Unshipped text files)   | Forces deliberate API changes; CI fails on undeclared additions     |
+| S7 | Source generator hosting       | In-repo project `src/NetXlsx.SourceGen/`; ships in the same NuGet package | One package; no separate install dance for consumers               |
+
+### 9.2 Distribution
+
+| #   | Decision                       | Choice                                                                       | Rationale                                                          |
+|-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| S8  | NPOI version pin               | Exact pin in `Directory.Packages.props`; bump deliberately via PR             | NPOI is a public dependency (#24); we control the bump cadence     |
+| S9  | License                        | MIT                                                     | Internal use; can be re-licensed (e.g., Apache-2.0) if open-sourced later — no copyleft contributions block this |
+| S10 | NuGet feed                     | public NuGet feed (URL set in `nuget.config` at scaffold time)                | Public distribution via nuget.org                                          |
+| S11 | Versioning                     | MinVer (git-tag-driven SemVer)                                               | Zero-config; SemVer comes from `git tag`; no version state in source files |
+| S12 | Strong-name signing            | Yes; key in repo (`netxlsx.snk`)                                          | Required for some legacy consumers; cheap to add               |
+| S13 | Symbol packages                | `.snupkg` published alongside `.nupkg`                                       | Debugging across package boundaries                                |
+| S14 | Source Link                    | Enabled (`Microsoft.SourceLink.GitHub` or equivalent for github.com/jkindrix)  | Step-into-source from consumers                                    |
+| S15 | Deterministic builds           | Enabled (`<Deterministic>true</Deterministic>`, `ContinuousIntegrationBuild=true` on CI) | Reproducible binaries; verifiable across machines             |
+| S16 | Analyzer diagnostic ID prefix  | `NXLS` (e.g., `NXLS0001`)                                            | Identifiable; no clashes with common Microsoft prefixes             |
+
+### 9.3 CI / process
+
+| #   | Decision                       | Choice                                                                       | Rationale                                                          |
+|-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| S17 | CI platform                    | TeamCity; pipeline as Kotlin DSL in `.teamcity/`              | TeamCity is a common .NET CI choice                                |
+| S18 | Local + CI build entry point   | `build/build.ps1` (Windows) and `build/build.sh` (Unix); both call the same MSBuild targets | One command runs the whole build locally; CI calls the same script |
+| S19 | Branching                      | Trunk-based (`main`); short-lived feature branches; no long-running releases | Modern default; matches v1.0 cadence                               |
+| S20 | PR policy                      | All changes via PR; at least one approval; all CI checks must pass            | Minimum bar; can tighten later                                     |
+| S21 | CHANGELOG format               | Keep-a-Changelog                                                             | Conventional; readable; tool-friendly                              |
+| S22 | CODEOWNERS                     | Routes all changes to a small named maintainer group                          | Avoids PR review going to /dev/null                                |
+| S23 | Dependency updates             | Renovate, enabled post-v1.0 (deferred — see §9.5)                            | Useful but not blocking; intentional bumps via PR in the meantime  |
+
+### 9.4 Documentation
+
+| #   | Decision                       | Choice                                                                       | Rationale                                                          |
+|-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| S24 | XML docs                       | Mandatory on every public symbol; CI fails on missing                         | Quality gate from §5                                               |
+| S25 | API documentation site         | Deferred to v1.1 (DocFX); v1.0 ships in-repo markdown only                   | Internal use first; site can come later                            |
+| S26 | NPOI workaround catalog        | `docs/npoi-workarounds.md`, populated as workarounds are discovered           | Surfaces NPOI bugs we route around; informs future upstream PRs    |
+
+### 9.5 Deferred (captured; not addressed in v1.0)
+
+These items are intentionally not addressed in v1.0. They are listed so a future maintainer can find them and address them when the time is right.
+
+| Item                                          | Target           | Reason for deferral                                       |
+|-----------------------------------------------|------------------|-----------------------------------------------------------|
+| DocFX documentation site                       | v1.1             | In-repo markdown is sufficient for internal launch        |
+| Renovate / Dependabot                          | post-v1.0        | Manual NPOI bumps are deliberate while API stabilizes     |
+| Plugin / extension points (custom converters)  | v2 (pending demand) | No concrete user ask yet; YAGNI                        |
+| Dynamic-array / spill-range formulas           | v3 or never      | Excel 365 feature; rare in our consumer base              |
+| Memory-mapped file reads                       | v3 or never      | Optimization without a current bottleneck                 |
+| Workbook encryption (file-level password)      | v3               | Already in feature roadmap                                |
+| External-reference resolution                  | never            | Preserve as opaque; do not chase                          |
+| Pivot table *reading*                          | never (see roadmap) | Out of scope explicitly                                |
+
+### 9.6 What an agent now knows
+
+With §3, §6, §7, §8, and §9 in hand, an agent has:
+
+- The full public API surface for v1.0.
+- The behavioral contracts for every edge case we've identified.
+- The exact set of files to scaffold, the namespaces they live in, and the toolchain to use.
+- The CI platform, build entry points, packaging policy, and versioning mechanism.
+- The list of pre-implementation spikes that gate locking the design (in `roadmap.md`).
+- The minimum cookbook recipe set and that each is a golden-file test.
+
+Open items requiring user input at scaffold time (and only at scaffold time):
+
+- The public NuGet feed URL (goes in `nuget.config`).
+- The github.com/jkindrix URL (goes in Source Link config).
+- The CODEOWNERS group identifiers.
+- The strong-name key bytes (or the decision to generate one at scaffold).
+
+Everything else is decided.
+
+## 10. Definition of "extraordinary" for this project
 
 - Code that's a pleasure to read.
 - Abstractions that make complex things (style management, typed mapping) simple.

@@ -117,6 +117,26 @@ A release ships when **all** of the following are true:
 - [ ] Streaming-write back-pressure measurement on a 1M-row workload
 - [ ] Async wrapping cost — measure `Task.Run`-around-NPOI overhead vs sync baseline
 
+**Scaffold** (precondition to writing any library code):
+- [ ] Solution + project layout per design §8
+- [ ] `Directory.Build.props`: TFMs (`net8.0;net9.0`), nullable enabled, deterministic, signed (S12, S15)
+- [ ] `Directory.Packages.props`: central package management, exact NPOI pin (S8)
+- [ ] `nuget.config`: public NuGet feed (S10)
+- [ ] `.editorconfig` (S5)
+- [ ] `LICENSE` (MIT — S9)
+- [ ] `CHANGELOG.md` initialized in Keep-a-Changelog format (S21)
+- [ ] `CODEOWNERS` (S22)
+- [ ] `build/build.ps1` and `build/build.sh` (S18)
+- [ ] `.teamcity/` Kotlin DSL pipeline (S17): build, test, golden-file tests, public-API snapshot, benchmarks, pack, publish
+- [ ] MinVer wired (S11); first tag `v0.1.0`
+- [ ] Strong-name key generated and committed (S12)
+- [ ] Source Link configured (S14)
+- [ ] PublicApiAnalyzer wired with empty `PublicAPI.Shipped.txt` / `PublicAPI.Unshipped.txt` (S6)
+- [ ] xUnit + FluentAssertions wired in test projects (S1, S2)
+- [ ] BenchmarkDotNet wired in benchmark project (S3)
+- [ ] Empty `docs/npoi-workarounds.md` placeholder (S26)
+- [ ] First green CI run on `main`
+
 **Core I/O**
 - [ ] `Workbook.Create` returns `IWorkbook`; `Workbook.CreateStreaming` returns `IStreamingWorkbook`
 - [ ] `Workbook.Open` / `Workbook.OpenAsync` (path + stream)
@@ -124,10 +144,10 @@ A release ships when **all** of the following are true:
 - [ ] `WorkbookOptions`, `StreamingOptions`
 
 **Cells**
-- [ ] String, number (`double`, `decimal`), `DateTime`, `DateOnly`, `bool` setters
-- [ ] Formula write
-- [ ] Typed reads (`GetString`, `GetNumber`, …, `GetValue<T>`)
-- [ ] `CellKind` enum + detection
+- [ ] String, number (`double`, `decimal`), `DateTime`, `DateOnly`, `TimeOnly`, `TimeSpan`, `bool` setters
+- [ ] Formula write (no value cache — §7.8)
+- [ ] Typed reads (`GetString`, `GetNumber`, `GetTime`, `GetDuration`, `GetError`, …, `GetValue<T>`)
+- [ ] `CellKind` and `CellError` enums + detection
 - [ ] Hyperlinks
 - [ ] Basic comments
 
@@ -165,9 +185,12 @@ A release ships when **all** of the following are true:
 - [ ] Public API snapshot tests
 - [ ] Golden-file test corpus
 - [ ] Round-trip tests
+- [ ] Round-trip **preservation** test: open a workbook containing pivot caches, conditional formatting, custom XML, and threaded comments; modify one cell; save; assert unmodeled parts are bit-identical (§7.7 — v1.0 ship-blocker)
+- [ ] Concurrent-mutation test: two threads mutating the same workbook produce `InvalidOperationException`, not corruption (decision #43)
+- [ ] Use-after-dispose test: every public type throws `ObjectDisposedException` after `Dispose()` (decision #42)
 - [ ] Benchmark suite vs NPOI / EPPlus / ClosedXML
 - [ ] Source Link, deterministic builds, symbol packages, signed assemblies
-- [ ] Cookbook samples project with the 11 recipes listed in design §8.1, each backed by a golden-file test
+- [ ] Cookbook samples project with the 13 recipes listed in design §8.1, each backed by a golden-file test
 - [ ] Manual smoke-test checklist documented
 
 ### v1.1 — Common asks (target: TBD)
