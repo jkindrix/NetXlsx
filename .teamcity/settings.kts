@@ -42,9 +42,14 @@ object Build : BuildType({
     }
 
     requirements {
-        // TODO: pin to an agent pool that has libgdiplus + a fallback font
-        // installed (decision I3). Without that, the headless-Linux
-        // AutoSize test will fail.
+        // Decision I3: AutoSizeColumn requires libgdiplus + a fallback font
+        // on Linux agents. The "Has libgdiplus" custom agent capability is
+        // set by the TeamCity admin on a pool of pre-provisioned agents.
+        // Without this requirement, the headless-Linux AutoSize golden-file
+        // test will false-fail on agents that lack the native dependency.
+        exists("env.HAS_LIBGDIPLUS")
+        // Equivalent on a Windows agent pool: HAS_LIBGDIPLUS is set there
+        // because Windows ships System.Drawing's native side natively.
     }
 })
 

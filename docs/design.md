@@ -581,7 +581,7 @@ The `[Worksheet]` source generator emits diagnostics under the `NXLS` prefix. v1
 Generator behavior summary:
 
 - `IIncrementalGenerator` (modern Roslyn API).
-- Scans only the current compilation. `[Worksheet]` types in referenced assemblies are ignored — that assembly must build with the generator too.
+- **Scans only the current compilation.** This is a load-bearing constraint with downstream user impact, called out here and again in the public XML documentation on the `[Worksheet]` attribute itself. `[Worksheet]`-annotated types defined in a *referenced assembly* (`MyShared.dll` consumed by `MyApp.csproj`) are **invisible** to the generator running in `MyApp.csproj` — the extension methods are not emitted, calls do not compile. Each assembly that defines `[Worksheet]` types must add the `NetXlsx` package itself so the generator runs against that compilation. This matches the scoping rule used by `System.Text.Json`'s source generator. Common failure mode: a consumer puts shared records in a "Domain" library expecting them to "just work" in the calling app — they do not. The fix is to add `NetXlsx` to the Domain library too.
 - Emits source files visible under `obj/Generated/` when `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>` is set in the consuming project (useful for debugging).
 - Generated extension classes are `internal` by default; consumers may opt into `public` via `[Worksheet(Visibility = Visibility.Public)]`.
 
@@ -792,7 +792,7 @@ The decisions in §3 govern the API and contracts. The decisions below govern th
 | #  | Decision                       | Choice                                                                       | Rationale                                                          |
 |----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
 | S1 | Test framework                 | xUnit                                                                        | Idiomatic for modern .NET libraries; parallel by default; ubiquitous tooling support |
-| S2 | Assertion library              | `Microsoft.Testing.Platform` runner with xUnit; assertions via xUnit's `Assert` plus `FluentAssertions` for readable golden-file diffs | Standard pairing; FluentAssertions earns its weight for structural comparisons |
+| S2 | Test runner + assertion library | Classic VSTest host (`Microsoft.NET.Test.Sdk` + `xunit.runner.visualstudio`); assertions via xUnit's `Assert` plus `FluentAssertions v6` for readable golden-file diffs. Migration to `Microsoft.Testing.Platform` is deferred — revisit when MTP is the default in the .NET SDK | VSTest is the mature, ubiquitous path today; MTP is the strategic future. FluentAssertions pinned to v6 to avoid v7's license change |
 | S3 | Benchmark framework            | BenchmarkDotNet                                                              | Industry standard; produces statistically valid measurements        |
 | S4 | Test naming convention         | `Method_Scenario_Expected`                                                   | Concise; matches Microsoft guidance; greps cleanly                  |
 | S5 | Code-style file                | `.editorconfig` at repo root, enforced in CI                                 | One source of truth for whitespace, ordering, naming               |
@@ -873,6 +873,6 @@ Everything else is decided.
 - Code that's a pleasure to read.
 - Abstractions that make complex things (style management, typed mapping) simple.
 - Error messages that help the caller recover (`InvalidCellAddressException` says *why* the address was invalid, what was expected, and what they passed).
-- Performance within 10% of raw NPOI.
+- Performance per the targets in §4 — `< 10%` overhead vs raw NPOI on typical workloads (≤ 100 distinct cell styles); `< 30%` in worst-case style-dedup-heavy scenarios. The two-tier target reflects honest measurement, not handwaving.
 - Documentation that clarifies rather than restates.
 - The escape hatch is honest: nothing the facade does is uncovertible to a raw-NPOI equivalent.

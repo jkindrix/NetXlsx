@@ -14,6 +14,19 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 Set-Location $RepoRoot
 
+# Prefer a user-level .NET SDK install ($HOME/.dotnet) over the system one
+# when present. Lets local developers run newer SDKs without admin rights.
+$UserDotnet = Join-Path $HOME '.dotnet'
+$UserDotnetExe = if ($IsWindows -or $env:OS -eq 'Windows_NT') {
+    Join-Path $UserDotnet 'dotnet.exe'
+} else {
+    Join-Path $UserDotnet 'dotnet'
+}
+if (Test-Path $UserDotnetExe) {
+    $env:DOTNET_ROOT = $UserDotnet
+    $env:PATH = "$UserDotnet$([IO.Path]::PathSeparator)$env:PATH"
+}
+
 Write-Host "==> NetXlsx build ($Configuration) target=$Target"
 
 function Invoke-Restore { dotnet restore NetXlsx.sln }

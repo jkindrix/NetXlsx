@@ -7,8 +7,17 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Prefer a user-level .NET SDK install (~/.dotnet) over the system one
+# when present. Lets local developers run newer SDKs without sudo.
+if [[ -x "$HOME/.dotnet/dotnet" ]]; then
+    export DOTNET_ROOT="$HOME/.dotnet"
+    export PATH="$HOME/.dotnet:$PATH"
+fi
+
 CONFIGURATION="${CONFIGURATION:-Release}"
 TARGET="${1:-all}"
+# Shift past the verb so $@ contains only forwarded args (bench filter, etc.)
+if [[ $# -gt 0 ]]; then shift || true; fi
 
 echo "==> NetXlsx build ($CONFIGURATION) target=$TARGET"
 
@@ -30,6 +39,8 @@ case "$TARGET" in
     ;;
   bench)
     dotnet run --project benchmarks/NetXlsx.Benchmarks -c "$CONFIGURATION" -- "$@"
+    # $@ no longer contains the "bench" verb (shifted above), so it forwards
+    # only the user's filter/options to BenchmarkDotNet.
     ;;
   all)
     "$0" restore

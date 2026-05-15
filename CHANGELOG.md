@@ -21,7 +21,6 @@ changes (decision I19).
 - `Directory.Build.props` `RepositoryUrl` — github.com/jkindrix pending.
 - `CODEOWNERS` — owning team identifiers pending.
 - Source Link package is not wired; depends on github.com/jkindrix choice.
-- `TargetFrameworks` is `net8.0` only; design decision #12 specifies `net8.0;net9.0`. Add `net9.0` after the build environments (local + CI) get the .NET 9 SDK.
 
 ## [0.1.0] — TBD
 
