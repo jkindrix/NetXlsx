@@ -20,6 +20,9 @@ coverage/
 *.snupkg
 .nuget/
 
+## BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
 ## OS
 .DS_Store
 Thumbs.db

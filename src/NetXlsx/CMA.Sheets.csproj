@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsLibraryProject>true</IsLibraryProject>
+    <RootNamespace>NetXlsx</RootNamespace>
+    <AssemblyName>NetXlsx</AssemblyName>
+    <PackageId>NetXlsx</PackageId>
+    <Description>Idiomatic C# facade over NPOI for creating and reading .xlsx files. Public OSS project.</Description>
+    <PackageTags>excel;xlsx;npoi;cma</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NPOI" />
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Label="PublicAPI snapshot">
+    <PackageReference Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" PrivateAssets="all" />
+    <AdditionalFiles Include="PublicAPI.Shipped.txt" />
+    <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
+  </ItemGroup>
+
+  <!-- Wire the source generator into this library.
+       The generator project's output is referenced as an analyzer assembly. -->
+  <ItemGroup>
+    <ProjectReference Include="..\NetXlsx.SourceGen\NetXlsx.SourceGen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,56 @@
+<Project>
+
+  <PropertyGroup Label="TargetFrameworks">
+    <!-- Design decision #12 specifies net8.0;net9.0. Scaffold targets net8.0
+         only because the local + standard CI SDK is currently 8.x. Add net9.0
+         to the list once the SDK upgrade lands; no design change needed. -->
+    <TargetFrameworks>net8.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Label="LanguageAndAnalysis">
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="BuildHygiene">
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true' or '$(TEAMCITY_VERSION)' != ''">true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Signing">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(MSBuildThisFileDirectory)netxlsx.snk</AssemblyOriginatorKeyFile>
+    <!-- The SNK includes the private key, so full signing works on all
+         platforms. PublicSign (delay-sign-then-public-sign) is unnecessary
+         here and conflicts with SignAssembly=false on tests/benchmarks. -->
+  </PropertyGroup>
+
+  <PropertyGroup Label="PackageMetadata">
+    <Authors>Justin Kindrix</Authors>
+    <Company>Justin Kindrix</Company>
+    <Copyright>Copyright (c) 2026 Justin Kindrix</Copyright>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <RepositoryType>git</RepositoryType>
+    <!-- Public OSS at github.com/jkindrix/NetXlsx -->
+    <RepositoryUrl>https://github.com/jkindrix/netxlsx</RepositoryUrl>
+  </PropertyGroup>
+
+  <!-- Library projects opt in to docs generation; tests and benchmarks do not. -->
+  <PropertyGroup Condition="'$(IsLibraryProject)' == 'true'">
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: Missing XML comment for publicly visible type or member. Enforced on library projects (quality gate per design §5). -->
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsLibraryProject)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+
+</Project>

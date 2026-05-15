@@ -1,0 +1,18 @@
+# Normalize text files to LF in the repo
+* text=auto eol=lf
+
+# Binary
+*.snk           binary
+*.xlsx          binary
+*.xls           binary
+*.xlsm          binary
+*.xlsb          binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+
+# Windows scripts
+*.ps1           text eol=crlf
+*.cmd           text eol=crlf
+*.bat           text eol=crlf
