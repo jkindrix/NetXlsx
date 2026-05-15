@@ -80,7 +80,7 @@ These are below the API contract but above implementation discretion. They are d
 | #   | Decision                       | Choice                                                                       | Rationale                                                          |
 |-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
 | I1  | NPOI version pin               | `2.7.x` — exact patch chosen at scaffold (current candidate `2.7.3`); pinned in `Directory.Packages.props` | One source of truth; bumped via PR with golden-file diff review     |
-| I2  | AOT / trim posture (revised)   | **v1.0 makes no AOT claim until the AOT spike completes.** Likely outcome: trim-with-warnings; AOT-incompatible while NPOI uses runtime serialization | Honest — see roadmap spike #4                                       |
+| I2  | AOT / trim posture             | **AOT-incompatible AND trim-incompatible.** Measured by spike 4 (2026-05-15) against NPOI 2.7.3: both `PublishAot=true` and `PublishTrimmed=true` produce binaries that throw `POIXMLException` at `XSSFWorkbook` init. The facade layer is AOT-clean by construction; the engine is not. Re-evaluate when NPOI removes its `System.Xml.Serialization` / `System.Reflection.Emit` dependencies | Spike-measured. See `spikes/results/spike-4-aot-trim.md` |
 | I3  | `AutoSizeColumn` on headless Linux | Ship with documented font dependency; if `libgdiplus` + a fallback font are unavailable, `AutoSizeColumn` throws `MissingFontException : WorkbookException` with installation guidance | NPOI's column-sizing requires font metrics; failing loud is better than silently producing wrong widths |
 | I4  | A1 parser — accepted forms     | See §6.11; canonical form returned by `ICell.Address` is uppercase, no `$`, no sheet prefix | Real callers paste many forms; canonicalizing on output makes diffs stable |
 | I5  | Source generator architecture  | `IIncrementalGenerator`; cross-assembly `[Worksheet]` types are ignored (only the current compilation is scanned); diagnostic catalog under `NXLS0001+` (see §6.12) | Modern Roslyn; same scoping rule as `System.Text.Json`; explicit diagnostic IDs prevent renumbering churn |
@@ -106,16 +106,19 @@ These are below the API contract but above implementation discretion. They are d
 
 | Scenario                                  | Target              |
 |-------------------------------------------|---------------------|
-| Write 100k rows × 20 cols (in-memory)     | < 3s, < 500 MB      |
-| Write 1M rows × 20 cols (streaming)       | < 30s, < 200 MB     |
+| Write 30k rows × 20 cols (in-memory)      | < 3s, < 500 MB ΔWS  |
+| Write 1M rows × 20 cols (streaming)       | < 30s, < 200 MB ΔWS |
 | Open + read 100k × 20 sheet               | < 4s                |
 | Cold create empty workbook + save         | < 50ms              |
-| Style dedup overhead — typical (≤ 100 distinct styles) | < 10% vs raw NPOI |
-| Style dedup overhead — worst case (high cardinality)   | < 30% vs raw NPOI |
+| Style pool size                           | equals count of distinct `CellStyle` values, regardless of styled-cell count |
+| Styled-write throughput (small palette)   | > 500k styled cells/s |
+| Styled-write throughput (1k-palette)      | > 400k styled cells/s |
 
 Benchmark suite under `benchmarks/` compares against NPOI direct, EPPlus, ClosedXML.
 
-> **Note on style-dedup target.** The < 10% / < 30% split is provisional. A feasibility benchmark must run before v1.0 lock to validate or revise these numbers.
+> **Spike-measured numbers.** The in-memory row-count target (30k) and the style throughput targets above are spike-derived (spike 1 + spike 2, 2026-05-15) — not optimistic guesses. The original "100k rows in-memory" target was missed by ~2×; the threshold was lowered to a value that holds. Callers needing more than ~30k rows should use the streaming entry point (`Workbook.CreateStreaming()`), which sustained a flat ~70 MB ΔGC at 500k rows × 20 cols in spike 2.
+>
+> **The "raw NPOI without dedup" baseline does not exist.** NPOI hits its ~60,000-style cap on any workbook with > ~60k styled cells when each cell gets a fresh `ICellStyle`. Style dedup is therefore the only viable path; the original "<10% / <30% overhead" framing was measuring a phantom and has been replaced with absolute capacity + throughput targets (above).
 
 ## 5. Quality gates
 

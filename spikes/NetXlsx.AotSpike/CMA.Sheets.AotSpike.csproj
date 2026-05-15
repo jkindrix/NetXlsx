@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <TargetFrameworks></TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>NetXlsx.AotSpike</RootNamespace>
+    <SignAssembly>false</SignAssembly>
+    <IsPackable>false</IsPackable>
+
+    <!-- Spike 4: AOT/trim posture. Two modes:
+         - Default (no extra props): full AOT + trim.
+         - dotnet publish -p:Mode=TrimOnly: trim without AOT, keep JIT. -->
+    <Mode Condition="'$(Mode)' == ''">Aot</Mode>
+    <PublishAot Condition="'$(Mode)' == 'Aot'">true</PublishAot>
+    <PublishTrimmed Condition="'$(Mode)' == 'TrimOnly'">true</PublishTrimmed>
+    <InvariantGlobalization>true</InvariantGlobalization>
+
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <EnableAotAnalyzer Condition="'$(Mode)' == 'Aot'">true</EnableAotAnalyzer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NPOI" />
+  </ItemGroup>
+
+</Project>

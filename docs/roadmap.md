@@ -81,10 +81,10 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | **Platform**                            |      |      |      |      |       |
 | `net8.0`, `net9.0`                      | Yes  |      |      |      |       |
 | `netstandard2.0` / .NET Framework       |      |      |      |      | No    |
-| Native AOT compatible                   | TBD* |      |      |      |       |
-| Trim compatible                         | TBD* |      |      |      |       |
+| Native AOT compatible                   |      |      |      |      | No†   |
+| Trim compatible                         |      |      |      |      | No†   |
 
-\* `TBD` on AOT/Trim: the facade is AOT-clean by construction (no reflection; source-gen mapping). The honest answer for v1.0 depends on NPOI's behavior under `PublishAot=true` and `PublishTrimmed=true`, which the AOT spike (below) measures. Likely outcome: trim-with-warnings, AOT-incompatible while NPOI uses runtime XML serialization. The roadmap row is updated to a binary `Yes`/`No` after the spike, before v1.0 ships.
+† AOT/Trim: spike 4 (see `spikes/results/spike-4-aot-trim.md`) measured both as runtime-incompatible with NPOI 2.7.3 — `XSSFWorkbook` initialization throws `POIXMLException` under both `PublishAot=true` and `PublishTrimmed=true`. The facade layer itself is AOT-clean; the engine is not. Promote to `Yes` only when NPOI removes its `System.Xml.Serialization` / `System.Reflection.Emit` dependencies (likely an NPOI 3.x change).
 
 ## Release themes
 
@@ -114,11 +114,11 @@ A release ships when **all** of the following are true:
 
 ### v1.0 — Foundation (target: TBD)
 
-**Pre-implementation spike** (precondition to locking the design):
-- [ ] Style-dedup feasibility benchmark — validate or revise §4 typical/worst-case targets
-- [ ] Streaming-write back-pressure measurement on a 1M-row workload
-- [ ] Async wrapping cost — measure `Task.Run`-around-NPOI overhead vs sync baseline
-- [ ] **AOT / trim posture** — publish a minimal NetXlsx sample with `PublishAot=true` and `PublishTrimmed=true`; capture warning/error counts; document the honest v1.0 answer in the roadmap matrix (decision I2)
+**Pre-implementation spike** (precondition to locking the design) — **complete 2026-05-15**:
+- [x] Style-dedup feasibility benchmark — see `spikes/results/spike-1-style-dedup.md`. Design §4 perf row replaced (capacity + throughput, not overhead %).
+- [x] Streaming-write back-pressure measurement on a 1M-row workload — see `spikes/results/spike-2-streaming-back-pressure.md`. In-memory target lowered to 30k rows; streaming on track for 1M.
+- [x] Async wrapping cost — see `spikes/results/spike-3-async-wrapping-cost.md`. `Task.Run` wrapping is free or net-positive. Decision #5 confirmed.
+- [x] **AOT / trim posture** — see `spikes/results/spike-4-aot-trim.md`. Both AOT and trim fail at runtime against NPOI 2.7.3. Matrix marked `No` for v1.0.
 
 **Scaffold** (precondition to writing any library code):
 - [ ] Solution + project layout per design §8
