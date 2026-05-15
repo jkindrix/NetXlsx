@@ -26,7 +26,7 @@ Provide an idiomatic, modern, ergonomic C# API for creating and reading `.xlsx` 
 | 4  | Style management                  | Auto-deduplication via internal style cache                                  | Biggest ergonomic win over raw NPOI; prevents 64K style budget bug   |
 | 5  | Type coercion                     | `Value(object?)` convenience + typed setters (`SetString`, `SetNumber`, …)   | Convenience by default, precision when needed                        |
 | 6  | Format scope                      | `.xlsx` only                                                                 | Avoids inheriting all `.xls` constraints; `.xls` users keep raw NPOI |
-| 7  | Streaming                         | Separate entry point: `Workbook.CreateStreaming()`                           | Honest about tradeoff (no random access)                             |
+| 7  | Streaming                         | Separate **type** (`IStreamingWorkbook`) and entry point (`Workbook.CreateStreaming()`) | Random-access members would lie under streaming; type split makes the contract honest |
 | 8  | Reading                           | In scope for v1, including typed row mapping                                 | Write-only is half a library                                         |
 | 9  | Async I/O                         | `SaveAsync(stream, ct)`, `OpenAsync` — async-over-sync, documented as such   | Table stakes; revisit when NPOI gains native async                   |
 | 10 | Nullability                       | `<Nullable>enable</Nullable>` from commit 1                                  | Modern C#                                                            |
@@ -53,6 +53,12 @@ Provide an idiomatic, modern, ergonomic C# API for creating and reading `.xlsx` 
 | 31 | Read-side culture                 | Numeric reads parse from invariant; display formatting via `DisplayCulture`  | Excel stores numbers as invariant doubles regardless of display      |
 | 32 | Escape hatch concrete types       | `Underlying` returns `XSSFWorkbook`/`XSSFSheet`/`XSSFRow`/`XSSFCell`         | We're `.xlsx`-only; concrete types eliminate caller downcasts        |
 | 33 | v2 streaming read                 | Separate `IStreamingSheetReader`; not retrofit on `ISheet`                   | Avoids breaking the materialized `ISheet.Sheets` contract            |
+| 34 | Typed-mapping API surface         | Source-generated **extension methods** on `ISheet`, not methods on `ISheet`  | No `[Worksheet]` ⇒ no extension ⇒ compile-time error; AOT-safe by construction |
+| 35 | Open-side style handling          | Existing styles imported by reference; dedup cache only acts on facade-created styles | No-op `Open → Save` produces no styles-part churn (diff-friendly) |
+| 36 | `decimal` write semantics         | `SetNumber(decimal)` rounds via `(double)d`; exact textual preservation requires `SetString` | `.xlsx` stores IEEE-754 doubles only; no silent text fallback |
+| 37 | Excel hard-limit enforcement      | Throw `ResourceLimitExceededException` on overflow (rows, cols, string length, etc.) | Fail loud at the boundary, never silently truncate |
+| 38 | Cancellation under `Task.Run`     | `CancellationToken` honored only at offload boundaries, not mid-NPOI         | NPOI is not cancellation-aware; over-promising would mislead callers |
+| 39 | Format-string culture handling    | Format strings are pass-through bytes; rendering is Excel's responsibility   | Spec-correct; clarifies that `DisplayCulture` only affects read-side displayed strings |
 
 ## 4. Performance targets (v1)
 
@@ -90,7 +96,7 @@ Namespace: `NetXlsx`
 public static class Workbook
 {
     public static IWorkbook Create(WorkbookOptions? options = null);
-    public static IWorkbook CreateStreaming(StreamingOptions? options = null);
+    public static IStreamingWorkbook CreateStreaming(StreamingOptions? options = null);
 
     public static IWorkbook Open(string path, WorkbookOptions? options = null);
     public static IWorkbook Open(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null);
@@ -107,9 +113,14 @@ public sealed class WorkbookOptions
     public CultureInfo DisplayCulture { get; init; } = CultureInfo.InvariantCulture;
     public DateSystem DateSystem { get; init; } = DateSystem.Excel1900;
     public ILogger? Logger { get; init; }
-    public long MaxUncompressedBytes { get; init; } = 256L * 1024 * 1024;
-    public int MaxSheets { get; init; } = 1000;
-    public int MaxRowsPerSheet { get; init; } = 1_048_576;
+    // Read-side safety (zip-bomb defense; not applied on write):
+    public long ReadMaxUncompressedBytes { get; init; } = 256L * 1024 * 1024;
+    public int ReadMaxSheets { get; init; } = 1000;
+
+    // Excel hard limits (write-side enforcement):
+    public int MaxRowsPerSheet { get; init; } = 1_048_576;     // Excel hard cap
+    public int MaxColsPerSheet { get; init; } = 16_384;        // Excel hard cap ("XFD")
+    public int MaxCellTextLength { get; init; } = 32_767;      // Excel hard cap
     public string DefaultFontName { get; init; } = "Calibri";
     public double DefaultFontSize { get; init; } = 11;
 }
@@ -158,7 +169,43 @@ public interface INamedRange
 }
 ```
 
-### 6.3 Sheet
+### 6.3 Streaming workbook (write-only)
+
+A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.
+
+```csharp
+public interface IStreamingWorkbook : IDisposable, IAsyncDisposable
+{
+    IStreamingSheet AddSheet(string name);
+
+    void Save(string path);
+    void Save(Stream stream, bool leaveOpen = true);
+    Task SaveAsync(string path, CancellationToken ct = default);
+    Task SaveAsync(Stream stream, bool leaveOpen = true, CancellationToken ct = default);
+
+    NPOI.XSSF.Streaming.SXSSFWorkbook Underlying { get; }
+}
+
+public interface IStreamingSheet
+{
+    string Name { get; }
+    IStreamingRow AppendRow();                    // creates next row; previous rows may be flushed
+    IStreamingRow AppendRow(int index);           // explicit index; must be > last index written
+
+    NPOI.XSSF.Streaming.SXSSFSheet Underlying { get; }
+}
+
+public interface IStreamingRow
+{
+    int Index { get; }                            // 1-based
+    ICell Cell(int col);                          // 1-based; styling/value via the standard fluent ICell
+    ICell this[int col] { get; }
+    ICell this[string column] { get; }            // row["B"]
+    void Flush();                                 // explicit; auto-flushed on next AppendRow
+}
+```
+
+### 6.4 Sheet
 
 ```csharp
 public interface ISheet
@@ -185,10 +232,8 @@ public interface ISheet
     IEnumerable<IRow> Rows();                     // populated rows only
     IEnumerable<IRow> Rows(int startInclusive, int endExclusive);
 
-    // Typed row I/O
-    void AddRow<T>(T record);                     // appends; uses source-gen mapper if [Worksheet]
-    void AddRows<T>(IEnumerable<T> records);
-    IEnumerable<T> ReadRows<T>(int headerRow = 0);
+    // (Typed row I/O is provided via source-generated extension methods —
+    //  see §6.8. No methods on ISheet itself; AOT-safe by construction.)
 
     // Layout
     void FreezeRows(int rows);
@@ -210,7 +255,7 @@ public interface ISheet
 }
 ```
 
-### 6.4 Cell (fluent)
+### 6.5 Cell (fluent)
 
 ```csharp
 public interface ICell
@@ -223,7 +268,7 @@ public interface ICell
     ICell Value(object? value);
     ICell SetString(string value);
     ICell SetNumber(double value);
-    ICell SetNumber(decimal value);
+    ICell SetNumber(decimal value);               // rounded via (double)value; see §7.4 on precision
     ICell SetDate(DateTime value);
     ICell SetDate(DateOnly value);
     ICell SetBool(bool value);
@@ -272,7 +317,7 @@ public enum VAlign { Top, Center, Bottom }
 public enum UnderlineStyle { None, Single, Double, SingleAccounting, DoubleAccounting }
 ```
 
-### 6.5 Row / Column / Range
+### 6.6 Row / Column / Range
 
 ```csharp
 public interface IRow : IEnumerable<ICell>
@@ -322,7 +367,7 @@ public interface IRange : IEnumerable<ICell>
     int FirstCol { get; } int LastCol { get; }    // 1-based, inclusive
     int Count { get; }                            // populated cells in range
 
-    IEnumerable<ICell> EnumerateAll();            // dense; materializes empties
+    IEnumerable<ICell> EnumerateAll();            // dense; lazy (yield-based); materializes empty cells on demand
 
     IRange Value(object? value);                  // sets all (dense)
     IRange Style(Action<ICell> apply);            // applies to each populated cell
@@ -332,7 +377,7 @@ public interface IRange : IEnumerable<ICell>
 }
 ```
 
-### 6.6 Color
+### 6.7 Color
 
 ```csharp
 /// <summary>
@@ -356,7 +401,7 @@ public readonly record struct Color(byte A, byte R, byte G, byte B)
 }
 ```
 
-### 6.7 Style value object
+### 6.8 Style value object
 
 ```csharp
 public sealed record CellStyle
@@ -384,7 +429,7 @@ public sealed record CellBorders(
 
 `CellStyle` is a value record. Equal styles produce the same NPOI `ICellStyle` via the workbook's internal style cache.
 
-### 6.8 Typed mapping (source-generated)
+### 6.9 Typed mapping (source-generated extension methods)
 
 ```csharp
 [Worksheet]
@@ -397,9 +442,25 @@ public partial record SalesRecord
 }
 ```
 
-Source generator emits an `IRowMapper<SalesRecord>` implementation; no reflection at runtime; AOT-safe.
+For each `[Worksheet]`-annotated type `T`, the source generator emits a static class with these **extension methods on `ISheet`**:
 
-### 6.9 Exception hierarchy
+```csharp
+public static class SalesRecord_SheetExtensions   // generated, internal-by-default
+{
+    public static void AddRow(this ISheet sheet, SalesRecord record);
+    public static void AddRows(this ISheet sheet, IEnumerable<SalesRecord> records);
+    public static IEnumerable<SalesRecord> ReadRows(this ISheet sheet, int? headerRow = 1);
+    //   headerRow: 1 (default) = row 1 is header; null = no header (positional by [Column(Order = N)])
+}
+```
+
+Consequences:
+
+- **No runtime reflection** for typed mapping. AOT and trim-safe.
+- **No fallback path.** A type without `[Worksheet]` cannot be passed to `AddRow`/`AddRows`/`ReadRows` — the extension method does not exist for that type, and the code does not compile. There is no exception to catch because the call site never reaches runtime.
+- The same extension methods exist on `IStreamingSheet` for the streaming write path.
+
+### 6.10 Exception hierarchy
 
 ```csharp
 public class WorkbookException : Exception { ... }
@@ -419,15 +480,17 @@ NPOI is synchronous. `SaveAsync`/`OpenAsync` use `Task.Run` to offload mixed CPU
 
 Callers in ASP.NET / Blazor contexts should note: `SaveAsync` consumes a thread-pool thread for the duration of the save. If you serialize many workbooks concurrently, throttle.
 
-### 7.2 Culture handling on reads
+**Cancellation.** `CancellationToken` is honored only at offload boundaries — before the work is dispatched to the thread pool, and after NPOI returns. Mid-operation cancellation is not supported because NPOI itself is not cancellation-aware. A token cancelled while NPOI is mid-save will not interrupt the save; it will surface as `OperationCanceledException` only on the next async boundary.
 
-Excel stores numbers as IEEE doubles regardless of the spreadsheet's locale; reading via `GetNumber()`/`GetValue<double>()` is therefore culture-invariant by construction.
+### 7.2 Culture handling
 
-The `WorkbookOptions.DisplayCulture` option affects only:
-- How custom number-format strings are interpreted when *writing*.
-- How `GetString()` against a date- or number-formatted cell renders the value (when the caller explicitly wants the displayed string rather than the underlying value).
+Excel stores numbers as IEEE doubles regardless of the spreadsheet's locale; reading via `GetNumber()` / `GetValue<double>()` is culture-invariant by construction.
 
-Reading raw values is always invariant. Reading displayed strings is `DisplayCulture`-aware.
+**Number-format strings are pass-through.** When the caller writes `cell.NumberFormat("#,##0.00")`, those exact bytes are stored. The facade does not transform, localize, or interpret format strings on write. Excel renders the cell according to *its own* locale settings at display time, not anything NetXlsx does.
+
+`WorkbookOptions.DisplayCulture` therefore affects exactly one thing: how `GetString()` against a number- or date-formatted cell produces a displayed-string representation on the read path, when the caller asks for a string rather than the raw typed value.
+
+Reading raw values: always invariant. Reading displayed strings: `DisplayCulture`-aware. Writing format strings: pass-through.
 
 ### 7.3 Streaming-read forward compatibility
 
@@ -450,6 +513,39 @@ public interface IStreamingSheetReader : IDisposable
 
 This stays *outside* `IWorkbook` deliberately: the materialized `IWorkbook.Sheets` contract cannot honor lazy enumeration without leaking surprises. Keeping streaming-read on its own type preserves v1's API contract without breaking changes.
 
+### 7.4 `decimal` write semantics
+
+`.xlsx` cells store numeric values as IEEE-754 `double` only — there is no native decimal type in the format. `SetNumber(decimal value)` therefore rounds via `(double)value` before storage:
+
+- Values within `double`'s 15–17 significant-digit range round-trip exactly.
+- Values outside that range silently lose precision.
+- Values outside `double`'s magnitude range (extremely large/small) clamp to `±double.MaxValue`.
+
+If exact textual preservation is required (currency with > 15 significant digits, identifiers that look numeric, etc.), use `SetString` and apply a number-format string for display only. The facade will not silently switch to text representation under the hood — the type the caller writes is the type stored.
+
+### 7.5 Round-trip style preservation
+
+When `Workbook.Open` reads a file, existing cell styles are wrapped by reference and **not** imported into the dedup cache. The cache acts only on styles created through the facade's fluent API after open.
+
+Consequence: opening and immediately re-saving a file produces no changes to the `xl/styles.xml` part. This is intentional — it keeps the facade diff-friendly when used in pipelines that round-trip workbooks for inspection or minor edits.
+
+Mixing reads and new fluent styling on the same cell is well-defined: the dedup cache hashes against the resulting `CellStyle` value record, so a style "originally from open" plus a fluent `.Bold()` produces a new (cached) style and leaves the original untouched.
+
+### 7.6 Excel hard-limit enforcement
+
+Writes that would exceed Excel's hard format limits throw `ResourceLimitExceededException` at the call site. No silent truncation, no auto-rollover.
+
+| Limit                          | Default                | Option                            |
+|--------------------------------|------------------------|-----------------------------------|
+| Rows per sheet                 | 1,048,576              | `WorkbookOptions.MaxRowsPerSheet` |
+| Columns per sheet              | 16,384 (`XFD`)         | `WorkbookOptions.MaxColsPerSheet` |
+| Cell text length (characters)  | 32,767                 | `WorkbookOptions.MaxCellTextLength` |
+| Sheet name length (chars)      | 31                     | (validated by `Workbook.IsValidSheetName` / `SanitizeSheetName`) |
+| Sheet count (read-side safety) | 1,000                  | `WorkbookOptions.ReadMaxSheets`   |
+| Uncompressed size (read)       | 256 MB                 | `WorkbookOptions.ReadMaxUncompressedBytes` |
+
+Defaults match Excel's hard caps; consumers can lower them but cannot raise them above what Excel itself accepts.
+
 ## 8. Repository layout
 
 ```
@@ -465,7 +561,7 @@ NetXlsx/
 ├─ benchmarks/
 │  └─ NetXlsx.Benchmarks/       # BenchmarkDotNet vs NPOI/EPPlus/ClosedXML
 ├─ samples/
-│  └─ NetXlsx.Cookbook/         # runnable recipes
+│  └─ NetXlsx.Cookbook/         # runnable recipes (see §8.1)
 ├─ docs/
 │  ├─ design.md                    # this document
 │  └─ roadmap.md                   # feature roadmap + binary scope per release
@@ -474,6 +570,24 @@ NetXlsx/
 ├─ NetXlsx.sln
 └─ README.md
 ```
+
+### 8.1 Minimum cookbook recipes for v1.0
+
+Each recipe is a single runnable program under `samples/NetXlsx.Cookbook/` that demonstrates one capability cleanly. v1.0 ships with at least these:
+
+1. **HelloWorkbook** — Create, add a sheet, write a few cells, save.
+2. **TabularExport** — Write 10k records from a list, with a header row, frozen header, and column widths.
+3. **TypedExport** — Same as above using `[Worksheet]` + source-gen extension methods.
+4. **TypedImport** — Read a workbook into a typed record sequence.
+5. **StyledReport** — Demonstrate the fluent style API: bold headers, currency formatting, conditional cell coloring.
+6. **Formulas** — Write formulas referencing other cells; demonstrate that Excel computes on open.
+7. **MultiSheet** — Three sheets (summary, data, lookup) with named ranges and cross-sheet formulas.
+8. **HyperlinksAndComments** — Annotated cells with comments and external hyperlinks.
+9. **StreamingMillionRows** — `Workbook.CreateStreaming()` to write a million rows under the perf budget.
+10. **NPOIEscapeHatch** — Use `.Underlying` to do something the facade doesn't cover (e.g., set a print area).
+11. **OpenEditSave** — Open an existing workbook, modify a few cells, save — demonstrate the no-churn styles guarantee (§7.5).
+
+Each recipe is also a golden-file test: the produced workbook is compared byte-by-byte (or structurally for non-deterministic parts) against a reference under `tests/NetXlsx.GoldenFiles/`.
 
 ## 9. Definition of "extraordinary" for this project
 

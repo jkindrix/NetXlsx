@@ -14,7 +14,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Open `.xlsx` workbook                   | Yes  |      |      |      |       |
 | Save sync + async-over-sync             | Yes  |      |      |      |       |
 | File path API + Stream API              | Yes  |      |      |      |       |
-| Streaming write (`CreateStreaming`)     | Yes  |      |      |      |       |
+| Streaming write (`IStreamingWorkbook`)  | Yes  |      |      |      |       |
 | Streaming read                          |      |      | Yes  |      |       |
 | `.xls` (legacy binary)                  |      |      |      |      | No    |
 | Encrypted / password-protected files    |      |      |      | Yes  |       |
@@ -49,8 +49,8 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | AutoFilter                              |      | Yes  |      |      |       |
 | Sorting                                 |      |      | Yes  |      |       |
 | **Typed mapping**                       |      |      |      |      |       |
-| Source-gen `[Worksheet]` writer         | Yes  |      |      |      |       |
-| Source-gen `[Worksheet]` reader         | Yes  |      |      |      |       |
+| Source-gen `[Worksheet]` writer (ext.)  | Yes  |      |      |      |       |
+| Source-gen `[Worksheet]` reader (ext.)  | Yes  |      |      |      |       |
 | Custom type converters                  |      | Yes  |      |      |       |
 | LINQ provider over sheets               |      |      |      | Yes  |       |
 | **Advanced features**                   |      |      |      |      |       |
@@ -112,8 +112,13 @@ A release ships when **all** of the following are true:
 
 ### v1.0 — Foundation (target: TBD)
 
+**Pre-implementation spike** (precondition to locking the design):
+- [ ] Style-dedup feasibility benchmark — validate or revise §4 typical/worst-case targets
+- [ ] Streaming-write back-pressure measurement on a 1M-row workload
+- [ ] Async wrapping cost — measure `Task.Run`-around-NPOI overhead vs sync baseline
+
 **Core I/O**
-- [ ] `Workbook.Create` / `Workbook.CreateStreaming`
+- [ ] `Workbook.Create` returns `IWorkbook`; `Workbook.CreateStreaming` returns `IStreamingWorkbook`
 - [ ] `Workbook.Open` / `Workbook.OpenAsync` (path + stream)
 - [ ] `Save` / `SaveAsync` (path + stream, `leaveOpen` support)
 - [ ] `WorkbookOptions`, `StreamingOptions`
@@ -145,8 +150,8 @@ A release ships when **all** of the following are true:
 
 **Typed mapping**
 - [ ] `[Worksheet]` / `[Column]` / `[Ignore]` attributes
-- [ ] Source generator emits `IRowMapper<T>`
-- [ ] `AddRow<T>`, `AddRows<T>`, `ReadRows<T>`
+- [ ] Source generator emits extension methods on `ISheet`/`IStreamingSheet` (no `IRowMapper<T>` indirection; no `ISheet.AddRow<T>` method — types without `[Worksheet]` produce a compile-time error)
+- [ ] `headerRow` is `int? = 1` (`null` = no header)
 
 **Validation & errors**
 - [ ] `WorkbookException` hierarchy
@@ -162,7 +167,7 @@ A release ships when **all** of the following are true:
 - [ ] Round-trip tests
 - [ ] Benchmark suite vs NPOI / EPPlus / ClosedXML
 - [ ] Source Link, deterministic builds, symbol packages, signed assemblies
-- [ ] Cookbook samples project
+- [ ] Cookbook samples project with the 11 recipes listed in design §8.1, each backed by a golden-file test
 - [ ] Manual smoke-test checklist documented
 
 ### v1.1 — Common asks (target: TBD)
