@@ -73,6 +73,35 @@ Provide an idiomatic, modern, ergonomic C# API for creating and reading `.xlsx` 
 | 51 | Wrong-format file on Open         | Opening a non-`.xlsx` file (e.g., `.xls`) throws `MalformedFileException` with format hint | Fail loud with an actionable message; never attempt to coerce |
 | 52 | Read-side thread safety           | Concurrent reads of a workbook are not safe; reads + any mutation throw       | NPOI is not thread-safe for reads either; consistent with #43 |
 
+### 3.1 Implementation-level decisions
+
+These are below the API contract but above implementation discretion. They are decisions an implementer would otherwise have to make ad-hoc.
+
+| #   | Decision                       | Choice                                                                       | Rationale                                                          |
+|-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| I1  | NPOI version pin               | `2.7.x` — exact patch chosen at scaffold (current candidate `2.7.3`); pinned in `Directory.Packages.props` | One source of truth; bumped via PR with golden-file diff review     |
+| I2  | AOT / trim posture (revised)   | **v1.0 makes no AOT claim until the AOT spike completes.** Likely outcome: trim-with-warnings; AOT-incompatible while NPOI uses runtime serialization | Honest — see roadmap spike #4                                       |
+| I3  | `AutoSizeColumn` on headless Linux | Ship with documented font dependency; if `libgdiplus` + a fallback font are unavailable, `AutoSizeColumn` throws `MissingFontException : WorkbookException` with installation guidance | NPOI's column-sizing requires font metrics; failing loud is better than silently producing wrong widths |
+| I4  | A1 parser — accepted forms     | See §6.11; canonical form returned by `ICell.Address` is uppercase, no `$`, no sheet prefix | Real callers paste many forms; canonicalizing on output makes diffs stable |
+| I5  | Source generator architecture  | `IIncrementalGenerator`; cross-assembly `[Worksheet]` types are ignored (only the current compilation is scanned); diagnostic catalog under `NXLS0001+` (see §6.12) | Modern Roslyn; same scoping rule as `System.Text.Json`; explicit diagnostic IDs prevent renumbering churn |
+| I6  | `GetValue<T>()` mismatch       | Returns `null` (for `T?`) or `default(T)` (for non-nullable `T`) when conversion fails; never throws on type mismatch. Throws only on dispose / sheet-removed states | Predictable; lets callers chain `?? fallback`; matches `IDataReader.GetValueOrDefault` convention |
+| I7  | `GetString()` over non-string  | Returns the **displayed** form: formula → cached result as string; error → error code (`"#DIV/0!"`); empty → `""`; bool → invariant `"TRUE"` / `"FALSE"` | Matches what the user sees in Excel; never throws |
+| I8  | `IRange` method semantics      | `Value(object?)` and `Apply(CellStyle)` are **dense** (materialize empties). The sparse iteration is renamed `ForEachPopulated(Action<ICell>)` — see §6.6 | Eliminates the populated-vs-dense footgun across near-identical method names |
+| I9  | Named-range scope              | `AddNamedRange(name, formula, sheetScope = null)` — `null` = workbook scope; non-null = sheet-scoped | Single overload; `null` is the common case |
+| I10 | Default font / size seam       | `WorkbookOptions.DefaultFontName/Size` populate the workbook's default cell style (style index 0). Any cell without an explicit font inherits transitively. Setting them after sheets exist is a no-op | Matches Excel's model; single seam, well-defined |
+| I11 | Comment author default         | `"NetXlsx"` when no author is passed                                       | Explicit attribution; no PII leak via `Environment.UserName`        |
+| I12 | Built-in number formats        | A `NumberFormats` static class enumerates the v1.0 set — see §6.13            | Frozen at v1.0; additions in v1.1+ require explicit decision        |
+| I13 | Hyperlink target sniffing      | Scheme-sniffed: `http(s)://`, `mailto:`, `file://`, internal `#Sheet!Range` syntax. Anything else throws `ArgumentException` | Simpler than an explicit `HyperlinkKind` parameter; covers the common cases |
+| I14 | Stream-on-Open requirements    | Stream must be readable, seekable, and at position 0; otherwise `ArgumentException` (decision #50 set position; this completes the contract) | NPOI's `XSSFWorkbook(Stream)` copies to temp; seekable is required upstream |
+| I15 | Negative `TimeSpan`            | `SetDuration(TimeSpan)` throws `ArgumentOutOfRangeException` on negative values | Excel cannot render negative time; silent storage is a worse bug   |
+| I16 | Boolean display culture        | `GetString()` on a boolean returns invariant `"TRUE"` / `"FALSE"` regardless of `DisplayCulture` | Booleans are stored as `b="1"/"0"` in OOXML; localized display is a UI concern, not a library concern |
+| I17 | `DateTime.Kind` handling       | Stored as-is; no timezone conversion on write. Reads always return `Kind = Unspecified`. Documented in §7.10 | Excel has no timezone concept; converting silently would lose information |
+| I18 | Test fixture provenance        | Two categories: (a) hand-crafted in Excel — stored as binary, source documented per-fixture in `tests/NetXlsx.GoldenFiles/README.md`; (b) script-generated — each has a sibling `.gen.cs` that produces it on demand | Reproducibility when NPOI bumps change byte output; binary fixtures stay traceable |
+| I19 | Pre-1.0 tag cadence            | `v0.x.y` tags through scaffold and v1.0 implementation; `v1.0.0` only after the v1.0 DoD passes. Internal consumers can take preview deps on `v0.x.y` | Honest progression; preview consumers know the deal |
+| I20 | `PublicAPI.Shipped/Unshipped` policy | At every tagged release, the release PR moves the `Unshipped.txt` content into `Shipped.txt` | Single, mechanical, reviewable transition                            |
+| I21 | Spike-failure handling         | If a pre-impl spike misses its target, the architect (current: project owner) decides among: revise target, implement workaround, descope. Decision recorded as a new design-doc revision before code lands | No silent target erosion |
+| I22 | Future TFM policy              | New TFMs (`net10.0+`) added in the next minor release after the TFM reaches GA; never in a patch release | Predictable consumer impact |
+
 ## 4. Performance targets (v1)
 
 | Scenario                                  | Target              |
@@ -175,7 +204,7 @@ public interface IWorkbook : IDisposable, IAsyncDisposable
     Task SaveAsync(string path, CancellationToken ct = default);
     Task SaveAsync(Stream stream, bool leaveOpen = true, CancellationToken ct = default);
 
-    INamedRange AddNamedRange(string name, string formula);
+    INamedRange AddNamedRange(string name, string formula, string? sheetScope = null);
     IReadOnlyList<INamedRange> NamedRanges { get; }
 
     NPOI.XSSF.UserModel.XSSFWorkbook Underlying { get; }
@@ -360,7 +389,7 @@ public interface IRow : IEnumerable<ICell>
 
     ICell this[int col] { get; }                  // 1-based
     ICell this[string column] { get; }            // row["B"]
-    IRow Style(Action<ICell> apply);              // applies to populated cells
+    IRow ForEachPopulated(Action<ICell> apply);   // visits populated cells only
 
     NPOI.XSSF.UserModel.XSSFRow Underlying { get; }
 }
@@ -376,9 +405,9 @@ public interface IColumn
     double WidthUnits { get; set; }               // Excel column-width units
     IColumn Width(double units);
 
-    IColumn AutoSize();
-    IColumn Style(Action<ICell> apply);
-    IColumn SetDefaultStyle(CellStyle style);
+    IColumn AutoSize();                           // throws MissingFontException on headless Linux without fonts (I3)
+    IColumn ForEachPopulated(Action<ICell> apply);
+    IColumn SetDefaultStyle(CellStyle style);     // applies as the column-level default; new cells in this column inherit
 }
 
 /// <summary>
@@ -395,9 +424,13 @@ public interface IRange : IEnumerable<ICell>
 
     IEnumerable<ICell> EnumerateAll();            // dense; lazy (yield-based); materializes empty cells on demand
 
-    IRange Value(object? value);                  // sets all (dense)
-    IRange Style(Action<ICell> apply);            // applies to each populated cell
-    IRange Apply(CellStyle style);                // applies to every cell in range (dense)
+    // Dense operations — materialize every cell in the rectangle:
+    IRange Value(object? value);                  // sets every cell
+    IRange Apply(CellStyle style);                // sets style on every cell
+
+    // Sparse iteration — visits only currently-populated cells:
+    IRange ForEachPopulated(Action<ICell> apply);
+
     IRange Merge();
     IRange ClearContents();
 }
@@ -486,7 +519,70 @@ Consequences:
 - **No fallback path.** A type without `[Worksheet]` cannot be passed to `AddRow`/`AddRows`/`ReadRows` — the extension method does not exist for that type, and the code does not compile. There is no exception to catch because the call site never reaches runtime.
 - The same extension methods exist on `IStreamingSheet` for the streaming write path.
 
-### 6.10 Exception hierarchy
+### 6.10 A1 / range parser grammar
+
+The cell and range parser accepts these forms. All accepted forms are normalized to the canonical form on output (`ICell.Address`, `IRange.Address`).
+
+| Input form          | Accepted in `["..."]`? | Accepted in `Range("...")`? | Canonical form          | Notes                                  |
+|---------------------|------------------------|-----------------------------|-------------------------|----------------------------------------|
+| `A1`                | yes                    | yes (as single-cell range)  | `A1`                    | Uppercase letters                      |
+| `a1`                | yes                    | yes                         | `A1`                    | Case-insensitive                       |
+| `$A$1` / `$A1` / `A$1` | yes                 | yes                         | `A1`                    | `$` stripped; absolute/relative not modeled in v1 |
+| `A1:C10`            | n/a                    | yes                         | `A1:C10`                | Standard range                          |
+| `A:A`               | n/a                    | yes                         | `A1:A1048576`           | Whole column expanded to Excel max     |
+| `1:1`               | n/a                    | yes                         | `A1:XFD1`               | Whole row expanded                     |
+| `Sheet1!A1`         | **no**                 | **no**                      | —                       | Sheet-qualified refs are only valid in named-range formulas |
+| Anything else       | throws                 | throws                      | —                       | `InvalidCellAddressException`           |
+
+### 6.11 Built-in number formats
+
+```csharp
+public static class NumberFormats
+{
+    public const string General           = "General";
+    public const string Text              = "@";
+
+    public const string Integer           = "0";
+    public const string Number            = "#,##0";
+    public const string NumberTwo         = "#,##0.00";
+    public const string Scientific        = "0.00E+00";
+
+    public const string Percent           = "0%";
+    public const string PercentTwo        = "0.00%";
+
+    public const string Currency          = "$#,##0.00";
+    public const string CurrencyNoSymbol  = "#,##0.00";
+
+    public const string Date              = "yyyy-mm-dd";
+    public const string DateTime          = "yyyy-mm-dd hh:mm:ss";
+    public const string Time              = "hh:mm:ss";
+    public const string Duration          = "[h]:mm:ss";       // elapsed; renders 25:00:00 etc.
+}
+```
+
+This set is frozen in v1.0. Additions in later releases require an explicit decision row.
+
+### 6.12 Source generator: diagnostic catalog
+
+The `[Worksheet]` source generator emits diagnostics under the `NXLS` prefix. v1.0 catalog:
+
+| ID            | Severity | Meaning                                                                                  |
+|---------------|----------|------------------------------------------------------------------------------------------|
+| `NXLS0001` | Error    | `[Worksheet]` type has duplicate `[Column]` orders                                       |
+| `NXLS0002` | Error    | `[Worksheet]` type has no public parameterless constructor and no `[JsonConstructor]`-style designated ctor |
+| `NXLS0003` | Error    | `[Column]` attribute references a `Format` string that fails the parser smoke check       |
+| `NXLS0004` | Warning  | `[Worksheet]` type has properties not marked `[Column]` or `[Ignore]` (silent skip is ambiguous) |
+| `NXLS0005` | Error    | `[Worksheet]` type is not `partial` (required for source-gen extension method emission)   |
+| `NXLS0006` | Error    | Property type has no built-in converter and no `[ColumnConverter]` attribute              |
+
+Generator behavior summary:
+
+- `IIncrementalGenerator` (modern Roslyn API).
+- Scans only the current compilation. `[Worksheet]` types in referenced assemblies are ignored — that assembly must build with the generator too.
+- Emits source files visible under `obj/Generated/` when `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>` is set in the consuming project (useful for debugging).
+- Generated extension classes are `internal` by default; consumers may opt into `public` via `[Worksheet(Visibility = Visibility.Public)]`.
+
+### 6.13 Exception hierarchy
 
 ```csharp
 public class WorkbookException : Exception { ... }
@@ -496,6 +592,7 @@ public sealed class StyleBudgetExceededException : WorkbookException { ... }
 public sealed class MalformedFileException : WorkbookException { ... }
 public sealed class ResourceLimitExceededException : WorkbookException { ... }
 public sealed class FormulaException : WorkbookException { ... }
+public sealed class MissingFontException : WorkbookException { ... }   // I3 — AutoSize on headless Linux
 ```
 
 ## 7. Behavioral notes
@@ -599,6 +696,33 @@ Excel has no native time type. `SetTime(TimeOnly)` stores the time-of-day as a f
 Format strings are the caller's responsibility — without one, the cell shows as a fractional number. The cookbook ships a `TimeAndDuration` recipe demonstrating the common patterns.
 
 `GetTime` and `GetDuration` reverse the conversion; they accept any numeric cell and interpret it as a time fraction. Callers must apply judgment about whether the cell semantically represents a time.
+
+**Negative durations** (`TimeSpan` with `< TimeSpan.Zero`) throw `ArgumentOutOfRangeException` from `SetDuration`. Excel cannot render negative time natively; silently storing a negative fraction would produce a file that displays incorrectly downstream.
+
+### 7.10 `DateTime.Kind` and type-conversion semantics
+
+`SetDate(DateTime)` stores the value verbatim — no timezone conversion is performed, regardless of `Kind`. Excel has no native timezone concept; converting under the hood would silently lose information. If the caller has timezone semantics, they convert before writing.
+
+`GetDate()` returns a `DateTime` with `Kind = Unspecified` on every cell. There is no metadata in the file to preserve the original `Kind`.
+
+`GetString()` rendering rules (independent of `DisplayCulture` for these types):
+
+| Cell content        | `GetString()` returns                                  |
+|---------------------|--------------------------------------------------------|
+| Empty               | `""`                                                   |
+| String              | The stored string verbatim                             |
+| Number              | Invariant-culture string of the value; respects format string if applied via `DisplayCulture` |
+| Date                | Display-formatted per the cell's number format and `DisplayCulture` |
+| Boolean             | `"TRUE"` or `"FALSE"` (invariant; never localized)     |
+| Formula             | The cached formula result as a string (per the rules above for its underlying type) |
+| Error               | The error code as text: `"#DIV/0!"`, `"#REF!"`, etc.   |
+
+`GetValue<T>()` returns `null` for `T?` (or `default(T)` for non-nullable `T`) when the cell's actual type cannot be converted to `T`. It does not throw on type mismatch. Examples:
+
+- `cell.GetValue<int>()` on a string cell → `0` (default).
+- `cell.GetValue<int?>()` on a string cell → `null`.
+- `cell.GetValue<string>()` on any cell → the `GetString()` rendering above.
+- `cell.GetValue<DateTime?>()` on a numeric cell with date formatting → the date.
 
 ## 8. Repository layout
 

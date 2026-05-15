@@ -81,8 +81,10 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | **Platform**                            |      |      |      |      |       |
 | `net8.0`, `net9.0`                      | Yes  |      |      |      |       |
 | `netstandard2.0` / .NET Framework       |      |      |      |      | No    |
-| Native AOT compatible                   | Yes  |      |      |      |       |
-| Trim compatible                         | Yes  |      |      |      |       |
+| Native AOT compatible                   | TBD* |      |      |      |       |
+| Trim compatible                         | TBD* |      |      |      |       |
+
+\* `TBD` on AOT/Trim: the facade is AOT-clean by construction (no reflection; source-gen mapping). The honest answer for v1.0 depends on NPOI's behavior under `PublishAot=true` and `PublishTrimmed=true`, which the AOT spike (below) measures. Likely outcome: trim-with-warnings, AOT-incompatible while NPOI uses runtime XML serialization. The roadmap row is updated to a binary `Yes`/`No` after the spike, before v1.0 ships.
 
 ## Release themes
 
@@ -116,6 +118,7 @@ A release ships when **all** of the following are true:
 - [ ] Style-dedup feasibility benchmark — validate or revise §4 typical/worst-case targets
 - [ ] Streaming-write back-pressure measurement on a 1M-row workload
 - [ ] Async wrapping cost — measure `Task.Run`-around-NPOI overhead vs sync baseline
+- [ ] **AOT / trim posture** — publish a minimal NetXlsx sample with `PublishAot=true` and `PublishTrimmed=true`; capture warning/error counts; document the honest v1.0 answer in the roadmap matrix (decision I2)
 
 **Scaffold** (precondition to writing any library code):
 - [ ] Solution + project layout per design §8
@@ -188,6 +191,9 @@ A release ships when **all** of the following are true:
 - [ ] Round-trip **preservation** test: open a workbook containing pivot caches, conditional formatting, custom XML, and threaded comments; modify one cell; save; assert unmodeled parts are bit-identical (§7.7 — v1.0 ship-blocker)
 - [ ] Concurrent-mutation test: two threads mutating the same workbook produce `InvalidOperationException`, not corruption (decision #43)
 - [ ] Use-after-dispose test: every public type throws `ObjectDisposedException` after `Dispose()` (decision #42)
+- [ ] Headless-Linux test: `AutoSizeColumn` produces correct results when `libgdiplus` + a fallback font are installed; produces `MissingFontException` with installation guidance when they are not (decision I3)
+- [ ] A1 parser test suite: every accepted form in design §6.10 canonicalizes correctly; every rejected form throws `InvalidCellAddressException` with a useful message
+- [ ] `[Worksheet]` source-gen diagnostic catalog test: each of `NXLS0001`–`NXLS0006` is emitted on its trigger case (design §6.12)
 - [ ] Benchmark suite vs NPOI / EPPlus / ClosedXML
 - [ ] Source Link, deterministic builds, symbol packages, signed assemblies
 - [ ] Cookbook samples project with the 13 recipes listed in design §8.1, each backed by a golden-file test
@@ -227,6 +233,39 @@ A release ships when **all** of the following are true:
 - [ ] File-level encryption / password protection
 - [ ] LINQ provider over sheets
 - [ ] Breaking-change review and migration guide
+
+## Process rules
+
+These govern *how* the roadmap is executed. They are referenced from `docs/design.md §3.1` decisions I19–I22.
+
+### Tag cadence
+
+- `v0.x.y` tags are cut throughout scaffold and v1.0 implementation. Internal consumers may take preview dependencies on any `v0.x.y` with the understanding that the API surface is still mutable.
+- `v1.0.0` is cut only after every item in the v1.0 Definition of Done passes, including all four pre-impl spikes.
+- After `v1.0.0`, the public API is locked per the SemVer policy in `design.md §3 #23`.
+
+### Public-API snapshot transitions
+
+- The PR that cuts a tagged release also moves the contents of `PublicAPI.Unshipped.txt` into `PublicAPI.Shipped.txt` for every project.
+- Between releases, all additions go to `Unshipped.txt`. The CI PR check enforces this — no addition to `Shipped.txt` outside a release PR is permitted.
+
+### Spike-failure handling
+
+- If a pre-impl spike misses its stated target, the project owner chooses among:
+  1. Revise the target — record the new target as a design-doc revision **before** any code lands.
+  2. Implement a workaround — record the workaround and any new caveats in `docs/design.md`.
+  3. Descope the feature — move it out of v1.0 in this file.
+- The outcome is recorded explicitly. Silent target erosion is not permitted.
+
+### TFM additions
+
+- New TFMs (`net10.0+`) are added in the next **minor** release after the TFM reaches GA. Never in a patch release. Never silently.
+- The roadmap matrix's Platform rows are the source of truth — any addition is a roadmap PR first.
+
+### Test fixture provenance
+
+- Hand-crafted fixtures (built with Excel) are committed as binary `.xlsx` under `tests/NetXlsx.GoldenFiles/fixtures/`. Each has an entry in `tests/NetXlsx.GoldenFiles/README.md` documenting how it was produced.
+- Generated fixtures live alongside a `.gen.cs` file that produces them on demand. CI verifies that the committed binary matches the generator output (within the documented byte-tolerance band) to catch silent drift on NPOI bumps.
 
 ## Explicit non-goals (forever)
 
