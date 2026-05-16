@@ -119,6 +119,8 @@ Benchmark suite under `benchmarks/` compares against NPOI direct, EPPlus, Closed
 > **Spike-measured numbers.** The in-memory row-count target (30k) and the style throughput targets above are spike-derived (spike 1 + spike 2, 2026-05-15) — not optimistic guesses. The original "100k rows in-memory" target was missed by ~2×; the threshold was lowered to a value that holds. Callers needing more than ~30k rows should use the streaming entry point (`Workbook.CreateStreaming()`), which sustained a flat ~70 MB ΔGC at 500k rows × 20 cols in spike 2.
 >
 > **The "raw NPOI without dedup" baseline does not exist.** NPOI hits its ~60,000-style cap on any workbook with > ~60k styled cells when each cell gets a fresh `ICellStyle`. Style dedup is therefore the only viable path; the original "<10% / <30% overhead" framing was measuring a phantom and has been replaced with absolute capacity + throughput targets (above).
+>
+> **Interim style cache (date/time slice, decision S29).** Until the full style-pool dedup arrives with the styling API slice, `XssfWorkbook` keeps four lazily-allocated `ICellStyle` instances for the date/time-default format strings. These four styles will register as dedup entries once the full pool exists; they don't compete with it. Style allocations from `SetDate`/`SetTime`/`SetDuration` are therefore O(1) per workbook regardless of cell count, even in the interim.
 
 ## 5. Quality gates
 
@@ -277,6 +279,7 @@ public interface ISheet
     IRange Range(int r1, int c1, int r2, int c2); // 1-based, inclusive
 
     // Rows / columns (1-based)
+    IRow AppendRow();                             // append after last written row; row 1 if empty
     IRow Row(int index);                          // sheet.Row(1) == first row
     IColumn Column(int index);                    // sheet.Column(1) == "A"
     IColumn Column(string letter);                // sheet.Column("B")
@@ -321,6 +324,8 @@ public interface ICell
     ICell SetString(string value);
     ICell SetNumber(double value);
     ICell SetNumber(decimal value);               // rounded via (double)value; see §7.4 on precision
+    ICell SetNumber(int value);                   // added 2026-05-16 — resolves the literal-`42` overload ambiguity
+    ICell SetNumber(long value);                  // exact integer up to ±2^53; loses precision above
     ICell SetDate(DateTime value);
     ICell SetDate(DateOnly value);
     ICell SetTime(TimeOnly value);                // stored as Excel time fraction; needs time format string
@@ -392,7 +397,23 @@ public interface IRow : IEnumerable<ICell>
 
     ICell this[int col] { get; }                  // 1-based
     ICell this[string column] { get; }            // row["B"]
+    ICell Cell(int col);                          // method form of this[int]
     IRow ForEachPopulated(Action<ICell> apply);   // visits populated cells only
+
+    // Fluent setters — write a value to the column and return this row for chaining.
+    // Pattern is sheet.AppendRow().Set(1, region).Set(2, revenue).Set(3, margin)...
+    // Added to the design 2026-05-16 after the TabularExport cookbook recipe
+    // surfaced the ergonomic motivation.
+    IRow Set(int col, string value);
+    IRow Set(int col, double value);
+    IRow Set(int col, decimal value);
+    IRow Set(int col, int value);
+    IRow Set(int col, long value);
+    IRow Set(int col, bool value);
+    IRow Set(int col, DateTime value);
+    IRow Set(int col, DateOnly value);
+    IRow Set(int col, TimeOnly value);
+    IRow Set(int col, TimeSpan value);
 
     NPOI.XSSF.UserModel.XSSFRow Underlying { get; }
 }
@@ -835,6 +856,9 @@ The decisions in §3 govern the API and contracts. The decisions below govern th
 | S24 | XML docs                       | Mandatory on every public symbol; CI fails on missing                         | Quality gate from §5                                               |
 | S25 | API documentation site         | Deferred to v1.1 (DocFX); v1.0 ships in-repo markdown only                   | Internal use first; site can come later                            |
 | S26 | NPOI workaround catalog        | `docs/npoi-workarounds.md`, populated as workarounds are discovered           | Surfaces NPOI bugs we route around; informs future upstream PRs    |
+| S27 | AOT/trim consumer build guard  | `buildTransitive/NetXlsx.targets` shipped in nupkg emits MSBuild errors `NXLSAOT001` (PublishAot) and `NXLSAOT002` (PublishTrimmed). Latter has `<NetXlsxAllowTrimmed>true</…>` escape hatch | Enforce decision I2 at build time rather than relying on runtime failure; added 2026-05-16 |
+| S28 | Analyzer suppressions          | `.editorconfig` suppresses `CA1716` (Set vs VB keyword), `CA1720` (CellKind.String), `RS0026` (intentional optional-param overloads). Each suppression has an inline rationale comment | C#-only internal library; design uses identifiers/patterns these rules consider ambiguous in other languages |
+| S29 | Date-time default style cache  | `XssfWorkbook` holds a lazy per-workbook cache of four format-only `ICellStyle` instances (date / datetime / time / duration). NOT the full §4 style pool — interim until the styling-API slice lands. Composes cleanly: the four cached styles will register as dedup entries once the pool exists | Avoid per-cell style allocation in the date/time slice without blocking on the full pool |
 
 ### 9.5 Deferred (captured; not addressed in v1.0)
 

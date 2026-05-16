@@ -9,6 +9,39 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Design-doc sync (2026-05-16)
+Migrated three implementation-time additions from `implementation-notes.md`
+up into `design.md` proper, per the methodology rule that load-bearing
+API decisions land in the design, not in parallel notes. Audited via
+comparison against the locked design surface; found broader drift than
+the initial "one method family" estimate.
+
+- §6.3 `ISheet` — added `IRow AppendRow()` to the regular sheet. (Was
+  previously only on `IStreamingSheet` in the design; the v0.3.0 IRow
+  slice added it to regular `ISheet` after the TabularExport recipe
+  demanded a "find the next free row" idiom.)
+- §6.5 `IRow` — added 10 fluent `Set(int col, T value)` overloads
+  (string / bool / int / long / double / decimal / DateTime / DateOnly /
+  TimeOnly / TimeSpan). Plus `ICell Cell(int col)` method form. These
+  are the fluent setters that power `sheet.AppendRow().Set(1, x).Set(2, y)…`.
+  The recipe-driven motivation is recorded inline with the design rows.
+- §6.4 `ICell` — added `SetNumber(int)` and `SetNumber(long)` overloads
+  resolving the literal-`42` ambiguity surfaced by the v0.2.0 cookbook.
+- §9 substrate decisions S27 / S28 / S29:
+  - S27: AOT/trim consumer build guard via `buildTransitive/NetXlsx.targets`
+    emitting `NXLSAOT001/2` MSBuild errors.
+  - S28: `.editorconfig` analyzer suppressions (`CA1716`, `CA1720`,
+    `RS0026`) with rationale.
+  - S29: lazy per-workbook date/time format-style cache as an interim
+    until the full §4 style pool lands.
+- §4 perf targets — note explaining the S29 interim cache and how it
+  composes with the eventual full pool.
+
+No code changes; this commit closes the design-vs-implementation drift
+the v0.3.x slices accumulated. Implementation-notes retains the *story*
+of how the decisions evolved (the recipe-driven motivation, the
+literal-42 ambiguity, etc.); design.md now holds the *current state*.
+
 ### Added (since v0.3.0)
 - **Date / time / duration on `ICell`** — `SetDate(DateTime)`,
   `SetDate(DateOnly)`, `SetTime(TimeOnly)`, `SetDuration(TimeSpan)`
