@@ -65,6 +65,52 @@ public class Row
     }
 
     [Fact]
+    public void Emitted_Methods_Are_Obsolete_Error_Until_Milestone_2()
+    {
+        const string src = @"
+using NetXlsx;
+namespace T;
+[Worksheet]
+public partial class Row
+{
+    [Column(""A"")] public string A { get; set; } = """";
+}";
+        var output = GeneratorHarness.Run(src);
+        var generated = string.Concat(output.GeneratedSources.Select(s => s.Source));
+        generated.Should().Contain("[global::System.Obsolete(", "consumer-level calls must fail at compile time, not runtime — see CHANGELOG.md");
+        generated.Should().Contain("error: true",
+            "the [Obsolete] decoration must be CS0619-level (error), not a soft warning");
+    }
+
+    [Fact]
+    public void Calling_Emitted_Method_Produces_CS0619_Compile_Error()
+    {
+        // Verifies the contract end-to-end: a consumer that compiles
+        // against the generator output gets a build break, not a
+        // crash-at-runtime, when calling the obsolete-error stubs.
+        const string src = @"
+using NetXlsx;
+namespace T;
+
+[Worksheet]
+public partial class Row
+{
+    [Column(""A"")] public string A { get; set; } = """";
+}
+
+public static class Consumer
+{
+    public static void Use(ISheet sheet)
+    {
+        Row_SheetExtensions.AddRow(sheet, new Row());
+    }
+}";
+        var output = GeneratorHarness.Run(src);
+        output.CompilationDiagnostics.Should().Contain(d => d.Id == "CS0619",
+            "calling an [Obsolete(error: true)] method must produce CS0619 at compile time");
+    }
+
+    [Fact]
     public void Cross_Assembly_Worksheet_Types_Are_Ignored()
     {
         // No [Worksheet] in this compilation — generator emits nothing.

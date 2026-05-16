@@ -214,20 +214,24 @@ internal sealed class PropertyLocation : IEquatable<PropertyLocation>
 
 internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
 {
-    public string DescriptorId { get; }
+    public DiagnosticDescriptor Descriptor { get; }
     public EquatableArray<string> MessageArgs { get; }
     public PropertyLocation? Location { get; }
 
-    public DiagnosticInfo(string descriptorId, EquatableArray<string> messageArgs, PropertyLocation? location)
+    public DiagnosticInfo(DiagnosticDescriptor descriptor, EquatableArray<string> messageArgs, PropertyLocation? location)
     {
-        DescriptorId = descriptorId;
+        Descriptor = descriptor;
         MessageArgs = messageArgs;
         Location = location;
     }
 
+    // Descriptor reference-equality is safe here: the only descriptor
+    // instances in the pipeline are the static singletons on `Diagnostics`,
+    // so two `DiagnosticInfo` values referring to the "same" diagnostic
+    // share the same reference.
     public bool Equals(DiagnosticInfo? other) =>
         other is not null
-        && DescriptorId == other.DescriptorId
+        && ReferenceEquals(Descriptor, other.Descriptor)
         && MessageArgs.Equals(other.MessageArgs)
         && Equals(Location, other.Location);
 
@@ -238,7 +242,7 @@ internal sealed class DiagnosticInfo : IEquatable<DiagnosticInfo>
         unchecked
         {
             int h = 17;
-            h = h * 31 + DescriptorId.GetHashCode();
+            h = h * 31 + Descriptor.Id.GetHashCode();
             h = h * 31 + MessageArgs.GetHashCode();
             h = h * 31 + (Location?.GetHashCode() ?? 0);
             return h;

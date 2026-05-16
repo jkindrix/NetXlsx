@@ -81,7 +81,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         if (!isPartial)
         {
             earlyDiagnostics.Add(new DiagnosticInfo(
-                Diagnostics.TypeNotPartial.Id,
+                Diagnostics.TypeNotPartial,
                 new EquatableArray<string>(ImmutableArray.Create(type.ToDisplayString())),
                 LocationFrom(syntax.Identifier.GetLocation())));
         }
@@ -90,7 +90,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         if (!hasCtor)
         {
             earlyDiagnostics.Add(new DiagnosticInfo(
-                Diagnostics.MissingDesignatedConstructor.Id,
+                Diagnostics.MissingDesignatedConstructor,
                 new EquatableArray<string>(ImmutableArray.Create(type.ToDisplayString())),
                 LocationFrom(syntax.Identifier.GetLocation())));
         }
@@ -109,7 +109,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         {
             var names = string.Join(", ", grp.Select(p => p.Name));
             earlyDiagnostics.Add(new DiagnosticInfo(
-                Diagnostics.DuplicateColumnOrder.Id,
+                Diagnostics.DuplicateColumnOrder,
                 new EquatableArray<string>(ImmutableArray.Create(
                     type.ToDisplayString(), grp.Key.ToString(System.Globalization.CultureInfo.InvariantCulture), names)),
                 LocationFrom(syntax.Identifier.GetLocation())));
@@ -292,10 +292,10 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
                     p.Location.ToRoslynLocation(),
                     model.TypeName, p.Name, p.FullTypeName));
             }
-            if (p.Column.Format is not null && !IsFormatStringSane(p.Column.Format, out var reason))
+            if (p.Column.Format is not null && !PassesFormatStringSmokeCheck(p.Column.Format, out var reason))
             {
                 spc.ReportDiagnostic(Diagnostic.Create(
-                    Diagnostics.InvalidFormatString,
+                    Diagnostics.MalformedFormatString,
                     p.Location.ToRoslynLocation(),
                     model.TypeName, p.Name, p.Column.Format, reason));
             }
@@ -303,11 +303,18 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
     }
 
     /// <summary>
-    /// Conservative format-string smoke check. Catches obvious typos
-    /// (unbalanced brackets, embedded null, control characters). Does not
-    /// validate full Excel format-string grammar — that's Excel's job.
+    /// Conservative structural smoke check on an Excel number-format string.
+    /// Catches: empty input, control characters, unbalanced <c>[...]</c>
+    /// regions. Does <em>not</em> validate the full Excel format-string
+    /// grammar — that's Excel's responsibility at render time. A
+    /// "literal-only" rejection was considered and rejected: Excel's
+    /// date/time format letters (<c>h</c>, <c>m</c>, <c>d</c>, <c>y</c>,
+    /// <c>s</c>, etc.) collide with ordinary English text often enough
+    /// that the check would have a misleading false-positive rate. The
+    /// diagnostic name and message describe exactly what is and is not
+    /// checked.
     /// </summary>
-    private static bool IsFormatStringSane(string fmt, out string reason)
+    private static bool PassesFormatStringSmokeCheck(string fmt, out string reason)
     {
         if (string.IsNullOrEmpty(fmt))
         {
@@ -319,14 +326,20 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         {
             if (ch == '\0' || (ch < 0x20 && ch != '\t'))
             {
-                reason = $"contains control character U+{((int)ch):X4}";
+                reason = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "contains control character U+{0:X4}", (int)ch);
                 return false;
             }
             if (ch == '[') bracketDepth++;
             else if (ch == ']') bracketDepth--;
             if (bracketDepth < 0) { reason = "unmatched ']'"; return false; }
         }
-        if (bracketDepth != 0) { reason = $"unmatched '[' (depth {bracketDepth})"; return false; }
+        if (bracketDepth != 0)
+        {
+            reason = string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                "unmatched '[' (depth {0})", bracketDepth);
+            return false;
+        }
         reason = string.Empty;
         return true;
     }
@@ -336,19 +349,9 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
 
     private static Diagnostic BuildDiagnostic(DiagnosticInfo info)
     {
-        var desc = info.DescriptorId switch
-        {
-            "NXLS0001" => Diagnostics.DuplicateColumnOrder,
-            "NXLS0002" => Diagnostics.MissingDesignatedConstructor,
-            "NXLS0003" => Diagnostics.InvalidFormatString,
-            "NXLS0004" => Diagnostics.UnmappedProperty,
-            "NXLS0005" => Diagnostics.TypeNotPartial,
-            "NXLS0006" => Diagnostics.UnsupportedPropertyType,
-            _ => throw new InvalidOperationException($"Unknown diagnostic id {info.DescriptorId}"),
-        };
         var args = info.MessageArgs.Array.Cast<object?>().ToArray();
         var loc = info.Location?.ToRoslynLocation() ?? Location.None;
-        return Diagnostic.Create(desc, loc, args);
+        return Diagnostic.Create(info.Descriptor, loc, args);
     }
 
     // ------------------------------------------------------------------
@@ -378,17 +381,23 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         sb.Append(m.Visibility).Append(" static class ").Append(extClassName).AppendLine();
         sb.AppendLine("{");
 
-        // Stub bodies — real implementations land when ISheet gains its
-        // members. Throwing is louder than returning silently if something
-        // calls these before the milestone-2 implementation lands.
+        // The emitted methods are decorated with [Obsolete(error: true)]
+        // until ISheet gains its members in milestone 2. The point: any
+        // consumer who takes a preview dependency and tries to call these
+        // methods gets a *compile error* (CS0619) with the message below,
+        // not a runtime NotImplementedException. The throwing body remains
+        // as a belt-and-suspenders backstop for reflection-based call
+        // paths that bypass the [Obsolete] check.
         const string StubMessage =
-            "ISheet implementation lands in the next NetXlsx milestone. " +
-            "Source-generated typed mapping extension methods exist but cannot " +
-            "execute against the v0.1.x marker ISheet — see docs/design.md §6.4.";
+            "NetXlsx typed-mapping extension methods are emitted but not yet executable: ISheet implementation lands in milestone 2 (see docs/design.md §6.4 and CHANGELOG.md). Track the milestone before relying on this API.";
+
+        const string ObsoleteAttr =
+            "[global::System.Obsolete(\"" + StubMessage + "\", error: true)]";
 
         sb.AppendLine("    /// <summary>");
         sb.Append("    /// Writes one <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/> as a row of the supplied sheet.");
         sb.AppendLine("    /// </summary>");
+        sb.Append("    ").AppendLine(ObsoleteAttr);
         sb.Append("    public static void AddRow(this global::NetXlsx.ISheet sheet, ").Append(m.FullyQualifiedName).AppendLine(" record)");
         sb.AppendLine("    {");
         sb.Append("        throw new global::System.NotImplementedException(\"").Append(StubMessage).AppendLine("\");");
@@ -398,6 +407,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         sb.AppendLine("    /// <summary>");
         sb.Append("    /// Writes a sequence of <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/> records as appended rows.");
         sb.AppendLine("    /// </summary>");
+        sb.Append("    ").AppendLine(ObsoleteAttr);
         sb.Append("    public static void AddRows(this global::NetXlsx.ISheet sheet, global::System.Collections.Generic.IEnumerable<").Append(m.FullyQualifiedName).AppendLine("> records)");
         sb.AppendLine("    {");
         sb.Append("        throw new global::System.NotImplementedException(\"").Append(StubMessage).AppendLine("\");");
@@ -409,6 +419,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"sheet\">The sheet to read from.</param>");
         sb.AppendLine("    /// <param name=\"headerRow\">1-based header row (default <c>1</c>). Pass <c>null</c> for header-less mode.</param>");
+        sb.Append("    ").AppendLine(ObsoleteAttr);
         sb.Append("    public static global::System.Collections.Generic.IEnumerable<").Append(m.FullyQualifiedName).Append("> ReadRows(this global::NetXlsx.ISheet sheet, int? headerRow = 1)").AppendLine();
         sb.AppendLine("    {");
         sb.Append("        throw new global::System.NotImplementedException(\"").Append(StubMessage).AppendLine("\");");

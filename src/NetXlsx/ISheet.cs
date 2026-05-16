@@ -24,9 +24,13 @@ public interface ISheet
 }
 
 /// <summary>
-/// Represents an Excel workbook. See <see cref="ISheet"/> for the v0.1.x
-/// stub rationale.
+/// Represents an Excel workbook. Empty by design at v0.1.x for the same
+/// reason as <see cref="ISheet"/>: the full surface (per <c>docs/design.md
+/// §6.2</c>) lands in the next implementation milestone. Source-generated
+/// extension methods reference this type as a marker so they can compile
+/// against v0.1.x without depending on members that don't exist yet.
 /// </summary>
 public interface IWorkbook
 {
+    // Empty by design — see XML doc above.
 }

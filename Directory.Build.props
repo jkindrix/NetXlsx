@@ -41,6 +41,12 @@
     <RepositoryUrl>https://github.com/jkindrix/netxlsx</RepositoryUrl>
   </PropertyGroup>
 
+  <PropertyGroup Label="Versioning (MinVer)">
+    <!-- Match tags like `v0.1.0` (our convention per decision I19). -->
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <MinVerDefaultPreReleaseIdentifiers>alpha.0</MinVerDefaultPreReleaseIdentifiers>
+  </PropertyGroup>
+
   <!-- Library projects opt in to docs generation; tests and benchmarks do not. -->
   <PropertyGroup Condition="'$(IsLibraryProject)' == 'true'">
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

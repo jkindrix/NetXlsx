@@ -34,13 +34,16 @@ internal static class Diagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// A <c>[Column(Format = "...")]</c> string failed the format-string
-    /// smoke check (e.g. unmatched bracket, suspicious characters).
+    /// A <c>[Column(Format = "...")]</c> string fails the structural smoke
+    /// check. This is intentionally a narrow check (empty / control chars /
+    /// unbalanced brackets / no recognized format-character) — not full
+    /// Excel format-grammar validation, which Excel itself does at render
+    /// time.
     /// </summary>
-    public static readonly DiagnosticDescriptor InvalidFormatString = new(
+    public static readonly DiagnosticDescriptor MalformedFormatString = new(
         id: "NXLS0003",
-        title: "[Column] Format string failed smoke check",
-        messageFormat: "Property '{0}.{1}' has [Column(Format = \"{2}\")] which fails the format-string smoke check: {3}",
+        title: "[Column] Format string fails structural smoke check",
+        messageFormat: "Property '{0}.{1}' has [Column(Format = \"{2}\")] which fails the structural smoke check ({3}). Full Excel format-grammar validation is not performed; Excel reports format errors at render time.",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

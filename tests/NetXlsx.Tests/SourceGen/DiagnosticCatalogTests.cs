@@ -56,7 +56,7 @@ public partial record Row([property: Column(""A"")] string A);";
     }
 
     [Fact]
-    public void NXLS0003_Invalid_Format_String_Fires()
+    public void NXLS0003_Unbalanced_Bracket_Fires()
     {
         const string src = @"
 using NetXlsx;
@@ -68,6 +68,33 @@ public partial class Row
 }";
         var output = GeneratorHarness.Run(src);
         output.GeneratorDiagnostics.Should().Contain(d => d.Id == "NXLS0003");
+    }
+
+    [Fact]
+    public void NXLS0003_Embedded_Control_Char_Fires()
+    {
+        // Per the design comment in PassesFormatStringSmokeCheck: a
+        // "literal-only" rejection was considered and rejected because
+        // Excel's date/time letters (h, m, d, y, s) collide with ordinary
+        // English too often. Control characters remain a clean trigger.
+        const string src = "using NetXlsx;\nnamespace T;\n[Worksheet]\npublic partial class Row\n{\n    [Column(\"A\", Format = \"0.00\\u0001\")] public double A { get; set; }\n}";
+        var output = GeneratorHarness.Run(src);
+        output.GeneratorDiagnostics.Should().Contain(d => d.Id == "NXLS0003");
+    }
+
+    [Fact]
+    public void NXLS0003_Valid_Excel_Format_Does_Not_Fire()
+    {
+        const string src = @"
+using NetXlsx;
+namespace T;
+[Worksheet]
+public partial class Row
+{
+    [Column(""A"", Format = ""$#,##0.00;[Red]-$#,##0.00"")] public decimal A { get; set; }
+}";
+        var output = GeneratorHarness.Run(src);
+        output.GeneratorDiagnostics.Should().NotContain(d => d.Id == "NXLS0003");
     }
 
     [Fact]
