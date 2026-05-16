@@ -15,6 +15,20 @@ changes (decision I19).
   TeamCity DSL placeholder, source project skeletons, test/benchmark/
   sample/golden-file project skeletons, public-API snapshot files).
 - Strong-name key (`netxlsx.snk`) generated and committed.
+- Public marker attributes: `[Worksheet]`, `[Column]`, `[Ignore]`, plus
+  `WorksheetVisibility` enum. Empty `ISheet` / `IWorkbook` marker
+  interfaces (members per design §6.4 land in milestone 2).
+- `WorksheetGenerator` (`IIncrementalGenerator`): scans the current
+  compilation for `[Worksheet]` types, emits `{Type}_SheetExtensions`
+  with `AddRow` / `AddRows` / `ReadRows` extension methods on `ISheet`.
+  Bodies throw `NotImplementedException` pending milestone-2 `ISheet`
+  implementation.
+- Full diagnostic catalog `NXLS0001`–`NXLS0006` per design §6.12,
+  with `AnalyzerReleases.{Shipped,Unshipped}.md` release tracking.
+- 12 source-generator tests (one per diagnostic ID including the
+  record-primary-constructor satisfaction case, plus 4 emission tests
+  covering valid output, visibility opt-in, fatal-diagnostic short
+  circuit, and the cross-assembly-ignored contract from I5).
 - All four pre-implementation spikes complete; results captured under
   `spikes/results/`. Three triggered design revisions:
   - Spike 4 (AOT/trim): both `PublishAot` and `PublishTrimmed` fail at

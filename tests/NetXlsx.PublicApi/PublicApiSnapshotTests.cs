@@ -16,20 +16,34 @@ namespace NetXlsx.PublicApi;
 public class PublicApiSnapshotTests
 {
     [Fact]
-    public void Library_Has_No_Public_Types_Yet()
+    public void Public_Surface_Matches_Expected_Baseline()
     {
-        // Scaffold: the library has no public types. This test pins that
-        // baseline. When the first real public type lands, replace this
-        // assertion with the full snapshot enumeration.
+        // Baseline: the source-generator marker attributes and the empty
+        // ISheet/IWorkbook stubs. Additional public types land alongside
+        // entries in PublicAPI.Unshipped.txt. This test catches accidental
+        // leaks at runtime; the analyzer (RS0016/RS0017) catches them at
+        // compile time. Both are deliberate.
         var assembly = System.Reflection.Assembly.Load("NetXlsx");
-        var publicTypes = assembly
+        var publicTypeNames = assembly
             .GetExportedTypes()
             .Where(t => !IsCompilerGenerated(t))
-            .ToList();
+            .Select(t => t.FullName)
+            .OrderBy(n => n, System.StringComparer.Ordinal)
+            .ToArray();
 
-        publicTypes.Should().BeEmpty(
-            "v1.0 public surface lands deliberately via the design §6 sketch; " +
-            "until then, no public types should exist");
+        var expected = new[]
+        {
+            "NetXlsx.ColumnAttribute",
+            "NetXlsx.ISheet",
+            "NetXlsx.IWorkbook",
+            "NetXlsx.IgnoreAttribute",
+            "NetXlsx.WorksheetAttribute",
+            "NetXlsx.WorksheetVisibility",
+        };
+
+        publicTypeNames.Should().BeEquivalentTo(expected,
+            opt => opt.WithStrictOrdering(),
+            "additions must land deliberately via PublicAPI.Unshipped.txt and a test update in the same PR");
     }
 
     private static bool IsCompilerGenerated(Type t) =>

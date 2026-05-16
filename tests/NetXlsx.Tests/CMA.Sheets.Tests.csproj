@@ -23,6 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NetXlsx\NetXlsx.csproj" />
+    <ProjectReference Include="..\..\src\NetXlsx.SourceGen\NetXlsx.SourceGen.csproj"
+                      ReferenceOutputAssembly="true" />
+  </ItemGroup>
+
+  <ItemGroup Label="Roslyn test harness">
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
   </ItemGroup>
 
 </Project>

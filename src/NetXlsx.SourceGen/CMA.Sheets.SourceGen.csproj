@@ -21,6 +21,11 @@
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
   <!-- Pack the generator into the consuming library's nupkg under analyzers/ -->
   <ItemGroup>
     <None Include="$(OutputPath)\$(AssemblyName).dll"

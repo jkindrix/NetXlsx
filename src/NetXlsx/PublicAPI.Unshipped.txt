@@ -1,1 +1,19 @@
 #nullable enable
+NetXlsx.ColumnAttribute
+NetXlsx.ColumnAttribute.ColumnAttribute(string! name) -> void
+NetXlsx.ColumnAttribute.Format.get -> string?
+NetXlsx.ColumnAttribute.Format.init -> void
+NetXlsx.ColumnAttribute.Name.get -> string!
+NetXlsx.ColumnAttribute.Order.get -> int
+NetXlsx.ColumnAttribute.Order.init -> void
+NetXlsx.IgnoreAttribute
+NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
+NetXlsx.ISheet
+NetXlsx.IWorkbook
+NetXlsx.WorksheetAttribute
+NetXlsx.WorksheetAttribute.Visibility.get -> NetXlsx.WorksheetVisibility
+NetXlsx.WorksheetAttribute.Visibility.init -> void
+NetXlsx.WorksheetAttribute.WorksheetAttribute() -> void
+NetXlsx.WorksheetVisibility
+NetXlsx.WorksheetVisibility.Internal = 0 -> NetXlsx.WorksheetVisibility
+NetXlsx.WorksheetVisibility.Public = 1 -> NetXlsx.WorksheetVisibility
