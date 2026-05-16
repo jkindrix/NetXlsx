@@ -55,6 +55,11 @@ dotnet_diagnostic.RS0026.severity = none
 # value-classification enum.
 dotnet_diagnostic.CA1720.severity = none
 
+# Member names that conflict with VB.NET keywords (e.g. IRow.Set) are
+# acceptable in this C#-only internal library. The fluent setter naming
+# follows the design spec.
+dotnet_diagnostic.CA1716.severity = none
+
 [tests/**/*.cs]
 # Tests don't need XML doc
 dotnet_diagnostic.CS1591.severity = none

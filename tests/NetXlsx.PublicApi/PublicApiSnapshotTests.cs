@@ -37,6 +37,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.CellKind",
             "NetXlsx.ColumnAttribute",
             "NetXlsx.ICell",
+            "NetXlsx.IRow",
             "NetXlsx.ISheet",
             "NetXlsx.IWorkbook",
             "NetXlsx.IgnoreAttribute",

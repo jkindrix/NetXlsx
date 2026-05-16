@@ -101,10 +101,77 @@ public interface ISheet
     ICell this[string a1] { get; }
 
     /// <summary>
+    /// Looks up a cell by 1-based row and column (decision #3). Equivalent
+    /// to <c>sheet[CellAddress.Format(row, column)]</c> but skips parsing.
+    /// </summary>
+    /// <exception cref="System.ArgumentOutOfRangeException">Row or column out of Excel's grid limits.</exception>
+    ICell this[int row, int column] { get; }
+
+    /// <summary>
+    /// Appends a new row immediately after the last written row. For an
+    /// empty sheet, creates row 1. Idempotent w.r.t. the underlying NPOI
+    /// row index (never overwrites an existing row).
+    /// </summary>
+    IRow AppendRow();
+
+    /// <summary>
+    /// Returns the row at the 1-based <paramref name="index"/>, materializing
+    /// an empty row if none exists at that index. The returned row's cells
+    /// follow decision #40 (auto-materialize as empty on access).
+    /// </summary>
+    /// <exception cref="System.ArgumentOutOfRangeException">Row index out of Excel's row range.</exception>
+    IRow Row(int index);
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFSheet</c>.
     /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>
     NPOI.XSSF.UserModel.XSSFSheet Underlying { get; }
+}
+
+/// <summary>
+/// Represents a row within an <see cref="ISheet"/>. Cells are 1-based
+/// (decision #3); fluent setters return the row itself for chaining.
+/// </summary>
+public interface IRow
+{
+    /// <summary>The row's 1-based index.</summary>
+    int Index { get; }
+
+    /// <summary>The owning sheet.</summary>
+    ISheet Sheet { get; }
+
+    /// <summary>
+    /// Returns the cell at <paramref name="column"/> (1-based), materializing
+    /// an empty cell if none exists.
+    /// </summary>
+    /// <exception cref="System.ArgumentOutOfRangeException">Column out of range.</exception>
+    ICell Cell(int column);
+
+    /// <summary>Indexer form of <see cref="Cell(int)"/>.</summary>
+    ICell this[int column] { get; }
+
+    /// <summary>Indexer keyed by column letter (e.g. <c>"A"</c>, <c>"AA"</c>).</summary>
+    /// <exception cref="System.ArgumentException">Not a valid column letter.</exception>
+    ICell this[string columnLetter] { get; }
+
+    /// <summary>Writes a string value to the column and returns this row for chaining.</summary>
+    IRow Set(int column, string value);
+    /// <summary>Writes a double value to the column and returns this row for chaining.</summary>
+    IRow Set(int column, double value);
+    /// <summary>Writes a decimal value to the column and returns this row for chaining.</summary>
+    IRow Set(int column, decimal value);
+    /// <summary>Writes an int value to the column and returns this row for chaining.</summary>
+    IRow Set(int column, int value);
+    /// <summary>Writes a long value to the column and returns this row for chaining.</summary>
+    IRow Set(int column, long value);
+    /// <summary>Writes a bool value to the column and returns this row for chaining.</summary>
+    IRow Set(int column, bool value);
+
+    /// <summary>
+    /// Escape hatch — direct access to the underlying NPOI <c>XSSFRow</c>.
+    /// </summary>
+    NPOI.XSSF.UserModel.XSSFRow Underlying { get; }
 }
 
 /// <summary>
@@ -136,6 +203,16 @@ public interface ICell
     /// more than ~15 significant digits.
     /// </summary>
     void SetNumber(decimal value);
+
+    /// <summary>Writes a 32-bit signed integer value to the cell.</summary>
+    void SetNumber(int value);
+
+    /// <summary>
+    /// Writes a 64-bit signed integer value to the cell. Values exceeding
+    /// the <c>double</c> exact-integer range (±2^53) lose precision when
+    /// round-tripped, since OOXML stores numbers as IEEE-754.
+    /// </summary>
+    void SetNumber(long value);
 
     /// <summary>Writes a boolean value to the cell.</summary>
     void SetBool(bool value);

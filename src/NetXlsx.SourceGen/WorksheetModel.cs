@@ -77,17 +77,19 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
 {
     public string Name { get; }
     public string FullTypeName { get; }
+    public SpecialType UnderlyingSpecialType { get; }
     public bool IsNullable { get; }
     public ColumnMapping? Column { get; }
     public bool IsIgnored { get; }
     public PropertyLocation Location { get; }
     public bool TypeIsSupported { get; }
 
-    public WorksheetProperty(string name, string fullTypeName, bool isNullable,
-        ColumnMapping? column, bool isIgnored, PropertyLocation location, bool typeIsSupported)
+    public WorksheetProperty(string name, string fullTypeName, SpecialType underlyingSpecialType,
+        bool isNullable, ColumnMapping? column, bool isIgnored, PropertyLocation location, bool typeIsSupported)
     {
         Name = name;
         FullTypeName = fullTypeName;
+        UnderlyingSpecialType = underlyingSpecialType;
         IsNullable = isNullable;
         Column = column;
         IsIgnored = isIgnored;
@@ -99,6 +101,7 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         other is not null
         && Name == other.Name
         && FullTypeName == other.FullTypeName
+        && UnderlyingSpecialType == other.UnderlyingSpecialType
         && IsNullable == other.IsNullable
         && Equals(Column, other.Column)
         && IsIgnored == other.IsIgnored
@@ -114,6 +117,7 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
             int h = 17;
             h = h * 31 + Name.GetHashCode();
             h = h * 31 + FullTypeName.GetHashCode();
+            h = h * 31 + (int)UnderlyingSpecialType;
             h = h * 31 + IsNullable.GetHashCode();
             h = h * 31 + (Column?.GetHashCode() ?? 0);
             h = h * 31 + IsIgnored.GetHashCode();

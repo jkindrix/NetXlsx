@@ -3,13 +3,12 @@
 // Per docs/design.md §8.1: "Write 10k records from a list, with a header
 // row, frozen header, and column widths."
 //
-// **v0.2.0 caveat**: the full recipe needs row iteration (IRow), freeze
-// panes (ISheet.FreezePanes), and column width (IColumn.Width) — none of
-// which exist in v0.2.0. This implementation uses only the v0.2.0 cell
-// indexer (`sheet["A{r}"]`) and *deliberately leaves the awkwardness in
-// place*. Replacing the string-interpolated address arithmetic with an
-// idiomatic row API is the load-bearing motivation for the IRow slice
-// (next milestone). The recipe will be rewritten there.
+// v0.3.x: rewritten to use the IRow API (ISheet.AppendRow, IRow.Set
+// fluent setters). Compare with the v0.2.0 version (git log -p) to see
+// the ergonomic delta — per-cell string-interpolated addressing is
+// replaced by one AppendRow per record and chained Set calls keyed by
+// column index. Freeze panes and column widths still wait for a later
+// slice (they require ISheet.FreezePanes and IColumn.Width).
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -41,23 +40,22 @@ public static class TabularExport
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet(SheetName);
 
-        // Header row.
-        sheet["A1"].SetString("Region");
-        sheet["B1"].SetString("Revenue");
-        sheet["C1"].SetString("Margin");
-        sheet["D1"].SetString("Strategic");
+        // Header row — fluent across one row.
+        sheet.AppendRow()
+            .Set(1, "Region")
+            .Set(2, "Revenue")
+            .Set(3, "Margin")
+            .Set(4, "Strategic");
 
-        // Data rows. With only the cell indexer available, we interpolate
-        // the address per cell — clunky at scale, the point of the
-        // motivating example for the IRow API slice.
-        for (int i = 0; i < rows.Count; i++)
+        // Data rows — one AppendRow per record, chained Set calls keyed
+        // by column index. No string interpolation, no row arithmetic.
+        foreach (var r in rows)
         {
-            int rowNumber = i + 2;  // 1-indexed, header at row 1
-            var r = rows[i];
-            sheet[$"A{rowNumber}"].SetString(r.Region);
-            sheet[$"B{rowNumber}"].SetNumber(r.Revenue);
-            sheet[$"C{rowNumber}"].SetNumber(r.Margin);
-            sheet[$"D{rowNumber}"].SetBool(r.Strategic);
+            sheet.AppendRow()
+                .Set(1, r.Region)
+                .Set(2, r.Revenue)
+                .Set(3, r.Margin)
+                .Set(4, r.Strategic);
         }
 
         await wb.SaveAsync(outputPath);

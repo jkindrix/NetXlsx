@@ -9,6 +9,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NetXlsx\NetXlsx.csproj" />
+    <!-- Generators don't flow transitively via ProjectReference; the
+         consuming project must reference the generator directly to get
+         the [Worksheet] emit pipeline running on *its* compilation.
+         Downstream NuGet consumers get the generator via the analyzer/
+         path packaging in NetXlsx.csproj automatically. -->
+    <ProjectReference Include="..\..\src\NetXlsx.SourceGen\NetXlsx.SourceGen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>

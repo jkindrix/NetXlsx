@@ -172,7 +172,10 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
                 isNullable = true;
             }
 
-            var supported = IsSupportedPropertyType(underlying);
+            // v0.3.x: nullable value types are not yet generator-supported
+            // (no Set(int, T?) overloads). They trip NXLS0006 honestly
+            // until the next slice adds nullable-aware emit.
+            var supported = !isNullable && IsSupportedPropertyType(underlying);
 
             var locFrom = member.Locations.FirstOrDefault();
             var loc = LocationFrom(locFrom) ?? new PropertyLocation("<unknown>", 0, 0, 0);
@@ -180,6 +183,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             result.Add(new WorksheetProperty(
                 name: member.Name,
                 fullTypeName: member.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+                underlyingSpecialType: underlying.SpecialType,
                 isNullable: isNullable,
                 column: column,
                 isIgnored: ignored,
@@ -191,6 +195,11 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
 
     private static bool IsSupportedPropertyType(ITypeSymbol type)
     {
+        // v0.3.x scope: the property types for which the generator can
+        // emit a write call against the IRow.Set overloads. Date/time
+        // (DateTime, DateOnly, TimeOnly, TimeSpan) and Guid types return
+        // here when their corresponding ICell methods land in a future
+        // slice — until then they trip NXLS0006 honestly.
         return type.SpecialType switch
         {
             SpecialType.System_String => true,
@@ -206,16 +215,40 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             SpecialType.System_Single => true,
             SpecialType.System_Double => true,
             SpecialType.System_Decimal => true,
-            SpecialType.System_DateTime => true,
-            _ => type.ToDisplayString() switch
-            {
-                "System.DateOnly" => true,
-                "System.TimeOnly" => true,
-                "System.TimeSpan" => true,
-                "System.Guid" => true,
-                _ => false,
-            },
+            _ => false,
         };
+    }
+
+    /// <summary>
+    /// Returns the text of a <c>row.Set(col, record.Prop)</c>-style call
+    /// for the given property. Casts the property to a type that
+    /// unambiguously resolves to one of <see cref="IRow"/>'s
+    /// <c>Set</c> overloads (string, bool, int, long, double, decimal).
+    /// Returns <c>null</c> if the type is not supported (callers should
+    /// gate on <see cref="WorksheetProperty.TypeIsSupported"/>).
+    /// </summary>
+    private static string? FormatSetCall(WorksheetProperty p, int columnIndex)
+    {
+        var castedExpression = p.UnderlyingSpecialType switch
+        {
+            SpecialType.System_String => $"record.{p.Name}",
+            SpecialType.System_Boolean => $"record.{p.Name}",
+            SpecialType.System_Int32 => $"record.{p.Name}",
+            SpecialType.System_Int16
+                or SpecialType.System_Byte
+                or SpecialType.System_SByte
+                or SpecialType.System_UInt16 => $"(int)record.{p.Name}",
+            SpecialType.System_Int64 => $"record.{p.Name}",
+            SpecialType.System_UInt32 => $"(long)record.{p.Name}",
+            SpecialType.System_UInt64 => $"(long)record.{p.Name}",  // wraps for values > long.MaxValue
+            SpecialType.System_Double => $"record.{p.Name}",
+            SpecialType.System_Single => $"(double)record.{p.Name}",
+            SpecialType.System_Decimal => $"record.{p.Name}",
+            _ => null,
+        };
+        return castedExpression is null
+            ? null
+            : $"row.Set({columnIndex}, {castedExpression});";
     }
 
     private static bool HasDesignatedConstructor(INamedTypeSymbol type, TypeDeclarationSyntax syntax)
@@ -381,48 +414,64 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         sb.Append(m.Visibility).Append(" static class ").Append(extClassName).AppendLine();
         sb.AppendLine("{");
 
-        // The emitted methods are decorated with [Obsolete(error: true)]
-        // until ISheet gains its members in milestone 2. The point: any
-        // consumer who takes a preview dependency and tries to call these
-        // methods gets a *compile error* (CS0619) with the message below,
-        // not a runtime NotImplementedException. The throwing body remains
-        // as a belt-and-suspenders backstop for reflection-based call
-        // paths that bypass the [Obsolete] check.
-        const string StubMessage =
-            "NetXlsx typed-mapping extension methods are emitted but not yet executable: ISheet implementation lands in milestone 2 (see docs/design.md §6.4 and CHANGELOG.md). Track the milestone before relying on this API.";
+        // Properties that get a Set call, in source-declaration order
+        // among mapped non-ignored properties. v0.3.x does NOT honor
+        // [Column(Order)] for write ordering — the attribute is parsed
+        // and validated (NXLS0001 catches duplicates) but the write
+        // sequence is currently declaration-order. Reorder-on-write
+        // lands with the styling slice when format-string emission
+        // arrives.
+        var writableProps = new List<WorksheetProperty>();
+        foreach (var p in m.Properties)
+        {
+            if (p.IsIgnored) continue;
+            if (p.Column is null) continue;     // NXLS0004 (warning) already fired
+            if (!p.TypeIsSupported) continue;   // NXLS0006 already fired
+            writableProps.Add(p);
+        }
 
-        const string ObsoleteAttr =
-            "[global::System.Obsolete(\"" + StubMessage + "\", error: true)]";
-
+        // ---- AddRow: real body, no [Obsolete] -----------------------------
         sb.AppendLine("    /// <summary>");
-        sb.Append("    /// Writes one <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/> as a row of the supplied sheet.");
+        sb.Append("    /// Appends one <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/> as a row of the supplied sheet.");
         sb.AppendLine("    /// </summary>");
-        sb.Append("    ").AppendLine(ObsoleteAttr);
         sb.Append("    public static void AddRow(this global::NetXlsx.ISheet sheet, ").Append(m.FullyQualifiedName).AppendLine(" record)");
         sb.AppendLine("    {");
-        sb.Append("        throw new global::System.NotImplementedException(\"").Append(StubMessage).AppendLine("\");");
+        sb.AppendLine("        if (sheet is null) throw new global::System.ArgumentNullException(nameof(sheet));");
+        sb.AppendLine("        if (record is null) throw new global::System.ArgumentNullException(nameof(record));");
+        sb.AppendLine("        var row = sheet.AppendRow();");
+        for (int i = 0; i < writableProps.Count; i++)
+        {
+            var callText = FormatSetCall(writableProps[i], i + 1);
+            // FormatSetCall returned non-null because TypeIsSupported gated us.
+            sb.Append("        ").AppendLine(callText);
+        }
         sb.AppendLine("    }");
         sb.AppendLine();
 
+        // ---- AddRows: foreach -> AddRow, no [Obsolete] --------------------
         sb.AppendLine("    /// <summary>");
-        sb.Append("    /// Writes a sequence of <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/> records as appended rows.");
+        sb.Append("    /// Appends a sequence of <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/> records as rows.");
         sb.AppendLine("    /// </summary>");
-        sb.Append("    ").AppendLine(ObsoleteAttr);
         sb.Append("    public static void AddRows(this global::NetXlsx.ISheet sheet, global::System.Collections.Generic.IEnumerable<").Append(m.FullyQualifiedName).AppendLine("> records)");
         sb.AppendLine("    {");
-        sb.Append("        throw new global::System.NotImplementedException(\"").Append(StubMessage).AppendLine("\");");
+        sb.AppendLine("        if (sheet is null) throw new global::System.ArgumentNullException(nameof(sheet));");
+        sb.AppendLine("        if (records is null) throw new global::System.ArgumentNullException(nameof(records));");
+        sb.AppendLine("        foreach (var record in records) { AddRow(sheet, record); }");
         sb.AppendLine("    }");
         sb.AppendLine();
 
+        // ---- ReadRows: still [Obsolete] until the read-side slice lands ---
+        const string ReadRowsObsoleteMsg =
+            "NetXlsx typed-mapping read path ships in a follow-up milestone (see docs/design.md §6.9 and CHANGELOG.md). Write-side AddRow/AddRows already work.";
         sb.AppendLine("    /// <summary>");
         sb.Append("    /// Reads rows from the sheet as a sequence of <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/>.");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"sheet\">The sheet to read from.</param>");
         sb.AppendLine("    /// <param name=\"headerRow\">1-based header row (default <c>1</c>). Pass <c>null</c> for header-less mode.</param>");
-        sb.Append("    ").AppendLine(ObsoleteAttr);
+        sb.Append("    [global::System.Obsolete(\"").Append(ReadRowsObsoleteMsg).AppendLine("\", error: true)]");
         sb.Append("    public static global::System.Collections.Generic.IEnumerable<").Append(m.FullyQualifiedName).Append("> ReadRows(this global::NetXlsx.ISheet sheet, int? headerRow = 1)").AppendLine();
         sb.AppendLine("    {");
-        sb.Append("        throw new global::System.NotImplementedException(\"").Append(StubMessage).AppendLine("\");");
+        sb.Append("        throw new global::System.NotImplementedException(\"").Append(ReadRowsObsoleteMsg).AppendLine("\");");
         sb.AppendLine("    }");
 
         sb.AppendLine("}");

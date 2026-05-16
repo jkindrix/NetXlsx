@@ -27,6 +27,8 @@ NetXlsx.ICell.RowIndex.get -> int
 NetXlsx.ICell.SetBool(bool value) -> void
 NetXlsx.ICell.SetNumber(decimal value) -> void
 NetXlsx.ICell.SetNumber(double value) -> void
+NetXlsx.ICell.SetNumber(int value) -> void
+NetXlsx.ICell.SetNumber(long value) -> void
 NetXlsx.ICell.SetString(string! value) -> void
 NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
 NetXlsx.IWorkbook
@@ -45,8 +47,24 @@ NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
 NetXlsx.InvalidCellAddressException
 NetXlsx.InvalidCellAddressException.Input.get -> string!
 NetXlsx.InvalidCellAddressException.InvalidCellAddressException(string! input, string! reason) -> void
+NetXlsx.IRow
+NetXlsx.IRow.Cell(int column) -> NetXlsx.ICell!
+NetXlsx.IRow.Index.get -> int
+NetXlsx.IRow.Set(int column, bool value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, decimal value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, double value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, int value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, long value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, string! value) -> NetXlsx.IRow!
+NetXlsx.IRow.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IRow.this[int column].get -> NetXlsx.ICell!
+NetXlsx.IRow.this[string! columnLetter].get -> NetXlsx.ICell!
+NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
 NetXlsx.ISheet
+NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
 NetXlsx.ISheet.Name.get -> string!
+NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
+NetXlsx.ISheet.this[int row, int column].get -> NetXlsx.ICell!
 NetXlsx.ISheet.this[string! a1].get -> NetXlsx.ICell!
 NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
 NetXlsx.ISheet.Workbook.get -> NetXlsx.IWorkbook!

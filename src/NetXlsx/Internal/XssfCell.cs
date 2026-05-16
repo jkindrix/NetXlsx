@@ -81,6 +81,19 @@ internal sealed class XssfCell : ICell
         _underlying.SetCellValue((double)value);
     }
 
+    public void SetNumber(int value)
+    {
+        _workbook.ThrowIfDisposed();
+        _underlying.SetCellValue((double)value);
+    }
+
+    public void SetNumber(long value)
+    {
+        _workbook.ThrowIfDisposed();
+        // Values > 2^53 lose precision when stored as IEEE-754 double.
+        _underlying.SetCellValue((double)value);
+    }
+
     public void SetBool(bool value)
     {
         _workbook.ThrowIfDisposed();

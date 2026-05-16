@@ -171,6 +171,95 @@ recipes grow to demonstrate idiomatic *consumer* patterns where
 
 ---
 
+## 2026-05-16 — IRow slice (v0.3.x)
+
+### Recipe-driven interface design worked exactly as predicted
+
+The v0.2.0 `TabularExport` recipe used `sheet[$"A{r}"].SetString(...)`-style
+per-cell addressing. That clunkiness pinned the `IRow` contract:
+`AppendRow()` for "add a row at the next index without computing it,"
+`Set(col, value)` keyed by column for "fill this row's cells in order
+of their column," and chainable fluent return type so a single record's
+data is one statement. None of that came from staring at the design
+doc; it came from looking at the recipe and asking "what would let me
+write this cleanly?"
+
+Diff from v0.2.0 to v0.3.x in TabularExport.cs is the readable record:
+six lines of `sheet[$"A{rowNumber}"].SetString(r.Region); ...` per
+record collapsed into one `sheet.AppendRow().Set(1, r.Region)...`
+chain.
+
+### Source generators don't flow transitively via ProjectReference
+
+The Cookbook project (which now has its own `[Worksheet]` type) needed
+its own `ProjectReference` to the generator with `OutputItemType="Analyzer"`.
+Without it: build error CS1061 "ISheet has no AddRow." With it: works.
+
+Downstream NuGet consumers get the generator automatically because
+NetXlsx.csproj packs it under `analyzers/dotnet/cs/` in the nupkg.
+But in-repo references need explicit per-consumer wiring. This is the
+exact "cross-assembly types are invisible" footgun from decision I5,
+hit from the opposite direction.
+
+### Visibility = Public on [Worksheet] for cross-project consumption
+
+The default `WorksheetVisibility.Internal` makes the emitted
+`{Type}_SheetExtensions` class `internal`. Fine when the consumer of
+the extensions lives in the same assembly as the `[Worksheet]` type.
+Not fine when a test project in a different assembly wants to call
+`sheet.AddRow(record)` against a recipe-defined `[Worksheet]` type.
+
+The `SalesRecord` recipe type uses `[Worksheet(Visibility = WorksheetVisibility.Public)]`
+explicitly. The recipe code comment makes the rationale visible to
+readers.
+
+### Roslyn pipeline cache: SpecialType is safe, ITypeSymbol is not
+
+The generator needed to dispatch on the property's underlying type
+when emitting cast text. First attempt: switch on `FullTypeName` (the
+fully-qualified display string). Worked but format-dependent; would
+break silently if the SymbolDisplayFormat ever changed.
+
+Second attempt: store `ITypeSymbol` directly. Compiles but breaks
+incremental caching — `ITypeSymbol` is a Roslyn handle, not value-
+equal across recompilations.
+
+Final: store `SpecialType` (Roslyn's special-type enum). Stable,
+value-equal, exhaustive enough for v0.3.x's supported scalar set.
+
+### Type narrowing/widening in emitted call sites
+
+`IRow.Set` is overloaded only on the six core scalar types. A property
+of type `short` is implicitly convertible to `int`, `long`, AND `double` —
+ambiguous. The generator handles this by emitting an explicit cast
+based on the property's `SpecialType`:
+
+| Property type     | Emitted call form                |
+|-------------------|----------------------------------|
+| `int` / `bool` / `string` / `long` / `double` / `decimal` | `row.Set(col, record.X)` |
+| `short` / `byte` / `sbyte` / `ushort` | `row.Set(col, (int)record.X)` |
+| `uint` / `ulong`  | `row.Set(col, (long)record.X)`   |
+| `float`           | `row.Set(col, (double)record.X)` |
+
+`ulong` casts to `long` lossily for values > `long.MaxValue` — wraps.
+Documented as v0.3.x scope; if a real use case wants overflow detection,
+the generator can emit `checked((long)record.X)` instead. None today.
+
+### v0.3.x scope-tightening on supported property types
+
+`DateTime`, `DateOnly`, `TimeOnly`, `TimeSpan`, `Guid`, and all
+`Nullable<T>` value types now trip `NXLS0006`. They were previously
+declared supported (truthfully, per the design's long-term intent) but
+the generator couldn't emit a valid Set call for them in v0.3.x because
+`ICell` has no `SetDate/SetTime/SetDuration` overloads yet.
+
+This is honest scope-shrinking: the design's promise stands; the
+generator's capability today is narrower. NXLS0006 catches the
+gap at compile time with a clear message. The supported list expands
+when the corresponding `ICell` methods land.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After

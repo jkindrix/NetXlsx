@@ -9,6 +9,38 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Added (since v0.2.0)
+- **`IRow` surface + `ISheet.AppendRow` / `Row(int)` / `[r,c]` indexer.**
+  Real row API per design §6.4-§6.6. Fluent `IRow.Set(int col, T)` for
+  every scalar kind (string, bool, int, long, double, decimal). The
+  TabularExport recipe rewrite removes the v0.2.0 per-cell string
+  arithmetic in favor of `sheet.AppendRow().Set(1, x).Set(2, y)...`.
+- **`ICell.SetNumber(int)` and `SetNumber(long)` overloads.** Resolves
+  the literal-`42` ambiguity surfaced by the v0.2.0 cookbook.
+- **`[Worksheet]` generator emits real bodies for AddRow/AddRows.**
+  `[Obsolete(error: true)]` removed from the write methods; bodies
+  call `ISheet.AppendRow().Set(col, value)` per-property. Property
+  types map to the right `IRow.Set` overload via the generator's
+  `FormatSetCall` helper (handles narrowing/widening casts to
+  disambiguate when the property type isn't a direct overload match).
+  `ReadRows` still carries `[Obsolete(error: true)]` — the read-side
+  typed-mapping slice is next.
+- **Cookbook recipe 3 — `TypedExport`** (`SalesRecord` + source-gen).
+  Demonstrates the `[Worksheet]`-driven write path end-to-end. The
+  `[Worksheet(Visibility = WorksheetVisibility.Public)]` form is used
+  so external consumers (golden-file tests) can call `sheet.AddRow(record)`.
+- Generator `IsSupportedPropertyType` tightened for v0.3.x scope:
+  `DateTime`, `DateOnly`, `TimeOnly`, `TimeSpan`, `Guid`, and any
+  `Nullable<T>` value type now trip `NXLS0006` honestly. They'll
+  pass when the corresponding `ICell.SetDate/SetTime/SetDuration`
+  overloads land.
+- `WorksheetProperty` model gains `UnderlyingSpecialType` (Roslyn
+  enum, pipeline-cache-safe) so emit-side casts switch on a stable
+  enum instead of a format-dependent type string.
+- 11 new tests covering `IRow` / `Sheet[r,c]` / generator emit shape
+  and the `TypedExport` recipe round-trip. Cookbook executable now
+  dispatches `hello-workbook`, `tabular-export`, `typed-export`.
+
 ### Added (since v0.1.0)
 - **v0.2.0 vertical slice — first working `.xlsx` round-trip.**
   - `Workbook.Create()` returns a real `IWorkbook` over `XSSFWorkbook`.

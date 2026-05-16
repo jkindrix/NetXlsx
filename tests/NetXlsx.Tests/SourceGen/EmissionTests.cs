@@ -65,7 +65,35 @@ public class Row
     }
 
     [Fact]
-    public void Emitted_Methods_Are_Obsolete_Error_Until_Milestone_2()
+    public void Emitted_AddRow_AddRows_Are_Not_Obsolete()
+    {
+        // v0.3.x: AddRow / AddRows now have real bodies that call
+        // ISheet.AppendRow + IRow.Set. They must NOT be decorated
+        // [Obsolete] (CS0619) — consumers can call them.
+        const string src = @"
+using NetXlsx;
+namespace T;
+[Worksheet]
+public partial class Row
+{
+    [Column(""A"")] public string A { get; set; } = """";
+}";
+        var output = GeneratorHarness.Run(src);
+        var generated = string.Concat(output.GeneratedSources.Select(s => s.Source));
+
+        // AddRow body uses AppendRow().Set(...) form.
+        generated.Should().Contain("sheet.AppendRow()");
+        generated.Should().Contain("row.Set(1, record.A);");
+
+        // The [Obsolete] decoration only applies to ReadRows now.
+        var addRowIdx = generated.IndexOf("public static void AddRow(", System.StringComparison.Ordinal);
+        var beforeAddRow = generated.Substring(System.Math.Max(0, addRowIdx - 200), System.Math.Min(200, addRowIdx));
+        beforeAddRow.Should().NotContain("[global::System.Obsolete",
+            "AddRow must not be decorated [Obsolete] in v0.3.x — its body is real");
+    }
+
+    [Fact]
+    public void Emitted_ReadRows_Is_Still_Obsolete_Error_Until_Read_Slice()
     {
         const string src = @"
 using NetXlsx;
@@ -77,18 +105,27 @@ public partial class Row
 }";
         var output = GeneratorHarness.Run(src);
         var generated = string.Concat(output.GeneratedSources.Select(s => s.Source));
-        generated.Should().Contain("[global::System.Obsolete(", "consumer-level calls must fail at compile time, not runtime — see CHANGELOG.md");
-        generated.Should().Contain("error: true",
-            "the [Obsolete] decoration must be CS0619-level (error), not a soft warning");
+
+        // ReadRows is the only [Obsolete]-decorated method in v0.3.x.
+        generated.Should().Contain("ReadRows(");
+        generated.Should().Contain("[global::System.Obsolete(",
+            "ReadRows ships behind [Obsolete(error:true)] until the read-side slice");
+        generated.Should().Contain("error: true");
+
+        // And AddRow does NOT carry an [Obsolete] decoration.
+        var addRowIdx = generated.IndexOf("public static void AddRow(", System.StringComparison.Ordinal);
+        addRowIdx.Should().BeGreaterThan(0);
+        // The closest preceding 100 chars should hold the doc-comment closer
+        // but NOT an [Obsolete] attribute.
+        var beforeAddRow = generated.Substring(System.Math.Max(0, addRowIdx - 100), System.Math.Min(100, addRowIdx));
+        beforeAddRow.Should().NotContain("[global::System.Obsolete(");
     }
 
     [Fact]
-    public void Calling_Emitted_Method_Produces_CS0619_Compile_Error()
+    public void Calling_ReadRows_Produces_CS0619_Compile_Error()
     {
-        // Verifies the contract end-to-end: a consumer that compiles
-        // against the generator output gets a build break, not a
-        // crash-at-runtime, when calling the obsolete-error stubs.
         const string src = @"
+using System.Collections.Generic;
 using NetXlsx;
 namespace T;
 
@@ -100,10 +137,7 @@ public partial class Row
 
 public static class Consumer
 {
-    public static void Use(ISheet sheet)
-    {
-        Row_SheetExtensions.AddRow(sheet, new Row());
-    }
+    public static IEnumerable<Row> Use(ISheet sheet) => Row_SheetExtensions.ReadRows(sheet);
 }";
         var output = GeneratorHarness.Run(src);
         output.CompilationDiagnostics.Should().Contain(d => d.Id == "CS0619",

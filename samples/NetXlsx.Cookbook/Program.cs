@@ -16,6 +16,7 @@ public static class Program
     {
         ("hello-workbook", HelloWorkbook.Run),
         ("tabular-export", TabularExport.Run),
+        ("typed-export", TypedExport.Run),
     };
 
     public static async Task<int> Main(string[] args)
