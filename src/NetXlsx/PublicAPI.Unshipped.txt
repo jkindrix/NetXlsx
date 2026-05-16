@@ -38,7 +38,120 @@ NetXlsx.ICell.SetNumber(int value) -> void
 NetXlsx.ICell.SetNumber(long value) -> void
 NetXlsx.ICell.SetString(string! value) -> void
 NetXlsx.ICell.SetTime(System.TimeOnly value) -> void
+NetXlsx.ICell.Style(NetXlsx.CellStyle! style) -> NetXlsx.ICell!
+NetXlsx.ICell.NumberFormat(string! format) -> NetXlsx.ICell!
+NetXlsx.ICell.GetStyle() -> NetXlsx.CellStyle!
 NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
+NetXlsx.CellStyle
+NetXlsx.CellStyle.Background.get -> NetXlsx.Color?
+NetXlsx.CellStyle.Background.init -> void
+NetXlsx.CellStyle.Bold.get -> bool?
+NetXlsx.CellStyle.Bold.init -> void
+NetXlsx.CellStyle.Borders.get -> NetXlsx.CellBorders?
+NetXlsx.CellStyle.Borders.init -> void
+NetXlsx.CellStyle.FontColor.get -> NetXlsx.Color?
+NetXlsx.CellStyle.FontColor.init -> void
+NetXlsx.CellStyle.FontName.get -> string?
+NetXlsx.CellStyle.FontName.init -> void
+NetXlsx.CellStyle.FontSize.get -> double?
+NetXlsx.CellStyle.FontSize.init -> void
+NetXlsx.CellStyle.HorizontalAlignment.get -> NetXlsx.HAlign?
+NetXlsx.CellStyle.HorizontalAlignment.init -> void
+NetXlsx.CellStyle.Italic.get -> bool?
+NetXlsx.CellStyle.Italic.init -> void
+NetXlsx.CellStyle.NumberFormat.get -> string?
+NetXlsx.CellStyle.NumberFormat.init -> void
+NetXlsx.CellStyle.Underline.get -> NetXlsx.UnderlineStyle?
+NetXlsx.CellStyle.Underline.init -> void
+NetXlsx.CellStyle.VerticalAlignment.get -> NetXlsx.VAlign?
+NetXlsx.CellStyle.VerticalAlignment.init -> void
+NetXlsx.CellStyle.WrapText.get -> bool?
+NetXlsx.CellStyle.WrapText.init -> void
+static NetXlsx.CellStyle.Default.get -> NetXlsx.CellStyle!
+NetXlsx.CellBorders
+NetXlsx.CellBorders.CellBorders(NetXlsx.BorderStyle? Top = null, NetXlsx.Color? TopColor = null, NetXlsx.BorderStyle? Right = null, NetXlsx.Color? RightColor = null, NetXlsx.BorderStyle? Bottom = null, NetXlsx.Color? BottomColor = null, NetXlsx.BorderStyle? Left = null, NetXlsx.Color? LeftColor = null) -> void
+NetXlsx.CellBorders.Bottom.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Bottom.init -> void
+NetXlsx.CellBorders.BottomColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.BottomColor.init -> void
+NetXlsx.CellBorders.Left.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Left.init -> void
+NetXlsx.CellBorders.LeftColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.LeftColor.init -> void
+NetXlsx.CellBorders.Right.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Right.init -> void
+NetXlsx.CellBorders.RightColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.RightColor.init -> void
+NetXlsx.CellBorders.Top.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Top.init -> void
+NetXlsx.CellBorders.TopColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.TopColor.init -> void
+static NetXlsx.CellBorders.All(NetXlsx.BorderStyle style, NetXlsx.Color? color = null) -> NetXlsx.CellBorders!
+NetXlsx.Color
+NetXlsx.Color.A.get -> byte
+NetXlsx.Color.A.init -> void
+NetXlsx.Color.B.get -> byte
+NetXlsx.Color.B.init -> void
+NetXlsx.Color.Color() -> void
+NetXlsx.Color.Color(byte A, byte R, byte G, byte B) -> void
+NetXlsx.Color.G.get -> byte
+NetXlsx.Color.G.init -> void
+NetXlsx.Color.R.get -> byte
+NetXlsx.Color.R.init -> void
+NetXlsx.Color.ToHex() -> string!
+static NetXlsx.Color.Black.get -> NetXlsx.Color
+static NetXlsx.Color.Blue.get -> NetXlsx.Color
+static NetXlsx.Color.FromArgb(byte a, byte r, byte g, byte b) -> NetXlsx.Color
+static NetXlsx.Color.FromHex(string! hex) -> NetXlsx.Color
+static NetXlsx.Color.FromRgb(byte r, byte g, byte b) -> NetXlsx.Color
+static NetXlsx.Color.Gray.get -> NetXlsx.Color
+static NetXlsx.Color.Green.get -> NetXlsx.Color
+static NetXlsx.Color.LightGray.get -> NetXlsx.Color
+static NetXlsx.Color.Red.get -> NetXlsx.Color
+static NetXlsx.Color.White.get -> NetXlsx.Color
+static NetXlsx.Color.Yellow.get -> NetXlsx.Color
+NetXlsx.HAlign
+NetXlsx.HAlign.Center = 2 -> NetXlsx.HAlign
+NetXlsx.HAlign.Fill = 4 -> NetXlsx.HAlign
+NetXlsx.HAlign.General = 0 -> NetXlsx.HAlign
+NetXlsx.HAlign.Justify = 5 -> NetXlsx.HAlign
+NetXlsx.HAlign.Left = 1 -> NetXlsx.HAlign
+NetXlsx.HAlign.Right = 3 -> NetXlsx.HAlign
+NetXlsx.VAlign
+NetXlsx.VAlign.Bottom = 2 -> NetXlsx.VAlign
+NetXlsx.VAlign.Center = 1 -> NetXlsx.VAlign
+NetXlsx.VAlign.Justify = 3 -> NetXlsx.VAlign
+NetXlsx.VAlign.Top = 0 -> NetXlsx.VAlign
+NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Dashed = 5 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Dotted = 6 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Double = 4 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Medium = 2 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.None = 0 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Thick = 3 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Thin = 1 -> NetXlsx.BorderStyle
+NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.Double = 2 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.DoubleAccounting = 4 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.None = 0 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.Single = 1 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.SingleAccounting = 3 -> NetXlsx.UnderlineStyle
+NetXlsx.NumberFormats
+const NetXlsx.NumberFormats.Accounting = "$#,##0.00;[Red]-$#,##0.00" -> string!
+const NetXlsx.NumberFormats.Currency = "$#,##0.00" -> string!
+const NetXlsx.NumberFormats.CurrencyNoSymbol = "#,##0.00" -> string!
+const NetXlsx.NumberFormats.Date = "yyyy-mm-dd" -> string!
+const NetXlsx.NumberFormats.DateTime = "yyyy-mm-dd hh:mm:ss" -> string!
+const NetXlsx.NumberFormats.Duration = "[h]:mm:ss" -> string!
+const NetXlsx.NumberFormats.General = "General" -> string!
+const NetXlsx.NumberFormats.Integer = "0" -> string!
+const NetXlsx.NumberFormats.Number = "#,##0" -> string!
+const NetXlsx.NumberFormats.NumberTwo = "#,##0.00" -> string!
+const NetXlsx.NumberFormats.Percent = "0%" -> string!
+const NetXlsx.NumberFormats.PercentTwo = "0.00%" -> string!
+const NetXlsx.NumberFormats.Scientific = "0.00E+00" -> string!
+const NetXlsx.NumberFormats.Text = "@" -> string!
+const NetXlsx.NumberFormats.Time = "hh:mm:ss" -> string!
 NetXlsx.IWorkbook
 NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
 NetXlsx.IWorkbook.Save(string! path) -> void

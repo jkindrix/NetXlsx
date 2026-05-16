@@ -26,13 +26,12 @@ internal sealed class XssfWorkbook : IWorkbook
     // InvalidOperationException instead of silently corrupting state.
     private int _inMutation;
 
-    // Lazy default styles for date/time-shaped values per decisions
-    // I-18 (DateTime default 'm/d/yyyy hh:mm:ss'), I-19 (DateOnly default
-    // 'yyyy-mm-dd'), and §7.9 (Duration default '[h]:mm:ss').
-    private ICellStyle? _dateStyle;
-    private ICellStyle? _dateTimeStyle;
-    private ICellStyle? _timeStyle;
-    private ICellStyle? _durationStyle;
+    // Style-pool dedup (decision #4 / spike 1). All ICellStyle
+    // allocations — including the date/time defaults (decisions I-18,
+    // I-19, §7.9) — flow through this single pool, replacing the S29
+    // interim cache.
+    private CellStylePool? _stylePool;
+    internal CellStylePool StylePool => _stylePool ??= new CellStylePool(_underlying);
 
     public XssfWorkbook(XSSFWorkbook underlying)
     {
@@ -185,16 +184,10 @@ internal sealed class XssfWorkbook : IWorkbook
         public void Dispose() => Interlocked.Exchange(ref _owner._inMutation, 0);
     }
 
-    internal ICellStyle DateStyle => _dateStyle ??= CreateFormatStyle("yyyy-mm-dd");
-    internal ICellStyle DateTimeStyle => _dateTimeStyle ??= CreateFormatStyle("yyyy-mm-dd hh:mm:ss");
-    internal ICellStyle TimeStyle => _timeStyle ??= CreateFormatStyle("h:mm:ss");
-    internal ICellStyle DurationStyle => _durationStyle ??= CreateFormatStyle("[h]:mm:ss");
-
-    private ICellStyle CreateFormatStyle(string formatString)
-    {
-        var dataFormat = _underlying.CreateDataFormat();
-        var style = _underlying.CreateCellStyle();
-        style.DataFormat = dataFormat.GetFormat(formatString);
-        return style;
-    }
+    // Date/time default styles are now pool entries (S29 → folded into
+    // the full pool with the styling slice).
+    internal ICellStyle DateStyle => StylePool.GetOrCreate(new CellStyle { NumberFormat = "yyyy-mm-dd" });
+    internal ICellStyle DateTimeStyle => StylePool.GetOrCreate(new CellStyle { NumberFormat = "yyyy-mm-dd hh:mm:ss" });
+    internal ICellStyle TimeStyle => StylePool.GetOrCreate(new CellStyle { NumberFormat = "h:mm:ss" });
+    internal ICellStyle DurationStyle => StylePool.GetOrCreate(new CellStyle { NumberFormat = "[h]:mm:ss" });
 }

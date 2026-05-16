@@ -33,9 +33,14 @@ public class PublicApiSnapshotTests
 
         var expected = new[]
         {
+            "NetXlsx.BorderStyle",
             "NetXlsx.CellAddress",
+            "NetXlsx.CellBorders",
             "NetXlsx.CellKind",
+            "NetXlsx.CellStyle",
+            "NetXlsx.Color",
             "NetXlsx.ColumnAttribute",
+            "NetXlsx.HAlign",
             "NetXlsx.ICell",
             "NetXlsx.IRow",
             "NetXlsx.ISheet",
@@ -43,7 +48,10 @@ public class PublicApiSnapshotTests
             "NetXlsx.IgnoreAttribute",
             "NetXlsx.InvalidCellAddressException",
             "NetXlsx.MalformedFileException",
+            "NetXlsx.NumberFormats",
             "NetXlsx.SheetNameException",
+            "NetXlsx.UnderlineStyle",
+            "NetXlsx.VAlign",
             "NetXlsx.Workbook",
             "NetXlsx.WorkbookException",
             "NetXlsx.WorksheetAttribute",

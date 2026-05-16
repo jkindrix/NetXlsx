@@ -18,6 +18,7 @@ public static class Program
         ("tabular-export", TabularExport.Run),
         ("typed-export", TypedExport.Run),
         ("time-and-duration", TimeAndDuration.Run),
+        ("styled-report", StyledReport.Run),
     };
 
     public static async Task<int> Main(string[] args)

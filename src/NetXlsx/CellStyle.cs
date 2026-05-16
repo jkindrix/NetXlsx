@@ -1,0 +1,126 @@
+// Cell style value record + supporting enums per design §6.7 / §6.8.
+// CellStyle equality is structural; the style-pool dedup (decision #4)
+// keys NPOI ICellStyle instances on CellStyle value equality.
+
+namespace NetXlsx;
+
+/// <summary>
+/// Immutable description of a cell's visual style. Equality is structural:
+/// two <see cref="CellStyle"/> values with the same property values share
+/// one underlying NPOI <c>ICellStyle</c> via the workbook's style-pool
+/// dedup (decision #4). Properties typed as <c>Nullable{T}</c>: <c>null</c>
+/// means "inherit existing" when applied via <see cref="ICell.Style"/>;
+/// a non-null value overwrites the cell's current style on that axis.
+/// </summary>
+public sealed record CellStyle
+{
+    /// <summary>The empty style — all properties null. Applied to a cell, leaves the cell unchanged.</summary>
+    public static CellStyle Default { get; } = new();
+
+    /// <summary>Bold weight.</summary>
+    public bool? Bold { get; init; }
+    /// <summary>Italic.</summary>
+    public bool? Italic { get; init; }
+    /// <summary>Underline style.</summary>
+    public UnderlineStyle? Underline { get; init; }
+
+    /// <summary>Font family name (e.g. <c>"Calibri"</c>).</summary>
+    public string? FontName { get; init; }
+    /// <summary>Font size in points.</summary>
+    public double? FontSize { get; init; }
+    /// <summary>Font color. ARGB equality (decision I-23).</summary>
+    public Color? FontColor { get; init; }
+
+    /// <summary>Solid-fill background color. ARGB equality.</summary>
+    public Color? Background { get; init; }
+
+    /// <summary>Excel number format string (e.g. <c>"$#,##0.00"</c>, <c>"yyyy-mm-dd"</c>). Pass-through bytes per §7.2.</summary>
+    public string? NumberFormat { get; init; }
+
+    /// <summary>Horizontal alignment.</summary>
+    public HAlign? HorizontalAlignment { get; init; }
+    /// <summary>Vertical alignment.</summary>
+    public VAlign? VerticalAlignment { get; init; }
+
+    /// <summary>Whether the cell wraps long text.</summary>
+    public bool? WrapText { get; init; }
+
+    /// <summary>Border styles.</summary>
+    public CellBorders? Borders { get; init; }
+}
+
+/// <summary>Cell border styles per edge.</summary>
+public sealed record CellBorders(
+    BorderStyle? Top = null,    Color? TopColor = null,
+    BorderStyle? Right = null,  Color? RightColor = null,
+    BorderStyle? Bottom = null, Color? BottomColor = null,
+    BorderStyle? Left = null,   Color? LeftColor = null)
+{
+    /// <summary>Build a uniform border on all four edges.</summary>
+    public static CellBorders All(BorderStyle style, Color? color = null) =>
+        new(style, color, style, color, style, color, style, color);
+}
+
+/// <summary>Border line styles (mirrors Excel's set).</summary>
+public enum BorderStyle
+{
+    /// <summary>No border.</summary>
+    None,
+    /// <summary>Thin solid line.</summary>
+    Thin,
+    /// <summary>Medium-weight solid line.</summary>
+    Medium,
+    /// <summary>Thick solid line.</summary>
+    Thick,
+    /// <summary>Double line.</summary>
+    Double,
+    /// <summary>Dashed line.</summary>
+    Dashed,
+    /// <summary>Dotted line.</summary>
+    Dotted,
+}
+
+/// <summary>Horizontal alignment.</summary>
+public enum HAlign
+{
+    /// <summary>General (Excel default — left for text, right for numbers).</summary>
+    General,
+    /// <summary>Left.</summary>
+    Left,
+    /// <summary>Center.</summary>
+    Center,
+    /// <summary>Right.</summary>
+    Right,
+    /// <summary>Fill the cell with the value repeated.</summary>
+    Fill,
+    /// <summary>Justify multi-line content.</summary>
+    Justify,
+}
+
+/// <summary>Vertical alignment.</summary>
+public enum VAlign
+{
+    /// <summary>Top.</summary>
+    Top,
+    /// <summary>Center.</summary>
+    Center,
+    /// <summary>Bottom (Excel default).</summary>
+    Bottom,
+    /// <summary>Justify multi-line content vertically.</summary>
+    Justify,
+}
+
+/// <summary>Underline styles.</summary>
+public enum UnderlineStyle
+{
+    /// <summary>No underline.</summary>
+    None,
+    /// <summary>Single underline.</summary>
+    Single,
+    /// <summary>Double underline.</summary>
+    Double,
+    /// <summary>Single accounting underline.</summary>
+    SingleAccounting,
+    /// <summary>Double accounting underline.</summary>
+    DoubleAccounting,
+}

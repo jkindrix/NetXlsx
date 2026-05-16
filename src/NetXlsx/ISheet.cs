@@ -310,6 +310,25 @@ public interface ICell
     TimeSpan? GetDuration();
 
     /// <summary>
+    /// Applies <paramref name="style"/> to the cell, merging non-null
+    /// properties over the cell's existing style. Pass
+    /// <see cref="CellStyle.Default"/> to leave the cell unchanged.
+    /// Resolved through the workbook's style-pool dedup (decision #4) —
+    /// equal styles share one underlying NPOI <c>ICellStyle</c>.
+    /// </summary>
+    ICell Style(CellStyle style);
+
+    /// <summary>
+    /// Shortcut for the common case: applies the given Excel number
+    /// format string to the cell while leaving other style properties
+    /// untouched. Pass-through bytes per §7.2.
+    /// </summary>
+    ICell NumberFormat(string format);
+
+    /// <summary>Returns the cell's current style as a value record.</summary>
+    CellStyle GetStyle();
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFCell</c>.
     /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>

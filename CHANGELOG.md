@@ -9,6 +9,42 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.4 styling slice
+- **`Color` value type** (decision #29). Owned ARGB record struct, no
+  `System.Drawing.Common` dependency. `FromRgb` / `FromArgb` / `FromHex` /
+  `ToHex` + curated preset palette (Black, White, Red, Green, Blue,
+  Yellow, LightGray, Gray). ARGB equality per decision I-23.
+- **`CellStyle` value record** (design §6.8). Nullable per-axis properties:
+  `Bold`, `Italic`, `Underline`, `FontName`, `FontSize`, `FontColor`,
+  `Background`, `NumberFormat`, `HorizontalAlignment`, `VerticalAlignment`,
+  `WrapText`, `Borders`. Null = "inherit existing on this axis." Structural
+  equality drives style-pool dedup.
+- **`CellBorders` record** + `BorderStyle` enum. Per-edge styles with
+  optional per-edge colors; `CellBorders.All(style, color?)` helper.
+- **`HAlign`, `VAlign`, `UnderlineStyle` enums**.
+- **`NumberFormats` static class** (design §6.11, decision I12). Frozen
+  v1.0 set: General, Text, Integer, Number, NumberTwo, Scientific,
+  Percent, PercentTwo, Currency, CurrencyNoSymbol, Accounting, Date,
+  DateTime, Time, Duration.
+- **`ICell.Style(CellStyle)`** — merges over current style, resolves
+  through the dedup pool, returns the cell for chaining.
+- **`ICell.NumberFormat(string)`** — fluent shortcut for the common case.
+- **`ICell.GetStyle()`** — returns the cell's current style as a
+  `CellStyle` value record.
+- **`CellStylePool` internal**. Per-workbook `Dictionary<CellStyle, ICellStyle>`
+  keyed on `CellStyle` structural equality. Includes a separate font
+  sub-pool keyed on `(name, size, bold, italic, underline, color)` so
+  font-only differences don't allocate redundant NPOI `IFont` instances.
+  **The S29 interim date/time style cache is gone** — the date-default
+  styles are now regular pool entries; `SetDate`/`SetTime`/`SetDuration`
+  flow through `StylePool.GetOrCreate(...)` like any other style.
+- **Cookbook recipe 5 — `StyledReport`**. Bold + gray-filled centered
+  header, currency-formatted Revenue column, yellow-highlighted rows
+  for sub-15% margins. Demos all three primary axes (font, fill,
+  number format) in one recipe. Golden-file test asserts the styles
+  round-trip AND the dedup pool keeps the style index count small
+  (proves the pool is actually deduping).
+
 ### Pre-styling cleanup (2026-05-16)
 - `DisposedWorkbookMatrixTests` — parameterized matrix systematically
   verifying every public mutating member on `IWorkbook` / `ISheet` /

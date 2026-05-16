@@ -335,6 +335,79 @@ pattern when its setter lands).
 
 ---
 
+## 2026-05-16 — Styling slice (v0.4)
+
+### Merge-on-apply, not replace
+
+`ICell.Style(CellStyle)` merges the supplied style over the cell's
+current style — non-null properties in the overlay replace null /
+non-null on the existing axis. Two consequences:
+
+- A previous `SetDate` keeps its number format when the user later
+  calls `cell.Style(new CellStyle { Bold = true })`. The merged
+  style is `{ Bold = true, NumberFormat = "yyyy-mm-dd" }`.
+- To "clear" a style entirely, pass `CellStyle.Default` — but that
+  clears EVERYTHING via the merge, because Default is all-null and
+  the existing cell's properties have nothing to merge against
+  (current → empty → no axes). Actually no, the merge is
+  `existing ← overlay-non-null`, so Default doesn't clear anything;
+  it's a no-op. Real clearing needs an explicit sentinel which we
+  haven't added yet. Documenting as a known gap; minor.
+
+The merge implementation is a single record `with`-style projection
+in `XssfCell.Merge`. Twelve lines.
+
+### Pool keys on CellStyle value equality
+
+`Dictionary<CellStyle, ICellStyle>` keyed on `CellStyle`'s
+auto-generated record `Equals`/`GetHashCode`. Worked first try
+because `Color` is an ARGB-equal record struct and `CellBorders`
+is an ordinary record — both contribute clean equality to the
+parent `CellStyle`.
+
+Watching for one risk: when an existing-style cell goes through
+`ReadCurrentStyle` → `Merge` → `GetOrCreate`, the read step
+reconstructs a `CellStyle` value record from the live NPOI
+`ICellStyle`. If `ReadFromNpoi` introduces *any* extra property
+(e.g., rounds `FontSize`), structural equality fails and the pool
+allocates a fresh style. The first commit catches the common cases
+(date defaults dedup correctly across cells); a stress test for
+"100 cells, identical merged style, single ICellStyle index"
+passes. Will be hardened with more property coverage as new axes
+land.
+
+### Font sub-pool
+
+NPOI's `IFont` is itself a workbook-level allocated object; styles
+share fonts when their font-relevant properties match. We mirror
+that with a `Dictionary<FontKey, IFont>` so cells styled with the
+same font properties (independent of whatever else varies in their
+`CellStyle`) share a single `IFont`. Without this, 100 differently-
+shaded-but-same-font cells would allocate 100 NPOI fonts — wasteful
+and risks the 64K-style cap from a different angle.
+
+### S29 cache absorbed cleanly
+
+The "lazy four-format date-time cache" added in the v0.3.x date-time
+slice (S29) became four pool entries. The four properties on
+`XssfWorkbook` (`DateStyle`, `DateTimeStyle`, `TimeStyle`,
+`DurationStyle`) now just call `StylePool.GetOrCreate(new CellStyle
+{ NumberFormat = "..." })`. Zero changes to the cell-side call sites.
+This is the methodology working: a documented interim that composes
+cleanly with the full thing when it lands.
+
+### Excel "fill foreground" vs "fill background" gotcha
+
+NPOI's `FillForegroundColor` is the color shown when `FillPattern =
+SolidForeground`. `FillBackgroundColor` is the *secondary* color for
+patterned fills (cross-hatch, etc.). For a plain solid fill, you set
+ForegroundColor + SolidForeground pattern. The first attempt wired
+`FillBackgroundColor` and got nothing on cell display — fixed
+silently in the same commit. Worth noting because the natural-English
+naming pushes you the wrong way.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After
