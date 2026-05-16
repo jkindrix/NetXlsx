@@ -45,6 +45,16 @@ dotnet_diagnostic.CS1591.severity = error                # Missing XML doc on pu
 dotnet_diagnostic.RS0016.severity = error                # PublicApiAnalyzer: undeclared API
 dotnet_diagnostic.RS0017.severity = error                # PublicApiAnalyzer: stale public API entry
 
+# Intentional overloads with optional parameters (SaveAsync, OpenAsync, etc.).
+# The analyzer's concern is ambiguity when adding NEW optional parameters
+# later; we accept that trade for ergonomic call sites.
+dotnet_diagnostic.RS0026.severity = none
+
+# Enum value names mirror the design spec (CellKind.String, CellKind.Date,
+# etc.); the "identifier contains type name" rule does not apply to a
+# value-classification enum.
+dotnet_diagnostic.CA1720.severity = none
+
 [tests/**/*.cs]
 # Tests don't need XML doc
 dotnet_diagnostic.CS1591.severity = none

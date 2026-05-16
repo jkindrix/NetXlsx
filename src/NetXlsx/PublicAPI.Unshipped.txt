@@ -1,4 +1,13 @@
 #nullable enable
+NetXlsx.CellAddress
+NetXlsx.CellKind
+NetXlsx.CellKind.Bool = 4 -> NetXlsx.CellKind
+NetXlsx.CellKind.Date = 3 -> NetXlsx.CellKind
+NetXlsx.CellKind.Empty = 0 -> NetXlsx.CellKind
+NetXlsx.CellKind.Error = 6 -> NetXlsx.CellKind
+NetXlsx.CellKind.Formula = 5 -> NetXlsx.CellKind
+NetXlsx.CellKind.Number = 2 -> NetXlsx.CellKind
+NetXlsx.CellKind.String = 1 -> NetXlsx.CellKind
 NetXlsx.ColumnAttribute
 NetXlsx.ColumnAttribute.ColumnAttribute(string! name) -> void
 NetXlsx.ColumnAttribute.Format.get -> string?
@@ -6,10 +15,52 @@ NetXlsx.ColumnAttribute.Format.init -> void
 NetXlsx.ColumnAttribute.Name.get -> string!
 NetXlsx.ColumnAttribute.Order.get -> int
 NetXlsx.ColumnAttribute.Order.init -> void
+NetXlsx.ICell
+NetXlsx.ICell.Address.get -> string!
+NetXlsx.ICell.Clear() -> void
+NetXlsx.ICell.ColumnIndex.get -> int
+NetXlsx.ICell.GetBool() -> bool?
+NetXlsx.ICell.GetNumber() -> double?
+NetXlsx.ICell.GetString() -> string!
+NetXlsx.ICell.Kind.get -> NetXlsx.CellKind
+NetXlsx.ICell.RowIndex.get -> int
+NetXlsx.ICell.SetBool(bool value) -> void
+NetXlsx.ICell.SetNumber(decimal value) -> void
+NetXlsx.ICell.SetNumber(double value) -> void
+NetXlsx.ICell.SetString(string! value) -> void
+NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
+NetXlsx.IWorkbook
+NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
+NetXlsx.IWorkbook.Save(string! path) -> void
+NetXlsx.IWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
+NetXlsx.IWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IWorkbook.SheetCount.get -> int
+NetXlsx.IWorkbook.this[int index].get -> NetXlsx.ISheet!
+NetXlsx.IWorkbook.this[string! name].get -> NetXlsx.ISheet!
+NetXlsx.IWorkbook.TryGetSheet(string! name, out NetXlsx.ISheet! sheet) -> bool
+NetXlsx.IWorkbook.Underlying.get -> NPOI.XSSF.UserModel.XSSFWorkbook!
 NetXlsx.IgnoreAttribute
 NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
+NetXlsx.InvalidCellAddressException
+NetXlsx.InvalidCellAddressException.Input.get -> string!
+NetXlsx.InvalidCellAddressException.InvalidCellAddressException(string! input, string! reason) -> void
 NetXlsx.ISheet
-NetXlsx.IWorkbook
+NetXlsx.ISheet.Name.get -> string!
+NetXlsx.ISheet.this[string! a1].get -> NetXlsx.ICell!
+NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
+NetXlsx.ISheet.Workbook.get -> NetXlsx.IWorkbook!
+NetXlsx.MalformedFileException
+NetXlsx.MalformedFileException.MalformedFileException(string! message) -> void
+NetXlsx.MalformedFileException.MalformedFileException(string! message, System.Exception! innerException) -> void
+NetXlsx.SheetNameException
+NetXlsx.SheetNameException.Name.get -> string!
+NetXlsx.SheetNameException.SheetNameException(string! name, string! reason) -> void
+NetXlsx.Workbook
+NetXlsx.WorkbookException
+NetXlsx.WorkbookException.WorkbookException() -> void
+NetXlsx.WorkbookException.WorkbookException(string! message) -> void
+NetXlsx.WorkbookException.WorkbookException(string! message, System.Exception! innerException) -> void
 NetXlsx.WorksheetAttribute
 NetXlsx.WorksheetAttribute.Visibility.get -> NetXlsx.WorksheetVisibility
 NetXlsx.WorksheetAttribute.Visibility.init -> void
@@ -17,3 +68,15 @@ NetXlsx.WorksheetAttribute.WorksheetAttribute() -> void
 NetXlsx.WorksheetVisibility
 NetXlsx.WorksheetVisibility.Internal = 0 -> NetXlsx.WorksheetVisibility
 NetXlsx.WorksheetVisibility.Public = 1 -> NetXlsx.WorksheetVisibility
+const NetXlsx.CellAddress.MaxColumn = 16384 -> int
+const NetXlsx.CellAddress.MaxRow = 1048576 -> int
+static NetXlsx.CellAddress.Format(int row, int column) -> string!
+static NetXlsx.CellAddress.Parse(string! a1) -> (int Row, int Column)
+static NetXlsx.CellAddress.TryParse(string! a1, out int row, out int column) -> bool
+static NetXlsx.Workbook.Create() -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.IsValidSheetName(string! proposed) -> bool
+static NetXlsx.Workbook.Open(string! path) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.Open(System.IO.Stream! stream, bool leaveOpen = true) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.OpenAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
+static NetXlsx.Workbook.OpenAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
+static NetXlsx.Workbook.SanitizeSheetName(string! proposed) -> string!

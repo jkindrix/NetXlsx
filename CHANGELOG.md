@@ -9,6 +9,43 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Added (since v0.1.0)
+- **v0.2.0 vertical slice — first working `.xlsx` round-trip.**
+  - `Workbook.Create()` returns a real `IWorkbook` over `XSSFWorkbook`.
+  - `Workbook.Open` / `OpenAsync` (path and stream forms) with stream-
+    position-zero + seekable validation (decisions #50, I14) and
+    `MalformedFileException` for non-.xlsx content (#51).
+  - `IWorkbook.AddSheet` (case-insensitive uniqueness — decision #41,
+    name validation per Excel rules), `Sheets` indexer (string and int),
+    `TryGetSheet`, `SaveAsync` (Task.Run-wrapped per #30 / spike 3).
+  - `IWorkbook : IDisposable` with `ObjectDisposedException` on
+    use-after-dispose, safe double-dispose (decision #42).
+  - `ISheet["A1"]` returns a materialized `ICell` even for never-written
+    addresses (decision #40 — auto-blank).
+  - `ICell.SetString/SetNumber(double|decimal)/SetBool/Clear` + the
+    typed `GetString/GetNumber/GetBool` readers and `Kind` classifier.
+    `decimal` writes documented as IEEE-754 lossy per #36 / §7.4.
+    `GetString` follows §7.10's per-kind formatting rules including
+    Excel error-code text and `"TRUE"`/`"FALSE"` invariant for bool.
+  - `CellAddress.Parse` / `TryParse` / `Format` — A1 grammar per §6.10
+    (single-cell form only; range parsing lands with `IRange` later).
+    Accepts `A1`, case-insensitive variants, and `$A$1`/`$A1`/`A$1`
+    (`$` stripped). Rejects `Sheet1!A1`, ranges (`A1:C10`, `A:A`,
+    `1:1`), and overflow past `XFD` / row 1,048,576.
+  - Exception hierarchy: `WorkbookException` + `InvalidCellAddressException`,
+    `SheetNameException`, `MalformedFileException`.
+  - `CellKind` enum: `Empty / String / Number / Date / Bool / Formula / Error`.
+- Deleted `Placeholder.cs` — first real types replaced it as planned.
+
+### Known limitations of v0.2.0 vertical slice
+- No `[r,c]` cell indexer yet (only `["A1"]`); arrives with the row /
+  column / range API.
+- No `IRow` interface yet; the typed-mapping source generator's emitted
+  `AddRow` / `AddRows` / `ReadRows` extensions remain `[Obsolete(error)]`
+  pending a follow-up commit that wires their bodies to the new `ISheet`.
+- No concurrent-mutation detection yet (decision #43); NPOI is not
+  thread-safe and we don't lock — documented now, enforced later.
+
 ### Added
 - Initial project scaffold (Directory.Build.props, Directory.Packages.props,
   nuget.config, .editorconfig, LICENSE, CODEOWNERS, build scripts,

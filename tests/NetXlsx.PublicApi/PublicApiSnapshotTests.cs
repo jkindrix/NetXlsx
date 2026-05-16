@@ -33,10 +33,18 @@ public class PublicApiSnapshotTests
 
         var expected = new[]
         {
+            "NetXlsx.CellAddress",
+            "NetXlsx.CellKind",
             "NetXlsx.ColumnAttribute",
+            "NetXlsx.ICell",
             "NetXlsx.ISheet",
             "NetXlsx.IWorkbook",
             "NetXlsx.IgnoreAttribute",
+            "NetXlsx.InvalidCellAddressException",
+            "NetXlsx.MalformedFileException",
+            "NetXlsx.SheetNameException",
+            "NetXlsx.Workbook",
+            "NetXlsx.WorkbookException",
             "NetXlsx.WorksheetAttribute",
             "NetXlsx.WorksheetVisibility",
         };
