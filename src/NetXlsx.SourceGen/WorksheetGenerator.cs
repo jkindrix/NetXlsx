@@ -272,6 +272,47 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             : $"row.Set({columnIndex}, {castedExpression});";
     }
 
+    /// <summary>
+    /// Returns the text of a cell-read expression that converts the
+    /// indicated property's column on <paramref name="rowVar"/> back to
+    /// the property's declared type. Required (non-nullable) properties
+    /// throw <c>WorkbookException</c> on missing / wrong-typed cells.
+    /// Returns <c>null</c> if the property type is not supported.
+    /// </summary>
+    private static string? FormatReadExpression(WorksheetProperty p, string rowVar)
+    {
+        // cell access: row.Cell(col_PropName)
+        var cellExpr = $"{rowVar}.Cell(col_{p.Name})";
+        // shared throw expression for "required cell missing / wrong type"
+        string ThrowExpr(string expected) =>
+            $"throw new global::NetXlsx.WorkbookException($\"Row {{r}} column '{p.Column!.HeaderName}' expected {expected} but got {{({cellExpr}).Kind}}.\")";
+
+        return p.UnderlyingSpecialType switch
+        {
+            SpecialType.System_String => $"{cellExpr}.GetString()",
+            SpecialType.System_Boolean => $"({cellExpr}.GetBool() ?? {ThrowExpr("bool")})",
+            SpecialType.System_Int32 => $"(int)({cellExpr}.GetNumber() ?? {ThrowExpr("int")})",
+            SpecialType.System_Int16 => $"(short)({cellExpr}.GetNumber() ?? {ThrowExpr("short")})",
+            SpecialType.System_Byte => $"(byte)({cellExpr}.GetNumber() ?? {ThrowExpr("byte")})",
+            SpecialType.System_SByte => $"(sbyte)({cellExpr}.GetNumber() ?? {ThrowExpr("sbyte")})",
+            SpecialType.System_UInt16 => $"(ushort)({cellExpr}.GetNumber() ?? {ThrowExpr("ushort")})",
+            SpecialType.System_Int64 => $"(long)({cellExpr}.GetNumber() ?? {ThrowExpr("long")})",
+            SpecialType.System_UInt32 => $"(uint)({cellExpr}.GetNumber() ?? {ThrowExpr("uint")})",
+            SpecialType.System_UInt64 => $"(ulong)({cellExpr}.GetNumber() ?? {ThrowExpr("ulong")})",
+            SpecialType.System_Single => $"(float)({cellExpr}.GetNumber() ?? {ThrowExpr("float")})",
+            SpecialType.System_Double => $"({cellExpr}.GetNumber() ?? {ThrowExpr("double")})",
+            SpecialType.System_Decimal => $"(decimal)({cellExpr}.GetNumber() ?? {ThrowExpr("decimal")})",
+            SpecialType.System_DateTime => $"({cellExpr}.GetDate() ?? {ThrowExpr("DateTime")})",
+            _ => p.FullTypeName switch
+            {
+                "global::System.DateOnly" => $"({cellExpr}.GetDateOnly() ?? {ThrowExpr("DateOnly")})",
+                "global::System.TimeOnly" => $"({cellExpr}.GetTime() ?? {ThrowExpr("TimeOnly")})",
+                "global::System.TimeSpan" => $"({cellExpr}.GetDuration() ?? {ThrowExpr("TimeSpan")})",
+                _ => null,
+            },
+        };
+    }
+
     private static bool HasDesignatedConstructor(INamedTypeSymbol type, TypeDeclarationSyntax syntax)
     {
         // Record primary constructor counts.
@@ -481,18 +522,56 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         sb.AppendLine("    }");
         sb.AppendLine();
 
-        // ---- ReadRows: still [Obsolete] until the read-side slice lands ---
-        const string ReadRowsObsoleteMsg =
-            "NetXlsx typed-mapping read path ships in a follow-up milestone (see docs/design.md §6.9 and CHANGELOG.md). Write-side AddRow/AddRows already work.";
+        // ---- ReadRows: real body --------------------------------------
         sb.AppendLine("    /// <summary>");
         sb.Append("    /// Reads rows from the sheet as a sequence of <see cref=\"").Append(m.FullyQualifiedName).AppendLine("\"/>.");
         sb.AppendLine("    /// </summary>");
         sb.AppendLine("    /// <param name=\"sheet\">The sheet to read from.</param>");
-        sb.AppendLine("    /// <param name=\"headerRow\">1-based header row (default <c>1</c>). Pass <c>null</c> for header-less mode.</param>");
-        sb.Append("    [global::System.Obsolete(\"").Append(ReadRowsObsoleteMsg).AppendLine("\", error: true)]");
+        sb.AppendLine("    /// <param name=\"headerRow\">1-based header row (default <c>1</c>). Header-less reading is deferred to a future milestone — pass null and a <c>NotSupportedException</c> is thrown.</param>");
         sb.Append("    public static global::System.Collections.Generic.IEnumerable<").Append(m.FullyQualifiedName).Append("> ReadRows(this global::NetXlsx.ISheet sheet, int? headerRow = 1)").AppendLine();
         sb.AppendLine("    {");
-        sb.Append("        throw new global::System.NotImplementedException(\"").Append(ReadRowsObsoleteMsg).AppendLine("\");");
+        sb.AppendLine("        if (sheet is null) throw new global::System.ArgumentNullException(nameof(sheet));");
+        sb.AppendLine("        if (!headerRow.HasValue)");
+        sb.AppendLine("            throw new global::System.NotSupportedException(\"Header-less ReadRows is deferred to v2 (decision I-46). Supply a header row.\");");
+        sb.AppendLine();
+        sb.AppendLine("        var headerRowIndex = headerRow.Value;");
+        sb.AppendLine("        var headerRowObj = sheet.Row(headerRowIndex);");
+        sb.AppendLine("        var headerColumns = new global::System.Collections.Generic.Dictionary<string, int>(global::System.StringComparer.OrdinalIgnoreCase);");
+        sb.AppendLine("        for (int hc = 1; hc <= global::NetXlsx.CellAddress.MaxColumn; hc++)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var headerCell = headerRowObj.Cell(hc);");
+        sb.AppendLine("            if (headerCell.Kind == global::NetXlsx.CellKind.Empty) break;");
+        sb.AppendLine("            headerColumns[headerCell.GetString()] = hc;");
+        sb.AppendLine("        }");
+        sb.AppendLine();
+        // Resolve each mapped property's column via [Column(Name)] -> header lookup.
+        foreach (var p in writableProps)
+        {
+            var headerName = p.Column!.HeaderName.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            sb.Append("        if (!headerColumns.TryGetValue(\"").Append(headerName).Append("\", out int col_").Append(p.Name).AppendLine("))");
+            sb.Append("            throw new global::NetXlsx.WorkbookException(\"Header '").Append(headerName).AppendLine("' not found in header row.\");");
+        }
+        sb.AppendLine();
+        sb.AppendLine("        var lastRow0 = sheet.Underlying.LastRowNum;   // NPOI 0-based");
+        sb.AppendLine("        for (int r = headerRowIndex + 1; r <= lastRow0 + 1; r++)");
+        sb.AppendLine("        {");
+        sb.AppendLine("            var row = sheet.Row(r);");
+        // End-of-data heuristic: row is fully empty for the mapped columns.
+        sb.AppendLine("            bool anyMappedCellHasValue = false;");
+        foreach (var p in writableProps)
+        {
+            sb.Append("            if (row.Cell(col_").Append(p.Name).AppendLine(").Kind != global::NetXlsx.CellKind.Empty) anyMappedCellHasValue = true;");
+        }
+        sb.AppendLine("            if (!anyMappedCellHasValue) continue;");
+        sb.AppendLine();
+        sb.Append("            yield return new ").Append(m.FullyQualifiedName).AppendLine();
+        sb.AppendLine("            {");
+        foreach (var p in writableProps)
+        {
+            sb.Append("                ").Append(p.Name).Append(" = ").Append(FormatReadExpression(p, "row")).AppendLine(",");
+        }
+        sb.AppendLine("            };");
+        sb.AppendLine("        }");
         sb.AppendLine("    }");
 
         sb.AppendLine("}");

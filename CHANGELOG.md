@@ -9,6 +9,43 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.5 ReadRows slice — typed-mapping read path
+The other half of `[Worksheet]` source-gen. `ReadRows` was the last
+generator method still emitted behind `[Obsolete(error: true)]`;
+that decoration is gone, and the body resolves headers + yields
+records typed through the property map.
+
+- **`Row_SheetExtensions.ReadRows(this ISheet, int? headerRow = 1)`**
+  is now a real method. Body:
+  1. Resolves the header row into a case-insensitive
+     `Dictionary<string, int>` (matches design's culture rule).
+  2. Looks up each `[Column(Name)]`-mapped property against the
+     header map; throws `WorkbookException` if any header is missing.
+  3. Iterates from `headerRow + 1` to the sheet's last row.
+  4. For each row, checks if any mapped column has a value; skips
+     fully-empty rows (continues — doesn't break, so an empty row
+     in the middle is not the end-of-data marker).
+  5. Yields `new T { ... }` with each property converted via the
+     appropriate `GetX` cell-read + cast.
+- **Conversion table** (per property type → cell-read expression):
+  string → `GetString()`; bool → `GetBool() ?? throw`; numeric
+  types → `GetNumber() ?? throw` with appropriate cast; DateTime
+  → `GetDate() ?? throw`; DateOnly → `GetDateOnly() ?? throw`;
+  TimeOnly → `GetTime() ?? throw`; TimeSpan → `GetDuration() ?? throw`.
+  Required cells missing the expected value throw
+  `WorkbookException` citing row + column-name + expected type.
+- **Header-less mode deferred** (decision I-46): passing
+  `headerRow: null` throws `NotSupportedException` with a "deferred
+  to v2" message rather than silently doing the wrong thing.
+- **Cookbook recipe 4 — `TypedImport`**. Round-trip recipe: writes a
+  dataset via `TypedExport`'s path, reopens, reads back via the
+  generated `ReadRows` extension. Golden-file test asserts the
+  parsed records equal the input via `BeEquivalentTo`.
+- Generator emission tests updated: `[Obsolete]` checks replaced with
+  positive assertions ("ReadRows has a real body", "CS0619 no longer
+  fires on calls"). The "no `[Obsolete]` in emitted output" assertion
+  applies to the whole generated file now.
+
 ### v0.4.x small decisions batch (post-styling)
 Three small concrete decisions from the design that hadn't been
 implemented yet, plus the cookbook recipe each unblocks.

@@ -93,8 +93,10 @@ public partial class Row
     }
 
     [Fact]
-    public void Emitted_ReadRows_Is_Still_Obsolete_Error_Until_Read_Slice()
+    public void Emitted_ReadRows_Has_Real_Body_No_Longer_Obsolete()
     {
+        // v0.5.x: ReadRows landed; the [Obsolete(error: true)] decoration
+        // is gone, and the body resolves headers + yields records.
         const string src = @"
 using NetXlsx;
 namespace T;
@@ -106,26 +108,21 @@ public partial class Row
         var output = GeneratorHarness.Run(src);
         var generated = string.Concat(output.GeneratedSources.Select(s => s.Source));
 
-        // ReadRows is the only [Obsolete]-decorated method in v0.3.x.
         generated.Should().Contain("ReadRows(");
-        generated.Should().Contain("[global::System.Obsolete(",
-            "ReadRows ships behind [Obsolete(error:true)] until the read-side slice");
-        generated.Should().Contain("error: true");
-
-        // And AddRow does NOT carry an [Obsolete] decoration.
-        var addRowIdx = generated.IndexOf("public static void AddRow(", System.StringComparison.Ordinal);
-        addRowIdx.Should().BeGreaterThan(0);
-        // The closest preceding 100 chars should hold the doc-comment closer
-        // but NOT an [Obsolete] attribute.
-        var beforeAddRow = generated.Substring(System.Math.Max(0, addRowIdx - 100), System.Math.Min(100, addRowIdx));
-        beforeAddRow.Should().NotContain("[global::System.Obsolete(");
+        // No [Obsolete] anywhere in the file now.
+        generated.Should().NotContain("[global::System.Obsolete(",
+            "all emitted methods now have real bodies");
+        // ReadRows uses the header-resolution shape we designed.
+        generated.Should().Contain("headerColumns.TryGetValue");
+        generated.Should().Contain("yield return new global::T.Row");
     }
 
     [Fact]
-    public void Calling_ReadRows_Produces_CS0619_Compile_Error()
+    public void Calling_ReadRows_No_Longer_Produces_CS0619()
     {
         const string src = @"
 using System.Collections.Generic;
+using System.Linq;
 using NetXlsx;
 namespace T;
 
@@ -140,8 +137,8 @@ public static class Consumer
     public static IEnumerable<Row> Use(ISheet sheet) => Row_SheetExtensions.ReadRows(sheet);
 }";
         var output = GeneratorHarness.Run(src);
-        output.CompilationDiagnostics.Should().Contain(d => d.Id == "CS0619",
-            "calling an [Obsolete(error: true)] method must produce CS0619 at compile time");
+        output.CompilationDiagnostics.Should().NotContain(d => d.Id == "CS0619",
+            "ReadRows is now a real method, not an obsolete stub");
     }
 
     [Fact]

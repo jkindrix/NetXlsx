@@ -17,6 +17,7 @@ public static class Program
         ("hello-workbook", HelloWorkbook.Run),
         ("tabular-export", TabularExport.Run),
         ("typed-export", TypedExport.Run),
+        ("typed-import", TypedImport.Run),
         ("time-and-duration", TimeAndDuration.Run),
         ("styled-report", StyledReport.Run),
         ("cell-errors", CellErrors.Run),
