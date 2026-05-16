@@ -60,10 +60,18 @@ internal sealed class XssfCell : ICell
         }
     }
 
+    /// <summary>Excel hard limit on cell text length (decision #37 / §7.6).</summary>
+    private const int MaxCellTextLength = 32_767;
+
     public void SetString(string value)
     {
         _workbook.ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(value);
+        if (value.Length > MaxCellTextLength)
+        {
+            throw new ResourceLimitExceededException(
+                "cell text length", MaxCellTextLength, value.Length);
+        }
         _underlying.SetCellValue(value);
     }
 
@@ -238,6 +246,34 @@ internal sealed class XssfCell : ICell
         var num = GetNumber();
         return num is null ? null : TimeSpan.FromDays(num.Value);
     }
+
+    public CellError? GetError()
+    {
+        _workbook.ThrowIfDisposed();
+        var type = _underlying.CellType;
+        if (type == CellType.Error)
+        {
+            return MapNpoiErrorCode(_underlying.ErrorCellValue);
+        }
+        if (type == CellType.Formula && _underlying.CachedFormulaResultType == CellType.Error)
+        {
+            return MapNpoiErrorCode(_underlying.ErrorCellValue);
+        }
+        return null;
+    }
+
+    private static CellError MapNpoiErrorCode(byte code) => code switch
+    {
+        0x00 => CellError.Null,         // #NULL!
+        0x07 => CellError.DivByZero,    // #DIV/0!
+        0x0F => CellError.Value,        // #VALUE!
+        0x17 => CellError.Ref,          // #REF!
+        0x1D => CellError.Name,         // #NAME?
+        0x24 => CellError.Num,          // #NUM!
+        0x2A => CellError.NotAvailable, // #N/A
+        0x2B => CellError.GettingData,  // #GETTING_DATA
+        _    => CellError.Value,        // unknown — best fallback to #VALUE!
+    };
 
     public ICell Style(CellStyle style)
     {

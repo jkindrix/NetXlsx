@@ -62,3 +62,28 @@ public sealed class MalformedFileException : WorkbookException
     /// <summary>Creates a new <see cref="MalformedFileException"/> with inner exception.</summary>
     public MalformedFileException(string message, Exception innerException) : base(message, innerException) { }
 }
+
+/// <summary>
+/// Thrown when a write would exceed an Excel hard limit — cell text
+/// over 32,767 characters, row index past 1,048,576, column past XFD
+/// (16,384) — per decision #37 / §7.6. Fail loud rather than silently
+/// truncate or wrap.
+/// </summary>
+public sealed class ResourceLimitExceededException : WorkbookException
+{
+    /// <summary>The limit's name (e.g. <c>"cell text length"</c>).</summary>
+    public string LimitName { get; }
+    /// <summary>The maximum allowed value.</summary>
+    public long Limit { get; }
+    /// <summary>The actual value that triggered the failure.</summary>
+    public long Actual { get; }
+
+    /// <summary>Creates a new <see cref="ResourceLimitExceededException"/>.</summary>
+    public ResourceLimitExceededException(string limitName, long limit, long actual)
+        : base($"Excel hard limit exceeded — {limitName}: {actual} exceeds maximum {limit}.")
+    {
+        LimitName = limitName;
+        Limit = limit;
+        Actual = actual;
+    }
+}

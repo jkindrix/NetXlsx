@@ -36,6 +36,31 @@ public enum CellKind
 }
 
 /// <summary>
+/// Excel error code, surfaced via <see cref="ICell.GetError"/>
+/// (decision #49 / design §6.4). Matches the eight standard Excel
+/// formula errors.
+/// </summary>
+public enum CellError
+{
+    /// <summary><c>#NULL!</c> — intersection of two ranges that do not intersect.</summary>
+    Null,
+    /// <summary><c>#DIV/0!</c> — division by zero.</summary>
+    DivByZero,
+    /// <summary><c>#VALUE!</c> — wrong type of operand.</summary>
+    Value,
+    /// <summary><c>#REF!</c> — reference is not valid.</summary>
+    Ref,
+    /// <summary><c>#NAME?</c> — unrecognized name in a formula.</summary>
+    Name,
+    /// <summary><c>#NUM!</c> — invalid numeric value.</summary>
+    Num,
+    /// <summary><c>#N/A</c> — value is not available.</summary>
+    NotAvailable,
+    /// <summary><c>#GETTING_DATA</c> — data fetching error from external source.</summary>
+    GettingData,
+}
+
+/// <summary>
 /// Represents an Excel workbook.
 /// </summary>
 public interface IWorkbook : IDisposable
@@ -327,6 +352,12 @@ public interface ICell
 
     /// <summary>Returns the cell's current style as a value record.</summary>
     CellStyle GetStyle();
+
+    /// <summary>
+    /// Returns the cell's Excel error code if it is an error cell (or a
+    /// formula cell whose cached result is an error), otherwise <c>null</c>.
+    /// </summary>
+    CellError? GetError();
 
     /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFCell</c>.

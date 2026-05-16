@@ -167,6 +167,45 @@ public static class Workbook
         return sanitized;
     }
 
+    /// <summary>
+    /// Returns <paramref name="proposed"/> if no sheet with that name
+    /// exists in <paramref name="workbook"/> (case-insensitive); otherwise
+    /// returns <c>"<paramref name="proposed"/> (2)"</c>, <c>"(3)"</c>, etc.
+    /// until an unused name is found. Truncates to the 31-character limit
+    /// while preserving the disambiguating suffix.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    public static string SuggestSheetName(IWorkbook workbook, string proposed)
+    {
+        ArgumentNullException.ThrowIfNull(workbook);
+        ArgumentNullException.ThrowIfNull(proposed);
+
+        var sanitized = SanitizeSheetName(proposed);
+        if (!workbook.TryGetSheet(sanitized, out _))
+            return sanitized;
+
+        for (int suffix = 2; suffix < 10_000; suffix++)
+        {
+            var suffixStr = $" ({suffix.ToString(System.Globalization.CultureInfo.InvariantCulture)})";
+            var maxBaseLen = MaxSheetNameLength - suffixStr.Length;
+            var baseName = sanitized.Length > maxBaseLen
+                ? sanitized.Substring(0, maxBaseLen)
+                : sanitized;
+            var candidate = baseName + suffixStr;
+            if (!workbook.TryGetSheet(candidate, out _))
+                return candidate;
+        }
+
+        // Effectively unreachable under any realistic workbook (10k+
+        // identical sheet-name attempts). Fall through to a GUID-tagged
+        // candidate so the method has a defined exit even at the limit.
+        var fallbackTag = Guid.NewGuid().ToString("N").Substring(0, 8);
+        var fallbackBase = sanitized.Length > MaxSheetNameLength - 9
+            ? sanitized.Substring(0, MaxSheetNameLength - 9)
+            : sanitized;
+        return fallbackBase + "_" + fallbackTag;
+    }
+
     internal static void ValidateSheetName(string name)
     {
         if (name is null) throw new SheetNameException("<null>", "sheet name is null");

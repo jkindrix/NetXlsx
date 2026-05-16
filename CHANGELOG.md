@@ -9,6 +9,42 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.4.x small decisions batch (post-styling)
+Three small concrete decisions from the design that hadn't been
+implemented yet, plus the cookbook recipe each unblocks.
+
+- **`CellError` enum + `ICell.GetError()`** (decision #49). Eight
+  standard Excel error codes (#NULL!, #DIV/0!, #VALUE!, #REF!, #NAME?,
+  #NUM!, #N/A, #GETTING_DATA). Maps NPOI's byte error codes to the
+  typed enum. Returns null for non-error cells; surfaces error from
+  formula cells with cached error results.
+- **`Workbook.SuggestSheetName(IWorkbook, string)`** (design line 160).
+  Returns the proposed name verbatim when unused; otherwise appends
+  ` (2)`, ` (3)`, … until an unused name is found. Sanitizes invalid
+  characters first. Truncates to 31 chars while preserving the
+  disambiguating suffix. Case-insensitive collision detection
+  (matches `AddSheet`'s duplicate rule).
+- **Excel hard-limit enforcement on `SetString`** (decision #37 / §7.6).
+  New `ResourceLimitExceededException` carries `LimitName` / `Limit` /
+  `Actual`. Writes at exactly 32,767 chars succeed; one more throws.
+  Hard limits for rows / columns are already enforced via
+  `CellAddress.MaxRow` / `MaxColumn`; full `WorkbookOptions` for
+  configurable limits is a follow-up.
+- **Cookbook recipe 13 — `CellErrors`** (design §8.1). Writes seven
+  Excel error codes — `#GETTING_DATA` is producible only by Excel's
+  own evaluator from external data, not by NPOI's `SetCellErrorValue`
+  — and demonstrates the read-side `GetError()` classification. The
+  enum value remains in the API for files Excel authored.
+
+Findings worth noting (captured for future implementation-notes):
+- NPOI's `SetCellErrorValue` whitelists only seven of the eight codes;
+  `#GETTING_DATA` (0x2B) throws `"Unknown error type: 43"`. Doesn't
+  prevent reading it from real Excel files.
+- The formula-cell-with-cached-error path through `GetError()` exists
+  in code but requires the formula evaluator to materialize the cached
+  state — out of scope for a unit test. Real-world Excel-authored
+  workbooks exercise it.
+
 ### v0.4 styling slice
 - **`Color` value type** (decision #29). Owned ARGB record struct, no
   `System.Drawing.Common` dependency. `FromRgb` / `FromArgb` / `FromHex` /

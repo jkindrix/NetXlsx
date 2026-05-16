@@ -133,6 +133,10 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "GetDateOnly", (Action<ICell>)(c => c.GetDateOnly()) };
         yield return new object[] { "GetTime", (Action<ICell>)(c => c.GetTime()) };
         yield return new object[] { "GetDuration", (Action<ICell>)(c => c.GetDuration()) };
+        yield return new object[] { "GetError", (Action<ICell>)(c => c.GetError()) };
+        yield return new object[] { "Style", (Action<ICell>)(c => c.Style(CellStyle.Default)) };
+        yield return new object[] { "NumberFormat", (Action<ICell>)(c => c.NumberFormat("0.00")) };
+        yield return new object[] { "GetStyle", (Action<ICell>)(c => c.GetStyle()) };
     }
 
     [Theory]

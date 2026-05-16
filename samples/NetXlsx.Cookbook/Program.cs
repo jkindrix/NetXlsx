@@ -19,6 +19,7 @@ public static class Program
         ("typed-export", TypedExport.Run),
         ("time-and-duration", TimeAndDuration.Run),
         ("styled-report", StyledReport.Run),
+        ("cell-errors", CellErrors.Run),
     };
 
     public static async Task<int> Main(string[] args)
