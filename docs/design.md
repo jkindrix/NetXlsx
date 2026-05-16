@@ -835,7 +835,7 @@ The decisions in §3 govern the API and contracts. The decisions below govern th
 | S13 | Symbol packages                | `.snupkg` published alongside `.nupkg`                                       | Debugging across package boundaries                                |
 | S14 | Source Link                    | Enabled (`Microsoft.SourceLink.GitHub` or equivalent for github.com/jkindrix)  | Step-into-source from consumers                                    |
 | S15 | Deterministic builds           | Enabled (`<Deterministic>true</Deterministic>`, `ContinuousIntegrationBuild=true` on CI) | Reproducible binaries; verifiable across machines             |
-| S16 | Analyzer diagnostic ID prefix  | `NXLS` (e.g., `NXLS0001`)                                            | Identifiable; no clashes with common Microsoft prefixes             |
+| S16 | Diagnostic ID scheme           | Unified `NXLS<NNNN>` 4-digit format with documented ranges per category: `0001-0099` source-generator diagnostics, `0100-0199` MSBuild build-time guards, `0200-0299` reserved for Roslyn analyzers (v2+), `0300+` reserved | Identifiable; no clashes with common Microsoft prefixes; single uniform format avoids the dual-scheme renumbering churn the alternative (`NXLSAOT001` vs `NXLS0001`) would invite |
 
 ### 9.3 CI / process
 
@@ -856,7 +856,7 @@ The decisions in §3 govern the API and contracts. The decisions below govern th
 | S24 | XML docs                       | Mandatory on every public symbol; CI fails on missing                         | Quality gate from §5                                               |
 | S25 | API documentation site         | Deferred to v1.1 (DocFX); v1.0 ships in-repo markdown only                   | Internal use first; site can come later                            |
 | S26 | NPOI workaround catalog        | `docs/npoi-workarounds.md`, populated as workarounds are discovered           | Surfaces NPOI bugs we route around; informs future upstream PRs    |
-| S27 | AOT/trim consumer build guard  | `buildTransitive/NetXlsx.targets` shipped in nupkg emits MSBuild errors `NXLSAOT001` (PublishAot) and `NXLSAOT002` (PublishTrimmed). Latter has `<NetXlsxAllowTrimmed>true</…>` escape hatch | Enforce decision I2 at build time rather than relying on runtime failure; added 2026-05-16 |
+| S27 | AOT/trim consumer build guard  | `buildTransitive/NetXlsx.targets` shipped in nupkg emits MSBuild errors `NXLS0100` (`PublishAot`) and `NXLS0101` (`PublishTrimmed`). Latter has `<NetXlsxAllowTrimmed>true</…>` escape hatch. IDs fall in the `0100-0199` MSBuild-guard range per S16 | Enforce decision I2 at build time rather than relying on runtime failure; added 2026-05-16, IDs unified 2026-05-16 |
 | S28 | Analyzer suppressions          | `.editorconfig` suppresses `CA1716` (Set vs VB keyword), `CA1720` (CellKind.String), `RS0026` (intentional optional-param overloads). Each suppression has an inline rationale comment | C#-only internal library; design uses identifiers/patterns these rules consider ambiguous in other languages |
 | S29 | Date-time default style cache  | `XssfWorkbook` holds a lazy per-workbook cache of four format-only `ICellStyle` instances (date / datetime / time / duration). NOT the full §4 style pool — interim until the styling-API slice lands. Composes cleanly: the four cached styles will register as dedup entries once the pool exists | Avoid per-cell style allocation in the date/time slice without blocking on the full pool |
 

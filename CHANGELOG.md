@@ -9,6 +9,27 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Diagnostic ID scheme unified (2026-05-16)
+External review #N+1 flagged the dual diagnostic ID format: source-gen
+diagnostics used `NXLS<NNNN>` (4-digit) while MSBuild build-time
+guards used `NXLSAOT<NNN>` (category-prefix + 3-digit). Reviewer
+warned this would compromise on the next category added; easier to
+unify now than after publication.
+
+- Renamed `NXLSAOT001` -> `NXLS0100` (PublishAot guard).
+- Renamed `NXLSAOT002` -> `NXLS0101` (PublishTrimmed guard).
+- Updated `buildTransitive/NetXlsx.targets`, README banner, design
+  decision S27. Decision S16 (the ID-prefix decision) rewritten to
+  document the range scheme:
+  - `0001-0099` source-generator diagnostics
+  - `0100-0199` MSBuild build-time guards
+  - `0200-0299` reserved for Roslyn analyzers (v2+)
+  - `0300+` reserved
+
+No code logic changed; only the strings exposed to consumers. The
+codes that previously shipped as `NXLSAOT001/2` only ever shipped
+in v0.x preview packages, so there are no v1.0 consumers to break.
+
 ### v0.5 ReadRows slice — typed-mapping read path
 The other half of `[Worksheet]` source-gen. `ReadRows` was the last
 generator method still emitted behind `[Obsolete(error: true)]`;

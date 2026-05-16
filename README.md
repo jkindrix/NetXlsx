@@ -7,7 +7,7 @@ Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating 
 ## Requirements & known limitations
 
 > **⚠ Not compatible with `PublishAot=true` or `PublishTrimmed=true`.**
-> The engine (NPOI 2.7.x) uses `System.Xml.Serialization` and `System.Reflection.Emit` paths that AOT and trim cannot satisfy — measured by [spike 4](spikes/results/spike-4-aot-trim.md). A build-time guard ships with the package: setting either property emits MSBuild error `NXLSAOT001` / `NXLSAOT002`. The block will lift when NPOI removes those dependencies (track NPOI 3.x).
+> The engine (NPOI 2.7.x) uses `System.Xml.Serialization` and `System.Reflection.Emit` paths that AOT and trim cannot satisfy — measured by [spike 4](spikes/results/spike-4-aot-trim.md). A build-time guard ships with the package: setting either property emits MSBuild error `NXLS0100` / `NXLS0101`. The block will lift when NPOI removes those dependencies (track NPOI 3.x).
 
 > **Typed-mapping methods are emitted but not yet executable.** `[Worksheet]`-generated extension methods (`AddRow` / `AddRows` / `ReadRows`) are decorated `[Obsolete(error: true)]` in v0.2.0 — calling them produces a CS0619 compile error pointing to the milestone in which their bodies land. The generator infrastructure, diagnostic catalog (`NXLS0001`–`NXLS0006`), and emitted signatures are all in place; the body wiring follows `ISheet.AppendRow` in a subsequent slice.
 
