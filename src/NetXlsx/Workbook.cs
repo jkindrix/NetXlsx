@@ -30,38 +30,27 @@ public static class Workbook
     public static IWorkbook Open(string path)
     {
         ArgumentNullException.ThrowIfNull(path);
+
+        // FileNotFoundException / DirectoryNotFoundException / UnauthorizedAccessException
+        // are all standard I/O exceptions and should propagate verbatim — they are not
+        // "the file is malformed" failures, they are "the file isn't accessible" failures.
+        var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         try
         {
-            // NPOI's XSSFWorkbook(string) opens read-only; for read-write we
-            // pass a FileStream we own to ensure write-back works at Save().
-            var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-            try
-            {
-                var underlying = new XSSFWorkbook(fs);
-                return new XssfWorkbook(underlying);
-            }
-            catch (Exception ex)
-            {
-                fs.Dispose();
-                throw new MalformedFileException($"Failed to open '{path}' as .xlsx", ex);
-            }
-            finally
-            {
-                // NPOI copies the stream content into memory; we can release ours.
-                fs.Dispose();
-            }
+            var underlying = new XSSFWorkbook(fs);
+            return new XssfWorkbook(underlying);
         }
-        catch (FileNotFoundException)
-        {
-            throw;
-        }
-        catch (MalformedFileException)
-        {
-            throw;
-        }
-        catch (Exception ex) when (ex is not WorkbookException)
+        catch (Exception ex) when (IsKnownMalformedOpenException(ex))
         {
             throw new MalformedFileException($"Failed to open '{path}' as .xlsx", ex);
+        }
+        // Other exceptions (OOM, StackOverflow, ArgumentException from BCL,
+        // OperationCanceledException, etc.) propagate verbatim. They indicate
+        // bugs, resource exhaustion, or programmer error — not malformed input.
+        finally
+        {
+            // NPOI copies stream content into memory; we can release ours.
+            fs.Dispose();
         }
     }
 
@@ -82,14 +71,47 @@ public static class Workbook
             var underlying = new XSSFWorkbook(stream);
             return new XssfWorkbook(underlying);
         }
-        catch (Exception ex) when (ex is not WorkbookException)
+        catch (Exception ex) when (IsKnownMalformedOpenException(ex))
         {
             throw new MalformedFileException("Stream content is not a valid .xlsx workbook.", ex);
         }
+        // Other exceptions (OOM, StackOverflow, BCL ArgumentException,
+        // OperationCanceledException, etc.) propagate verbatim.
         finally
         {
             if (!leaveOpen) stream.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Filter used to decide whether an exception thrown by NPOI's
+    /// <c>XSSFWorkbook(Stream)</c> constructor represents a malformed
+    /// input. Whitelists the NPOI / OPC / IO exception types that can
+    /// actually mean "this is not a valid .xlsx." Excludes
+    /// <see cref="OutOfMemoryException"/>, <see cref="StackOverflowException"/>,
+    /// <see cref="OperationCanceledException"/>, and everything else that
+    /// indicates a runtime / programmer fault rather than bad data.
+    /// </summary>
+    private static bool IsKnownMalformedOpenException(Exception ex)
+    {
+        // Don't classify our own exceptions as malformed-input.
+        if (ex is WorkbookException) return false;
+        // Critical runtime exceptions propagate verbatim.
+        if (ex is OutOfMemoryException or StackOverflowException or OperationCanceledException) return false;
+
+        // NPOI throws these for OOXML / OPC / underlying-zip failures.
+        // Identified by namespace string to avoid taking a hard reference
+        // on every internal NPOI exception type (some are nested).
+        var typeName = ex.GetType().FullName ?? string.Empty;
+        if (typeName.StartsWith("NPOI.", StringComparison.Ordinal)) return true;
+        if (typeName.StartsWith("ICSharpCode.SharpZipLib.", StringComparison.Ordinal)) return true;
+
+        // BCL exceptions consistent with bad-input on this code path.
+        return ex is System.IO.InvalidDataException
+            or System.IO.IOException
+            or System.IO.EndOfStreamException
+            or System.Xml.XmlException
+            or FormatException;
     }
 
     /// <summary>Asynchronously opens an existing <c>.xlsx</c> workbook from a path.</summary>

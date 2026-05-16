@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Xunit;
@@ -127,6 +128,44 @@ public class WorkbookRoundTripTests
         wb.Dispose();
         Action again = () => wb.Dispose();
         again.Should().NotThrow();
+    }
+
+    [Fact]
+    public async Task Concurrent_AddSheet_Throws_InvalidOperationException()
+    {
+        // Decision #43: workbooks are not thread-safe, but we detect
+        // concurrent mutation rather than letting it silently corrupt.
+        // Drive two threads racing on AddSheet and assert at least one
+        // sees InvalidOperationException.
+        using var wb = Workbook.Create();
+
+        const int iterations = 200;
+        var caughtConcurrent = 0;
+        await Task.WhenAll(
+            Task.Run(() =>
+            {
+                for (int i = 0; i < iterations; i++)
+                {
+                    try { wb.AddSheet($"A_{i}"); }
+                    catch (InvalidOperationException) { Interlocked.Increment(ref caughtConcurrent); }
+                    catch (SheetNameException) { /* duplicate from racing thread — ignore */ }
+                }
+            }),
+            Task.Run(() =>
+            {
+                for (int i = 0; i < iterations; i++)
+                {
+                    try { wb.AddSheet($"B_{i}"); }
+                    catch (InvalidOperationException) { Interlocked.Increment(ref caughtConcurrent); }
+                    catch (SheetNameException) { /* duplicate from racing thread — ignore */ }
+                }
+            }));
+
+        // Detection is best-effort by design (it's not a lock), but with
+        // 400 racing mutations on a tight loop we should observe at least
+        // one detected collision.
+        caughtConcurrent.Should().BeGreaterThan(0,
+            "concurrent AddSheet calls should trigger the reentry-counter detection at least once");
     }
 
     [Fact]

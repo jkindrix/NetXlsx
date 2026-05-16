@@ -18,6 +18,12 @@ internal sealed class XssfWorkbook : IWorkbook
     private readonly Dictionary<string, XssfSheet> _sheetsByName = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<XssfSheet> _sheetsByIndex = new();
     private bool _disposed;
+    // Decision #43: workbooks are not thread-safe, but we detect concurrent
+    // mutation via a non-locking reentry counter. A thread entering a
+    // mutating operation increments _inMutation atomically; if another
+    // thread sees a non-zero value when it tries to mutate, it throws
+    // InvalidOperationException instead of silently corrupting state.
+    private int _inMutation;
 
     public XssfWorkbook(XSSFWorkbook underlying)
     {
@@ -63,6 +69,7 @@ internal sealed class XssfWorkbook : IWorkbook
     public ISheet AddSheet(string name)
     {
         ThrowIfDisposed();
+        using var _ = EnterMutation();
         Workbook.ValidateSheetName(name);
         if (_sheetsByName.ContainsKey(name))
             throw new SheetNameException(name, "a sheet with this name already exists (case-insensitive)");
@@ -133,5 +140,39 @@ internal sealed class XssfWorkbook : IWorkbook
     internal void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, nameof(IWorkbook));
+    }
+
+    /// <summary>
+    /// Begins a mutating operation scope. Returns an <see cref="IDisposable"/>
+    /// that decrements the reentry counter on dispose. If another thread is
+    /// already inside a mutation when this is called, throws
+    /// <see cref="InvalidOperationException"/> per decision #43.
+    /// </summary>
+    /// <remarks>
+    /// This is not a lock: nested same-thread mutations are also detected
+    /// (the counter is process-global per workbook). That's a feature —
+    /// nested mutations from a single thread (e.g., a callback within a
+    /// fluent chain that mutates the workbook recursively) are equally
+    /// undefined and rejected. Cell-level writes via <see cref="ICell"/>
+    /// do not enter this scope; the counter guards higher-level structural
+    /// mutations (AddSheet, future Add/RemoveRow, etc.) where the read of
+    /// internal collections during another thread's mutation would corrupt.
+    /// </remarks>
+    internal MutationScope EnterMutation()
+    {
+        if (Interlocked.CompareExchange(ref _inMutation, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "Concurrent or reentrant mutation detected on IWorkbook. " +
+                "Workbooks are not thread-safe (decision #43); serialize access externally.");
+        }
+        return new MutationScope(this);
+    }
+
+    internal readonly struct MutationScope : IDisposable
+    {
+        private readonly XssfWorkbook _owner;
+        public MutationScope(XssfWorkbook owner) { _owner = owner; }
+        public void Dispose() => Interlocked.Exchange(ref _owner._inMutation, 0);
     }
 }
