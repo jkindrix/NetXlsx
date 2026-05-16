@@ -9,6 +9,18 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Pre-styling cleanup (2026-05-16)
+- `DisposedWorkbookMatrixTests` — parameterized matrix systematically
+  verifying every public mutating member on `IWorkbook` / `ISheet` /
+  `IRow` / `ICell` throws `ObjectDisposedException` after the owning
+  workbook is disposed (decision #42). +55 cases. Adding a new public
+  member is now a one-line `yield return` in the appropriate
+  `MemberData`, not a copy-paste.
+- `docs/scheduled-spikes.md` — quarterly cadence for re-checking NPOI's
+  AOT/trim posture (spike 4-Q). Records past + future runs in a single
+  table; documents promotion/demotion rules. Reviewer's recommendation
+  #4 from the 2026-05-16 pass.
+
 ### Design-doc sync (2026-05-16)
 Migrated three implementation-time additions from `implementation-notes.md`
 up into `design.md` proper, per the methodology rule that load-bearing
