@@ -37,6 +37,27 @@ changes (decision I19).
   - `CellKind` enum: `Empty / String / Number / Date / Bool / Formula / Error`.
 - Deleted `Placeholder.cs` — first real types replaced it as planned.
 
+### Cookbook recipes 1-2 (executable + golden-file tested)
+- `HelloWorkbook` recipe — string / number / decimal / bool round-trip
+  through the v0.2.0 cell API. Tested via both NetXlsx reopen *and*
+  direct NPOI read-back (catches writer-only-bug class of issues).
+- `TabularExport` recipe — writes N records as rows of cells using the
+  current `sheet["A{r}"]` indexer. Deliberately clunky at scale; the
+  awkwardness is documented in the recipe itself as the load-bearing
+  motivation for the next slice's `IRow` API.
+- Cookbook executable dispatches recipes by name:
+  `dotnet run --project samples/NetXlsx.Cookbook -- hello-workbook /tmp/out.xlsx`
+- `tests/NetXlsx.GoldenFiles/Recipes/` invokes the same recipe
+  classes the executable does (project reference, not code duplication).
+- Recipes added 5 new tests (2 HelloWorkbook + 3 TabularExport).
+  Total: 70 tests on each TFM.
+
+### Ergonomics gap surfaced (logged for next slice)
+- `cell.SetNumber(42)` is ambiguous between the `double` and `decimal`
+  overloads — a real call-site footgun for integer-literal cases. Likely
+  resolution: add `SetNumber(int)` / `SetNumber(long)` overloads on
+  `ICell`. Logged in implementation-notes for the IRow slice.
+
 ### Known limitations of v0.2.0 vertical slice
 - No `[r,c]` cell indexer yet (only `["A1"]`); arrives with the row /
   column / range API.

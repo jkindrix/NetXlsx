@@ -113,6 +113,64 @@ written justification.
 
 ---
 
+## 2026-05-15 — Cookbook recipes 1-2 (post-v0.2.0)
+
+### Cookbook recipe as load-bearing executable spec
+
+The reviewer's argument played out exactly as predicted: writing
+`HelloWorkbook` against today's API was clean; writing `TabularExport`
+against it was *clunky in a specific, informative way*. The clunkiness
+is the spec gap: `sheet[$"A{r}"].SetString(...)` per cell, row index
+arithmetic in a string interpolation, no way to express "I have a row;
+fill its cells." The pattern: leave the clunkiness in, document why, let
+it motivate the next slice's interface rather than guessing what to
+build.
+
+### Recipe class as shared library between sample and test
+
+Each recipe is a `public static class Foo { public static Task Run(string path) }`.
+The cookbook executable dispatches to `Run`; the golden-file test
+project references the cookbook project and calls `Run` directly. No
+code duplication, the sample IS the test fixture, and the test catches
+any drift between "what the recipe demonstrates" and "what the recipe
+actually does."
+
+Subtle benefit: the test asserts content via *both* NetXlsx's own
+read path and a direct NPOI `XSSFWorkbook(stream)` read. If we ever
+ship a NetXlsx-write bug that produces files only NetXlsx can
+re-open, the direct-NPOI assertion catches it.
+
+### Integer-literal SetNumber ambiguity
+
+`cell.SetNumber(42)` does not compile — ambiguous between
+`SetNumber(double)` and `SetNumber(decimal)`. Both are equally-valid
+implicit conversions from `int`. This is a real call-site footgun:
+anyone writing the obvious thing hits a build error and has to pick
+`42.0` or `(decimal)42` or `42d`.
+
+Resolution (next slice): add `SetNumber(int)` and `SetNumber(long)`
+overloads. They're a strict superset of the current API — additive,
+backwards-compatible — and they remove the ambiguity for every
+integer-literal call site. The decimal vs double choice remains
+explicit for floating-point literals where the precision-loss policy
+(decision #36 / §7.4) is load-bearing.
+
+Recipe code currently uses `42.0` with an inline comment pointing to
+this note.
+
+### Cookbook recipes as canary for the analyzer set
+
+CA1859 fired on `IReadOnlyList<T>` return for a synthetic-data
+generator (suggesting `T[]` for perf). Inside a sample whose explicit
+purpose is to show idiomatic NetXlsx usage, the noise:signal ratio
+is borderline. We took the rule's suggestion (changed to `T[]`) because
+the cookbook is also a test fixture — perf rules matter there. If
+recipes grow to demonstrate idiomatic *consumer* patterns where
+`IReadOnlyList` is preferred, we'd suppress CA1859 specifically in
+`samples/`.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After
