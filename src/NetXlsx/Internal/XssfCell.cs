@@ -100,6 +100,46 @@ internal sealed class XssfCell : ICell
         _underlying.SetCellValue(value);
     }
 
+    public void SetDate(DateTime value)
+    {
+        _workbook.ThrowIfDisposed();
+        // Decision I17: stored verbatim; no timezone conversion.
+        _underlying.SetCellValue(value);
+        ApplyDefaultStyleIfUnstyled(_workbook.DateTimeStyle);
+    }
+
+    public void SetDate(DateOnly value)
+    {
+        _workbook.ThrowIfDisposed();
+        _underlying.SetCellValue(value.ToDateTime(TimeOnly.MinValue));
+        ApplyDefaultStyleIfUnstyled(_workbook.DateStyle);
+    }
+
+    public void SetTime(TimeOnly value)
+    {
+        _workbook.ThrowIfDisposed();
+        // TimeOnly is in [00:00:00, 24:00:00) — stored as fraction-of-day.
+        var fractionOfDay = value.ToTimeSpan().TotalDays;
+        _underlying.SetCellValue(fractionOfDay);
+        ApplyDefaultStyleIfUnstyled(_workbook.TimeStyle);
+    }
+
+    public void SetDuration(TimeSpan value)
+    {
+        _workbook.ThrowIfDisposed();
+        // Decision I15: Excel cannot render negative time.
+        if (value < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(value), value,
+                "Negative TimeSpan cannot be stored as Excel duration (decision I15). " +
+                "If a signed duration is required, store the value as a number and " +
+                "apply a custom format string via the styling API.");
+        }
+        _underlying.SetCellValue(value.TotalDays);
+        ApplyDefaultStyleIfUnstyled(_workbook.DurationStyle);
+    }
+
     public void Clear()
     {
         _workbook.ThrowIfDisposed();
@@ -169,8 +209,53 @@ internal sealed class XssfCell : ICell
         };
     }
 
+    public DateTime? GetDate()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_underlying.CellType != CellType.Numeric) return null;
+        if (!DateUtil.IsCellDateFormatted(_underlying)) return null;
+        var dt = _underlying.DateCellValue;
+        return dt is null ? null : DateTime.SpecifyKind(dt.Value, DateTimeKind.Unspecified);
+    }
+
+    public DateOnly? GetDateOnly()
+    {
+        var dt = GetDate();
+        return dt is null ? null : DateOnly.FromDateTime(dt.Value);
+    }
+
+    public TimeOnly? GetTime()
+    {
+        // §7.9: accepts any numeric cell; returns null when out of TimeOnly range.
+        var num = GetNumber();
+        if (num is null) return null;
+        if (num.Value < 0.0 || num.Value >= 1.0) return null;
+        return TimeOnly.FromTimeSpan(TimeSpan.FromDays(num.Value));
+    }
+
+    public TimeSpan? GetDuration()
+    {
+        var num = GetNumber();
+        return num is null ? null : TimeSpan.FromDays(num.Value);
+    }
+
     public XSSFCell Underlying
     {
         get { _workbook.ThrowIfDisposed(); return _underlying; }
+    }
+
+    /// <summary>
+    /// Applies <paramref name="defaultStyle"/> to the cell when it currently
+    /// carries no explicit style. Per decision I-18: a user-set style is
+    /// preserved. The workbook-default style has index 0; any explicit
+    /// style has a higher index.
+    /// </summary>
+    private void ApplyDefaultStyleIfUnstyled(ICellStyle defaultStyle)
+    {
+        var current = _underlying.CellStyle;
+        if (current is null || current.Index == 0)
+        {
+            _underlying.CellStyle = defaultStyle;
+        }
     }
 }

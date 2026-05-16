@@ -147,6 +147,48 @@ public partial class Row
     }
 
     [Fact]
+    public void NXLS0006_DateTime_Types_Are_Supported_In_Current_Slice()
+    {
+        // After the date/time slice, DateTime / DateOnly / TimeOnly /
+        // TimeSpan no longer trip NXLS0006. They map to the new
+        // ICell.SetDate / SetTime / SetDuration overloads.
+        const string src = @"
+using System;
+using NetXlsx;
+namespace T;
+[Worksheet]
+public partial class Row
+{
+    [Column(""When"")]     public DateTime When { get; set; }
+    [Column(""Day"")]      public DateOnly Day { get; set; }
+    [Column(""TimeOfDay"")] public TimeOnly TimeOfDay { get; set; }
+    [Column(""Elapsed"")]  public TimeSpan Elapsed { get; set; }
+}";
+        var output = GeneratorHarness.Run(src);
+        output.GeneratorDiagnostics.Should().NotContain(d => d.Id == "NXLS0006",
+            "DateTime/DateOnly/TimeOnly/TimeSpan are supported after the date/time slice");
+    }
+
+    [Fact]
+    public void NXLS0006_Guid_Still_Trips_Pending_Setter_Overload()
+    {
+        // Guid is acknowledged in the design but doesn't yet have an
+        // ICell.SetGuid overload — supposed to trip NXLS0006 until
+        // the corresponding setter lands.
+        const string src = @"
+using System;
+using NetXlsx;
+namespace T;
+[Worksheet]
+public partial class Row
+{
+    [Column(""Id"")] public Guid Id { get; set; }
+}";
+        var output = GeneratorHarness.Run(src);
+        output.GeneratorDiagnostics.Should().Contain(d => d.Id == "NXLS0006");
+    }
+
+    [Fact]
     public void Clean_Worksheet_Type_Produces_No_Diagnostics()
     {
         const string src = @"

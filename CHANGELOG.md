@@ -9,6 +9,31 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Added (since v0.3.0)
+- **Date / time / duration on `ICell`** — `SetDate(DateTime)`,
+  `SetDate(DateOnly)`, `SetTime(TimeOnly)`, `SetDuration(TimeSpan)`
+  plus matching `GetDate()`, `GetDateOnly()`, `GetTime()`,
+  `GetDuration()`. `IRow.Set` gains the four corresponding fluent
+  overloads. Decisions honored:
+  - I15: negative `TimeSpan` throws `ArgumentOutOfRangeException`.
+  - I17: `DateTime.Kind` stored verbatim; reads always return
+    `Kind = Unspecified`.
+  - I-18 / I-19 / §7.9: default number formats applied lazily per
+    workbook — `yyyy-mm-dd hh:mm:ss` for `DateTime`, `yyyy-mm-dd`
+    for `DateOnly`, `h:mm:ss` for `TimeOnly`, `[h]:mm:ss` for
+    `TimeSpan` (elapsed time). Explicit user-set styles are preserved
+    (decision I-18).
+  - §7.9: `GetTime()` returns `null` for fractional-day values outside
+    `[0, 1)`; `GetDuration()` accepts any numeric cell.
+- **Generator scope expanded.** `DateTime` / `DateOnly` / `TimeOnly` /
+  `TimeSpan` properties now compile cleanly on `[Worksheet]` types
+  (no more `NXLS0006`). `Guid` still trips `NXLS0006` — its
+  setter overload is a separate future slice.
+- **Cookbook recipe 12 — `TimeAndDuration`.** Demonstrates each
+  date/time/duration kind with its default format, including the
+  elapsed-time format that renders `26h` as `26:00:00` rather than
+  modulo-24h `02:00:00`.
+
 ### Added (since v0.2.0)
 - **`IRow` surface + `ISheet.AppendRow` / `Row(int)` / `[r,c]` indexer.**
   Real row API per design §6.4-§6.6. Fluent `IRow.Set(int col, T)` for

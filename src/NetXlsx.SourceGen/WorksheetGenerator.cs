@@ -195,12 +195,8 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
 
     private static bool IsSupportedPropertyType(ITypeSymbol type)
     {
-        // v0.3.x scope: the property types for which the generator can
-        // emit a write call against the IRow.Set overloads. Date/time
-        // (DateTime, DateOnly, TimeOnly, TimeSpan) and Guid types return
-        // here when their corresponding ICell methods land in a future
-        // slice — until then they trip NXLS0006 honestly.
-        return type.SpecialType switch
+        // Special types — scalars known to the runtime.
+        var bySpecial = type.SpecialType switch
         {
             SpecialType.System_String => true,
             SpecialType.System_Boolean => true,
@@ -215,8 +211,18 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             SpecialType.System_Single => true,
             SpecialType.System_Double => true,
             SpecialType.System_Decimal => true,
+            SpecialType.System_DateTime => true,
             _ => false,
         };
+        if (bySpecial) return true;
+
+        // Non-special types we model: DateOnly, TimeOnly, TimeSpan.
+        // (Guid still falls through and trips NXLS0006 — pending
+        // ICell.SetGuid in a future slice.)
+        var fullName = type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        return fullName is "global::System.DateOnly"
+            or "global::System.TimeOnly"
+            or "global::System.TimeSpan";
     }
 
     /// <summary>
@@ -244,8 +250,23 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             SpecialType.System_Double => $"record.{p.Name}",
             SpecialType.System_Single => $"(double)record.{p.Name}",
             SpecialType.System_Decimal => $"record.{p.Name}",
+            SpecialType.System_DateTime => $"record.{p.Name}",
             _ => null,
         };
+
+        // Non-special types we model (DateOnly, TimeOnly, TimeSpan) — keyed
+        // off the fully-qualified type name since they have no SpecialType.
+        if (castedExpression is null)
+        {
+            castedExpression = p.FullTypeName switch
+            {
+                "global::System.DateOnly"
+                    or "global::System.TimeOnly"
+                    or "global::System.TimeSpan" => $"record.{p.Name}",
+                _ => null,
+            };
+        }
+
         return castedExpression is null
             ? null
             : $"row.Set({columnIndex}, {castedExpression});";

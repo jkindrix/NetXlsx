@@ -260,6 +260,81 @@ when the corresponding `ICell` methods land.
 
 ---
 
+## 2026-05-16 — Date / time / duration slice
+
+### NPOI dates are numeric-with-format, not a distinct kind
+
+NPOI stores `DateTime` as an IEEE-754 double (Excel's serial date
+fraction) plus a number-format style. There is no "date type" at the
+storage layer — only "numeric with a date-shaped format string."
+`DateUtil.IsCellDateFormatted` is the classifier.
+
+A real consequence: `TimeOnly` cells (stored as fraction-of-day with
+format `h:mm:ss`) also classify as `CellKind.Date`, not
+`CellKind.Number`. The first version of the golden-file test
+expected `Number`; corrected to `Date` after the build surfaced the
+assumption. The design's `CellKind.Date` definition is precisely
+"numeric value styled with a date number format" — time formats
+satisfy that, and the API is consistent.
+
+### Lazy per-workbook style cache for the four default formats
+
+`XssfWorkbook` holds nullable backing fields `_dateStyle`,
+`_dateTimeStyle`, `_timeStyle`, `_durationStyle` and exposes them via
+expression-bodied properties that materialize on first use. Four
+styles, four properties, four format strings — and they're shared
+across every cell that needs that format.
+
+This isn't the full style-dedup pool the design specifies for v1.0
+(`§4` perf targets, decision #4); it's a *targeted* cache for the
+four formats NetXlsx applies automatically. The full dedup pool
+lands with the styling API in a future slice. The two pools won't
+conflict because the targeted cache only allocates styles whose
+format strings are NetXlsx-controlled — they're stable inputs to
+any future hash-keyed dedup.
+
+### "Apply default style only if cell has no explicit style"
+
+Decision I-18 says the workbook's default date format applies only
+when the cell carries no explicit style. The implementation reads
+the cell's current `Index`: index `0` is NPOI's workbook-default,
+anything else is explicit. The detection is simple and matches the
+spec; the test confirms a manually-set style is preserved when
+`SetDate` is called afterwards.
+
+The contract has one subtle gap: if the user sets a date-shaped
+custom style FIRST, then calls `SetDate`, our code preserves their
+style — even if they'd expected our default. This matches the
+written rule but is worth knowing. In practice, the user setting a
+style first is already opting into manual control.
+
+### `TimeOnly` range is `[0, 1)` — anything else returns null
+
+`GetTime` on a numeric cell with value `1.5` or `-0.25` returns
+`null` rather than wrapping or throwing. The TimeOnly type covers
+`00:00:00` through `23:59:59.9999999` — that's `[0, 1)` in
+fraction-of-day terms. Values outside that aren't valid times of
+day; returning `null` matches the design's "returns null for
+non-convertible cells" contract.
+
+`GetDuration` has no such restriction — `TimeSpan` happily holds
+multi-day spans.
+
+### Generator gained two non-special types via fallback path
+
+`DateOnly`, `TimeOnly`, `TimeSpan` are not Roslyn `SpecialType`
+values — they're regular types like any other. The generator's
+`IsSupportedPropertyType` and `FormatSetCall` got fallback branches
+keyed on the fully-qualified type name (`global::System.DateOnly`,
+etc.). `DateTime` stayed on the `SpecialType.System_DateTime`
+branch because it IS special.
+
+This adds a second classification path through the generator. Worth
+watching as more non-special types arrive (Guid will follow the same
+pattern when its setter lands).
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After

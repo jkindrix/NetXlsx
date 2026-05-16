@@ -55,12 +55,16 @@ internal sealed class XssfRow : IRow
         }
     }
 
-    public IRow Set(int column, string value)  { Cell(column).SetString(value); return this; }
-    public IRow Set(int column, double value)  { Cell(column).SetNumber(value); return this; }
-    public IRow Set(int column, decimal value) { Cell(column).SetNumber(value); return this; }
-    public IRow Set(int column, int value)     { Cell(column).SetNumber(value); return this; }
-    public IRow Set(int column, long value)    { Cell(column).SetNumber(value); return this; }
-    public IRow Set(int column, bool value)    { Cell(column).SetBool(value);   return this; }
+    public IRow Set(int column, string value)   { Cell(column).SetString(value);   return this; }
+    public IRow Set(int column, double value)   { Cell(column).SetNumber(value);   return this; }
+    public IRow Set(int column, decimal value)  { Cell(column).SetNumber(value);   return this; }
+    public IRow Set(int column, int value)      { Cell(column).SetNumber(value);   return this; }
+    public IRow Set(int column, long value)     { Cell(column).SetNumber(value);   return this; }
+    public IRow Set(int column, bool value)     { Cell(column).SetBool(value);     return this; }
+    public IRow Set(int column, DateTime value) { Cell(column).SetDate(value);     return this; }
+    public IRow Set(int column, DateOnly value) { Cell(column).SetDate(value);     return this; }
+    public IRow Set(int column, TimeOnly value) { Cell(column).SetTime(value);     return this; }
+    public IRow Set(int column, TimeSpan value) { Cell(column).SetDuration(value); return this; }
 
     public XSSFRow Underlying
     {

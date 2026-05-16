@@ -167,6 +167,15 @@ public interface IRow
     IRow Set(int column, long value);
     /// <summary>Writes a bool value to the column and returns this row for chaining.</summary>
     IRow Set(int column, bool value);
+    /// <summary>Writes a <see cref="DateTime"/> value (decisions I-17, I-18).</summary>
+    IRow Set(int column, DateTime value);
+    /// <summary>Writes a <see cref="DateOnly"/> value (decision I-19).</summary>
+    IRow Set(int column, DateOnly value);
+    /// <summary>Writes a <see cref="TimeOnly"/> value as a fraction of a day.</summary>
+    IRow Set(int column, TimeOnly value);
+    /// <summary>Writes a <see cref="TimeSpan"/> value as elapsed time.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">Negative <paramref name="value"/> (decision I15).</exception>
+    IRow Set(int column, TimeSpan value);
 
     /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFRow</c>.
@@ -217,6 +226,39 @@ public interface ICell
     /// <summary>Writes a boolean value to the cell.</summary>
     void SetBool(bool value);
 
+    /// <summary>
+    /// Writes a <see cref="DateTime"/> value to the cell. The cell is given
+    /// the workbook's default date-time number format if it carries no
+    /// explicit style (decision I-18). <see cref="DateTime.Kind"/> is
+    /// stored as-is — no timezone conversion (decision I17).
+    /// </summary>
+    void SetDate(DateTime value);
+
+    /// <summary>
+    /// Writes a <see cref="DateOnly"/> value to the cell. The cell is given
+    /// the workbook's default date number format if it carries no explicit
+    /// style (decisions I-18, I-19; ISO <c>yyyy-mm-dd</c>).
+    /// </summary>
+    void SetDate(DateOnly value);
+
+    /// <summary>
+    /// Writes a <see cref="TimeOnly"/> value to the cell as a fraction of
+    /// a day. The cell is given the workbook's default time format
+    /// (<c>h:mm:ss</c>) if it carries no explicit style.
+    /// </summary>
+    void SetTime(TimeOnly value);
+
+    /// <summary>
+    /// Writes a <see cref="TimeSpan"/> value to the cell as elapsed time.
+    /// The cell is given the workbook's default elapsed-time format
+    /// (<c>[h]:mm:ss</c>, decision §7.9) if it carries no explicit style.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="value"/> is negative — Excel cannot render negative
+    /// times (decision I15).
+    /// </exception>
+    void SetDuration(TimeSpan value);
+
     /// <summary>Clears the cell's value and resets its kind to <see cref="CellKind.Empty"/>.</summary>
     void Clear();
 
@@ -239,6 +281,33 @@ public interface ICell
     /// cells.
     /// </summary>
     bool? GetBool();
+
+    /// <summary>
+    /// Returns the cell's value as <see cref="DateTime"/>, or <c>null</c>
+    /// for non-date cells. Result <see cref="DateTime.Kind"/> is always
+    /// <see cref="DateTimeKind.Unspecified"/> (decision I17).
+    /// </summary>
+    DateTime? GetDate();
+
+    /// <summary>
+    /// Returns the cell's value as <see cref="DateOnly"/>, or <c>null</c>
+    /// for non-date cells (time-of-day component is dropped).
+    /// </summary>
+    DateOnly? GetDateOnly();
+
+    /// <summary>
+    /// Returns the cell's value as <see cref="TimeOnly"/>, or <c>null</c>
+    /// for non-numeric cells and for fractional-day values outside the
+    /// <c>[0, 1)</c> range that <see cref="TimeOnly"/> covers (§7.9).
+    /// </summary>
+    TimeOnly? GetTime();
+
+    /// <summary>
+    /// Returns the cell's value as <see cref="TimeSpan"/>, or <c>null</c>
+    /// for non-numeric cells. Interprets the cell's numeric value as
+    /// elapsed days (§7.9).
+    /// </summary>
+    TimeSpan? GetDuration();
 
     /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFCell</c>.

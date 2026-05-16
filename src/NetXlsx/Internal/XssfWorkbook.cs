@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
 
 namespace NetXlsx;
@@ -24,6 +25,14 @@ internal sealed class XssfWorkbook : IWorkbook
     // thread sees a non-zero value when it tries to mutate, it throws
     // InvalidOperationException instead of silently corrupting state.
     private int _inMutation;
+
+    // Lazy default styles for date/time-shaped values per decisions
+    // I-18 (DateTime default 'm/d/yyyy hh:mm:ss'), I-19 (DateOnly default
+    // 'yyyy-mm-dd'), and §7.9 (Duration default '[h]:mm:ss').
+    private ICellStyle? _dateStyle;
+    private ICellStyle? _dateTimeStyle;
+    private ICellStyle? _timeStyle;
+    private ICellStyle? _durationStyle;
 
     public XssfWorkbook(XSSFWorkbook underlying)
     {
@@ -174,5 +183,18 @@ internal sealed class XssfWorkbook : IWorkbook
         private readonly XssfWorkbook _owner;
         public MutationScope(XssfWorkbook owner) { _owner = owner; }
         public void Dispose() => Interlocked.Exchange(ref _owner._inMutation, 0);
+    }
+
+    internal ICellStyle DateStyle => _dateStyle ??= CreateFormatStyle("yyyy-mm-dd");
+    internal ICellStyle DateTimeStyle => _dateTimeStyle ??= CreateFormatStyle("yyyy-mm-dd hh:mm:ss");
+    internal ICellStyle TimeStyle => _timeStyle ??= CreateFormatStyle("h:mm:ss");
+    internal ICellStyle DurationStyle => _durationStyle ??= CreateFormatStyle("[h]:mm:ss");
+
+    private ICellStyle CreateFormatStyle(string formatString)
+    {
+        var dataFormat = _underlying.CreateDataFormat();
+        var style = _underlying.CreateCellStyle();
+        style.DataFormat = dataFormat.GetFormat(formatString);
+        return style;
     }
 }

@@ -24,12 +24,20 @@ NetXlsx.ICell.GetNumber() -> double?
 NetXlsx.ICell.GetString() -> string!
 NetXlsx.ICell.Kind.get -> NetXlsx.CellKind
 NetXlsx.ICell.RowIndex.get -> int
+NetXlsx.ICell.GetDate() -> System.DateTime?
+NetXlsx.ICell.GetDateOnly() -> System.DateOnly?
+NetXlsx.ICell.GetDuration() -> System.TimeSpan?
+NetXlsx.ICell.GetTime() -> System.TimeOnly?
 NetXlsx.ICell.SetBool(bool value) -> void
+NetXlsx.ICell.SetDate(System.DateOnly value) -> void
+NetXlsx.ICell.SetDate(System.DateTime value) -> void
+NetXlsx.ICell.SetDuration(System.TimeSpan value) -> void
 NetXlsx.ICell.SetNumber(decimal value) -> void
 NetXlsx.ICell.SetNumber(double value) -> void
 NetXlsx.ICell.SetNumber(int value) -> void
 NetXlsx.ICell.SetNumber(long value) -> void
 NetXlsx.ICell.SetString(string! value) -> void
+NetXlsx.ICell.SetTime(System.TimeOnly value) -> void
 NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
 NetXlsx.IWorkbook
 NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
@@ -56,6 +64,10 @@ NetXlsx.IRow.Set(int column, double value) -> NetXlsx.IRow!
 NetXlsx.IRow.Set(int column, int value) -> NetXlsx.IRow!
 NetXlsx.IRow.Set(int column, long value) -> NetXlsx.IRow!
 NetXlsx.IRow.Set(int column, string! value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.DateOnly value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.DateTime value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.TimeOnly value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.TimeSpan value) -> NetXlsx.IRow!
 NetXlsx.IRow.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IRow.this[int column].get -> NetXlsx.ICell!
 NetXlsx.IRow.this[string! columnLetter].get -> NetXlsx.ICell!
