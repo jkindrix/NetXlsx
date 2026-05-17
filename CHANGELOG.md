@@ -9,6 +9,34 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.8.1 — Cookbook recipes 10, 11 (NPOIEscapeHatch, OpenEditSave)
+Two more cookbook recipes — cookbook is now **12 of 13**, with only
+`StreamingMillionRows` (recipe 9) remaining, gated on the streaming
+write slice.
+
+Recipes:
+- **NPOIEscapeHatch** (recipe 10). Demonstrates the design's
+  first-class-escape-hatch promise (decisions #1, #32). Builds a
+  small data sheet through the normal facade, then reaches through
+  `ISheet.Underlying` to set a print area, configure landscape +
+  fit-to-1-page-wide page setup, write header/footer text, and
+  repeat the header row on every printed page — all operations
+  v1 deliberately doesn't model. The wrapper still owns the
+  workbook lifecycle; the escape hatch is for incremental
+  capability, not workaround.
+- **OpenEditSave** (recipe 11). Builds an input file via raw NPOI
+  carrying a custom OPC part (`/customXml/itemRecipe.xml`), then
+  opens it through NetXlsx, mutates two cells (one append, one
+  overwrite), and applies an identical style to two cells. The
+  golden test asserts both preservation promises in a single run:
+  §7.5 (style pool dedup — A1 and B1 share one NPOI
+  `ICellStyle.Index`) and §7.7 (the custom OPC part round-trips
+  byte-identical). Single self-contained recipe; no committed
+  fixture required.
+
+Tests (+2 golden-file): one per recipe; golden suite now 26 per TFM
+(up from 24).
+
 ### v0.8 — Cookbook recipes 6, 7, 8 (Formulas, MultiSheet, HyperlinksAndComments)
 Adds the three cookbook recipes that v0.7 unblocked. Cookbook is now
 **10 of 13** recipes. Each recipe has a paired golden-file test in

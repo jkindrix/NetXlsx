@@ -24,6 +24,8 @@ public static class Program
         ("formulas", Formulas.Run),
         ("multi-sheet", MultiSheet.Run),
         ("hyperlinks-and-comments", HyperlinksAndComments.Run),
+        ("npoi-escape-hatch", NPOIEscapeHatch.Run),
+        ("open-edit-save", OpenEditSave.Run),
     };
 
     public static async Task<int> Main(string[] args)
