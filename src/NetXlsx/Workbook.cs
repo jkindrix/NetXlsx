@@ -173,6 +173,16 @@ public static class Workbook
     /// returns <c>"<paramref name="proposed"/> (2)"</c>, <c>"(3)"</c>, etc.
     /// until an unused name is found. Truncates to the 31-character limit
     /// while preserving the disambiguating suffix.
+    /// <para>
+    /// The numeric-suffix search caps at 10,000 attempts (numbers
+    /// <c>(2)</c>..<c>(9999)</c>). At that point — essentially unreachable
+    /// under any realistic workbook — the method falls through to a
+    /// GUID-tagged name (8-hex suffix appended to a truncated base)
+    /// rather than throwing. This abandons the <c>(N)</c> pattern at the
+    /// ceiling but guarantees the method has a defined return for any
+    /// input. Excel's own 31-char limit makes the ceiling far easier to
+    /// reach with deliberately pathological input than with real data.
+    /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException">Either argument is null.</exception>
     public static string SuggestSheetName(IWorkbook workbook, string proposed)

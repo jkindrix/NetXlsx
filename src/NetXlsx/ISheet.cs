@@ -541,11 +541,26 @@ public interface ICell
     TimeSpan? GetDuration();
 
     /// <summary>
-    /// Applies <paramref name="style"/> to the cell, merging non-null
-    /// properties over the cell's existing style. Pass
-    /// <see cref="CellStyle.Default"/> to leave the cell unchanged.
+    /// Applies <paramref name="style"/> to the cell as a <b>merge</b>, not
+    /// a replace: only properties whose value is non-null on
+    /// <paramref name="style"/> override the corresponding axis on the
+    /// cell's existing style; null axes are left untouched. Concretely,
+    /// after <c>cell.SetDate(d); cell.Style(new CellStyle { Bold = true });</c>
+    /// the cell carries both <c>Bold = true</c> and the date number
+    /// format.
+    /// <para>
+    /// Because the merge is "existing ← overlay-non-null",
+    /// passing <see cref="CellStyle.Default"/> (every axis null) is a
+    /// no-op — it does <b>not</b> clear or reset the cell's style. v1
+    /// has no explicit clear sentinel; the deterministic alternative is
+    /// to assign a brand-new cell value (e.g. <see cref="Clear"/>
+    /// followed by a setter) and then style from scratch.
+    /// </para>
+    /// <para>
     /// Resolved through the workbook's style-pool dedup (decision #4) —
-    /// equal styles share one underlying NPOI <c>ICellStyle</c>.
+    /// equal merged styles share one underlying NPOI
+    /// <c>ICellStyle</c> index.
+    /// </para>
     /// </summary>
     ICell Style(CellStyle style);
 

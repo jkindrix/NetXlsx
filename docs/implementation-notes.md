@@ -346,13 +346,12 @@ non-null on the existing axis. Two consequences:
 - A previous `SetDate` keeps its number format when the user later
   calls `cell.Style(new CellStyle { Bold = true })`. The merged
   style is `{ Bold = true, NumberFormat = "yyyy-mm-dd" }`.
-- To "clear" a style entirely, pass `CellStyle.Default` — but that
-  clears EVERYTHING via the merge, because Default is all-null and
-  the existing cell's properties have nothing to merge against
-  (current → empty → no axes). Actually no, the merge is
-  `existing ← overlay-non-null`, so Default doesn't clear anything;
-  it's a no-op. Real clearing needs an explicit sentinel which we
-  haven't added yet. Documenting as a known gap; minor.
+- The merge is strictly `existing ← overlay-non-null`, so passing
+  `CellStyle.Default` (all-null) is a no-op — it does **not** clear
+  the cell's existing style axes. Explicit clearing would require a
+  sentinel ("set this axis back to null") which v0.4 does not have.
+  Tracked as a known gap; minor. The XML doc on `ICell.Style`
+  documents the merge semantics so callers aren't surprised.
 
 The merge implementation is a single record `with`-style projection
 in `XssfCell.Merge`. Twelve lines.
