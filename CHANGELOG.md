@@ -9,6 +9,39 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.8 — Cookbook recipes 6, 7, 8 (Formulas, MultiSheet, HyperlinksAndComments)
+Adds the three cookbook recipes that v0.7 unblocked. Cookbook is now
+**10 of 13** recipes. Each recipe has a paired golden-file test in
+`tests/NetXlsx.GoldenFiles/Recipes/` per the established pattern.
+
+Recipes:
+- **Formulas** (recipe 6 from design §8.1). A "quarterly sales" sheet
+  with per-row `=B*C` subtotals plus a `=SUM`, `=AVERAGE`, and
+  `=Total*0.07` tax line. Demonstrates both leading-`=` and bare-body
+  forms; asserts no cached values are pre-computed (NPOI's
+  `NumericCellValue == 0.0` on every formula cell).
+- **MultiSheet** (recipe 7). Three sheets — `Data` (12 months of
+  sales + region), `Lookup` (region code → name), `Summary` —
+  with two workbook-scoped named ranges (`MonthlySales`,
+  `RegionLookup`) wired into `=SUM(MonthlySales)`,
+  `=AVERAGE(MonthlySales)`, `=MAX(MonthlySales)`, and a
+  `=VLOOKUP(..., RegionLookup, 2, FALSE)`. Demonstrates the
+  documentation value of named ranges — formulas read as
+  `=SUM(MonthlySales)` rather than `=SUM(Data!B2:B13)`.
+- **HyperlinksAndComments** (recipe 8). Four hyperlinks exercising
+  every supported scheme (decision I13: `https://`, `mailto:`,
+  `file://`, internal `#Sheet!Range`) plus three comments —
+  two with the default `"NetXlsx"` author (decision I11) and
+  one with an explicit `release-bot` override.
+
+Cookbook program: recipes registered in `Program.cs` so they're
+runnable via `cookbook formulas`, `cookbook multi-sheet`,
+`cookbook hyperlinks-and-comments`. Help text's "Recipes (v0.2.0)"
+header dropped — it was stale.
+
+Tests (+3 golden-file): one round-trip golden test per recipe;
+total golden-file suite is now 24 per TFM (up from 21).
+
 ### v0.7 sub-slice C — Cell annotations (`ICell.Comment` / `Hyperlink` + read-side accessors)
 Final third of the v0.7 bundle. Closes the v1.0 ship-blocker rows for
 cell-level comments and hyperlinks per design §3 #368–369. Realizes

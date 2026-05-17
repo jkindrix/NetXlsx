@@ -21,6 +21,9 @@ public static class Program
         ("time-and-duration", TimeAndDuration.Run),
         ("styled-report", StyledReport.Run),
         ("cell-errors", CellErrors.Run),
+        ("formulas", Formulas.Run),
+        ("multi-sheet", MultiSheet.Run),
+        ("hyperlinks-and-comments", HyperlinksAndComments.Run),
     };
 
     public static async Task<int> Main(string[] args)
@@ -55,7 +58,7 @@ public static class Program
     {
         Console.WriteLine("Usage: cookbook <recipe> [output-path]");
         Console.WriteLine();
-        Console.WriteLine("Recipes (v0.2.0):");
+        Console.WriteLine("Recipes:");
         foreach (var (name, _) in s_recipes)
         {
             Console.WriteLine($"  {name}");
