@@ -45,6 +45,11 @@ NetXlsx.ICell.SetNumber(decimal value) -> void
 NetXlsx.ICell.SetNumber(double value) -> void
 NetXlsx.ICell.SetNumber(int value) -> void
 NetXlsx.ICell.SetNumber(long value) -> void
+NetXlsx.ICell.Comment(string! text, string? author = null) -> NetXlsx.ICell!
+NetXlsx.ICell.GetComment() -> string?
+NetXlsx.ICell.GetCommentAuthor() -> string?
+NetXlsx.ICell.Hyperlink(string! target, string? display = null) -> NetXlsx.ICell!
+NetXlsx.ICell.GetHyperlink() -> string?
 NetXlsx.ICell.SetFormula(string! formula) -> void
 NetXlsx.ICell.GetFormula() -> string?
 NetXlsx.ICell.SetString(string! value) -> void

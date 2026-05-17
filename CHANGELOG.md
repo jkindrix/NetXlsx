@@ -9,6 +9,58 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.7 sub-slice C — Cell annotations (`ICell.Comment` / `Hyperlink` + read-side accessors)
+Final third of the v0.7 bundle. Closes the v1.0 ship-blocker rows for
+cell-level comments and hyperlinks per design §3 #368–369. Realizes
+decisions I11 (default comment author) and I13 (hyperlink
+scheme-sniffing).
+
+Public surface (PublicAPI.Unshipped.txt: +5 entries):
+- `ICell.Comment(string text, string? author = null) -> ICell` —
+  attaches a comment. Default author is `"NetXlsx"` per I11
+  (avoids leaking `Environment.UserName`). Replacing a comment
+  mutates the existing one in place (NPOI rejects creating a
+  second comment on the same cell).
+- `ICell.GetComment() -> string?` — comment body, or null.
+- `ICell.GetCommentAuthor() -> string?` — author, or null.
+- `ICell.Hyperlink(string target, string? display = null) -> ICell`
+  — attaches a hyperlink. `target` is scheme-sniffed per I13:
+  `http(s)://`, `mailto:`, `file://`, internal `#Sheet!Range`.
+  Anything else (`ftp://`, `javascript:`, bare paths) throws
+  `ArgumentException`. If `display` is supplied, the cell's
+  displayed string is set to it; if not and the cell is empty,
+  it falls back to the raw target; if the cell already has text,
+  the text is preserved.
+- `ICell.GetHyperlink() -> string?` — hyperlink address, or null.
+
+Internal:
+- `XssfCell.Comment` lazily creates the sheet's drawing patriarch
+  + a small (2x2) client anchor on first use; subsequent calls
+  mutate the existing `IComment` in place. `IComment.String`
+  goes through the creation helper's `CreateRichTextString`.
+- `XssfCell.Hyperlink` constructs an `XSSFHyperlink` with the
+  scheme-sniffed `HyperlinkType` and assigns it via
+  `XSSFCell.Hyperlink = ...` (NPOI handles the
+  `SetCellReference` / `AddHyperlink` wire-up).
+- Internal `#Sheet!Range` form strips the leading `#` for
+  consistency with NPOI's `Document`-type storage; `GetHyperlink`
+  returns the body verbatim.
+
+Tests (+22):
+- `CommentAndHyperlinkTests` covers: default author = "NetXlsx",
+  explicit author, in-place replace, fluent chaining,
+  null-text rejection, null-on-no-comment getters, Save→Open
+  round-trip, supported-scheme acceptance theory (https, http,
+  mixed-case, mailto, file), internal `#Sheet!Range` form,
+  unsupported-scheme rejection theory (ftp, javascript, bare path,
+  absolute path), null/empty target rejection, display-replaces-text,
+  display-null-on-empty-cell falls back to target,
+  display-null-on-populated-cell preserves text, and full
+  Save→Open round-trip with both URL and mailto schemes.
+- `DisposedWorkbookMatrixTests` (+5): adds Comment, GetComment,
+  GetCommentAuthor, Hyperlink, GetHyperlink to the
+  `CellOperations` matrix.
+
 ### v0.7 sub-slice B — Named ranges (`IWorkbook.AddNamedRange`, `NamedRanges`, `INamedRange`)
 Second third of the v0.7 bundle. Lands the workbook-level named-range
 contract from design §3 #212–213 and §6.2.

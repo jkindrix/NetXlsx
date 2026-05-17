@@ -154,6 +154,11 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "GetDuration", (Action<ICell>)(c => c.GetDuration()) };
         yield return new object[] { "GetError", (Action<ICell>)(c => c.GetError()) };
         yield return new object[] { "GetFormula", (Action<ICell>)(c => c.GetFormula()) };
+        yield return new object[] { "Comment", (Action<ICell>)(c => c.Comment("x")) };
+        yield return new object[] { "GetComment", (Action<ICell>)(c => c.GetComment()) };
+        yield return new object[] { "GetCommentAuthor", (Action<ICell>)(c => c.GetCommentAuthor()) };
+        yield return new object[] { "Hyperlink", (Action<ICell>)(c => c.Hyperlink("https://example.com")) };
+        yield return new object[] { "GetHyperlink", (Action<ICell>)(c => c.GetHyperlink()) };
         yield return new object[] { "Style", (Action<ICell>)(c => c.Style(CellStyle.Default)) };
         yield return new object[] { "NumberFormat", (Action<ICell>)(c => c.NumberFormat("0.00")) };
         yield return new object[] { "GetStyle", (Action<ICell>)(c => c.GetStyle()) };

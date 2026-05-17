@@ -635,6 +635,43 @@ public interface ICell
     CellStyle GetStyle();
 
     /// <summary>
+    /// Attaches a comment to the cell. <paramref name="text"/> is the
+    /// comment body; <paramref name="author"/> defaults to
+    /// <c>"NetXlsx"</c> per decision I11 (avoids leaking
+    /// <c>Environment.UserName</c>). Replaces any existing comment on
+    /// the cell. Returns the cell for chaining.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is null.</exception>
+    ICell Comment(string text, string? author = null);
+
+    /// <summary>The cell's comment text, or <c>null</c> when the cell carries no comment.</summary>
+    string? GetComment();
+
+    /// <summary>The cell's comment author, or <c>null</c> when the cell carries no comment.</summary>
+    string? GetCommentAuthor();
+
+    /// <summary>
+    /// Attaches a hyperlink to the cell. <paramref name="target"/> is
+    /// scheme-sniffed (decision I13): supported schemes are
+    /// <c>http://</c>, <c>https://</c>, <c>mailto:</c>, <c>file://</c>,
+    /// and the internal <c>#Sheet!Range</c> form. Anything else throws
+    /// <see cref="ArgumentException"/>.
+    /// <para>
+    /// If <paramref name="display"/> is supplied, the cell's displayed
+    /// string is set to it (replacing any existing value). If
+    /// <paramref name="display"/> is null and the cell is currently
+    /// empty, the cell's displayed value is set to
+    /// <paramref name="target"/>.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
+    /// <exception cref="ArgumentException">Target uses an unsupported scheme.</exception>
+    ICell Hyperlink(string target, string? display = null);
+
+    /// <summary>The cell's hyperlink target, or <c>null</c> when no hyperlink is attached.</summary>
+    string? GetHyperlink();
+
+    /// <summary>
     /// Returns the cell's Excel error code if it is an error cell (or a
     /// formula cell whose cached result is an error), otherwise <c>null</c>.
     /// </summary>
