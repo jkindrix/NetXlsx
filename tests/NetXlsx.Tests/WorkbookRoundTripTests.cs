@@ -137,13 +137,22 @@ public class WorkbookRoundTripTests
         // concurrent mutation rather than letting it silently corrupt.
         // Drive two threads racing on AddSheet and assert at least one
         // sees InvalidOperationException.
+        //
+        // Previously this test flaked occasionally (one thread would
+        // finish before the other entered its loop). The Barrier forces
+        // both threads to begin their tight loops at the same instant,
+        // and the iteration count is bumped 5x so a single scheduler
+        // hiccup cannot make the race vanish entirely on a one-shot run.
         using var wb = Workbook.Create();
 
-        const int iterations = 200;
+        const int iterations = 1_000;
         var caughtConcurrent = 0;
+        using var barrier = new Barrier(2);
+
         await Task.WhenAll(
             Task.Run(() =>
             {
+                barrier.SignalAndWait();
                 for (int i = 0; i < iterations; i++)
                 {
                     try { wb.AddSheet($"A_{i}"); }
@@ -153,6 +162,7 @@ public class WorkbookRoundTripTests
             }),
             Task.Run(() =>
             {
+                barrier.SignalAndWait();
                 for (int i = 0; i < iterations; i++)
                 {
                     try { wb.AddSheet($"B_{i}"); }
@@ -162,8 +172,8 @@ public class WorkbookRoundTripTests
             }));
 
         // Detection is best-effort by design (it's not a lock), but with
-        // 400 racing mutations on a tight loop we should observe at least
-        // one detected collision.
+        // 2,000 racing mutations starting at exactly the same instant
+        // we should observe at least one detected collision.
         caughtConcurrent.Should().BeGreaterThan(0,
             "concurrent AddSheet calls should trigger the reentry-counter detection at least once");
     }
