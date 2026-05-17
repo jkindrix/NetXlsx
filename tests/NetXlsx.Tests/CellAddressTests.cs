@@ -1,5 +1,6 @@
 // Coverage for the A1 parser per design §6.10.
 
+using System;
 using FluentAssertions;
 using Xunit;
 
@@ -86,5 +87,59 @@ public class CellAddressTests
         CellAddress.TryParse("not a cell", out int row, out int col).Should().BeFalse();
         row.Should().Be(0);
         col.Should().Be(0);
+    }
+
+    // ---- ParseRange / FormatRange (v0.6 sub-slice A) ------------------
+
+    [Theory]
+    [InlineData("A1:C3", 1, 1, 3, 3)]
+    [InlineData("A1:A1", 1, 1, 1, 1)]
+    [InlineData("B2:D5", 2, 2, 5, 4)]
+    [InlineData("a1:c3", 1, 1, 3, 3)]                 // case-insensitive
+    [InlineData("$A$1:$C$3", 1, 1, 3, 3)]             // dollar signs stripped
+    public void ParseRange_Accepts_Bounded_Forms(string input, int r1, int c1, int r2, int c2)
+    {
+        var (row1, col1, row2, col2) = CellAddress.ParseRange(input);
+        row1.Should().Be(r1);
+        col1.Should().Be(c1);
+        row2.Should().Be(r2);
+        col2.Should().Be(c2);
+    }
+
+    [Fact]
+    public void ParseRange_Single_Cell_Form_Treated_As_1x1_Range()
+    {
+        var (r1, c1, r2, c2) = CellAddress.ParseRange("A1");
+        r1.Should().Be(1); c1.Should().Be(1); r2.Should().Be(1); c2.Should().Be(1);
+    }
+
+    [Fact]
+    public void ParseRange_Normalizes_Inverted_Corners()
+    {
+        // "C3:A1" -> top-left A1, bottom-right C3.
+        var (r1, c1, r2, c2) = CellAddress.ParseRange("C3:A1");
+        r1.Should().Be(1); c1.Should().Be(1); r2.Should().Be(3); c2.Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData("A:A")]       // whole-column — deferred to IRange slice
+    [InlineData("1:1")]       // whole-row    — deferred to IRange slice
+    [InlineData("Sheet1!A1:B2")]
+    [InlineData("garbage")]
+    [InlineData(":A1")]
+    [InlineData("A1:")]
+    public void ParseRange_Rejects_Forms_Not_In_v0_6(string input)
+    {
+        ((Action)(() => CellAddress.ParseRange(input))).Should()
+            .Throw<InvalidCellAddressException>();
+    }
+
+    [Theory]
+    [InlineData(1, 1, 1, 1, "A1")]          // 1x1 -> single cell
+    [InlineData(1, 1, 3, 3, "A1:C3")]
+    [InlineData(2, 27, 10, 28, "AA2:AB10")]
+    public void FormatRange_Produces_Canonical_Form(int r1, int c1, int r2, int c2, string expected)
+    {
+        CellAddress.FormatRange(r1, c1, r2, c2).Should().Be(expected);
     }
 }

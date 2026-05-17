@@ -52,6 +52,16 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "AppendRow", (Action<ISheet>)(s => s.AppendRow()) };
         yield return new object[] { "Row(1)", (Action<ISheet>)(s => s.Row(1)) };
         yield return new object[] { "Underlying", (Action<ISheet>)(s => { var _ = s.Underlying; }) };
+        yield return new object[] { "FreezeRows", (Action<ISheet>)(s => s.FreezeRows(1)) };
+        yield return new object[] { "FreezeColumns", (Action<ISheet>)(s => s.FreezeColumns(1)) };
+        yield return new object[] { "FreezePane", (Action<ISheet>)(s => s.FreezePane(1, 1)) };
+        yield return new object[] { "MergeCells", (Action<ISheet>)(s => s.MergeCells("A1:B2")) };
+        yield return new object[] { "UnmergeCells", (Action<ISheet>)(s => s.UnmergeCells("A1:B2")) };
+        yield return new object[] { "MergedRanges", (Action<ISheet>)(s => { var _ = s.MergedRanges; }) };
+        yield return new object[] { "Hidden get", (Action<ISheet>)(s => { var _ = s.Hidden; }) };
+        yield return new object[] { "Hidden set", (Action<ISheet>)(s => { s.Hidden = true; }) };
+        yield return new object[] { "ShowGridlines get", (Action<ISheet>)(s => { var _ = s.ShowGridlines; }) };
+        yield return new object[] { "ShowGridlines set", (Action<ISheet>)(s => { s.ShowGridlines = false; }) };
     }
 
     [Theory]
@@ -87,6 +97,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Set(1, TimeOnly)", (Action<IRow>)(r => r.Set(1, new TimeOnly(12, 0))) };
         yield return new object[] { "Set(1, TimeSpan)", (Action<IRow>)(r => r.Set(1, TimeSpan.FromHours(1))) };
         yield return new object[] { "Underlying", (Action<IRow>)(r => { var _ = r.Underlying; }) };
+        yield return new object[] { "Hidden get", (Action<IRow>)(r => { var _ = r.Hidden; }) };
+        yield return new object[] { "Hidden set", (Action<IRow>)(r => { r.Hidden = true; }) };
     }
 
     [Theory]

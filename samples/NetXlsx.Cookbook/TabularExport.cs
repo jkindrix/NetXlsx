@@ -7,8 +7,11 @@
 // fluent setters). Compare with the v0.2.0 version (git log -p) to see
 // the ergonomic delta — per-cell string-interpolated addressing is
 // replaced by one AppendRow per record and chained Set calls keyed by
-// column index. Freeze panes and column widths still wait for a later
-// slice (they require ISheet.FreezePanes and IColumn.Width).
+// column index.
+//
+// v0.6 (sub-slice A): the originally-specced FreezeRows(1) call lands
+// here — the header row stays visible when the user scrolls through
+// 10k data rows. Column widths still wait for the IColumn slice.
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -46,6 +49,9 @@ public static class TabularExport
             .Set(2, "Revenue")
             .Set(3, "Margin")
             .Set(4, "Strategic");
+
+        // Freeze the header so it stays visible as the user scrolls.
+        sheet.FreezeRows(1);
 
         // Data rows — one AppendRow per record, chained Set calls keyed
         // by column index. No string interpolation, no row arithmetic.

@@ -75,6 +75,28 @@ public class TabularExportTests
     }
 
     [Fact]
+    public async Task Recipe_Freezes_The_Header_Row()
+    {
+        // v0.6 sub-slice A: TabularExport now satisfies the design's
+        // originally-specced "freeze the header" cookbook requirement.
+        var path = Path.Combine(Path.GetTempPath(), $"golden-tabular-freeze-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            await TabularExport.Run(path, new[]
+            {
+                new TabularExport.SalesRow("North", 1m, 0.1, true),
+            });
+
+            using var wb = Workbook.Open(path);
+            var pane = wb[TabularExport.SheetName].Underlying.PaneInformation;
+            pane.Should().NotBeNull("FreezeRows(1) should produce a freeze pane");
+            pane.HorizontalSplitPosition.Should().Be(1,
+                "row 1 is frozen — header stays visible while scrolling data rows");
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
     public async Task Recipe_Synthetic_10k_Run_Produces_Valid_Workbook()
     {
         // Smoke test the default synthetic path. We don't assert all 10k

@@ -194,13 +194,25 @@ NetXlsx.IRow.Set(int column, System.TimeSpan value) -> NetXlsx.IRow!
 NetXlsx.IRow.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IRow.this[int column].get -> NetXlsx.ICell!
 NetXlsx.IRow.this[string! columnLetter].get -> NetXlsx.ICell!
+NetXlsx.IRow.Hidden.get -> bool
+NetXlsx.IRow.Hidden.set -> void
 NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
 NetXlsx.ISheet
 NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
+NetXlsx.ISheet.FreezeColumns(int cols) -> void
+NetXlsx.ISheet.FreezePane(int rows, int cols) -> void
+NetXlsx.ISheet.FreezeRows(int rows) -> void
+NetXlsx.ISheet.Hidden.get -> bool
+NetXlsx.ISheet.Hidden.set -> void
+NetXlsx.ISheet.MergedRanges.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NetXlsx.ISheet.MergeCells(string! a1Range) -> void
 NetXlsx.ISheet.Name.get -> string!
 NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
+NetXlsx.ISheet.ShowGridlines.get -> bool
+NetXlsx.ISheet.ShowGridlines.set -> void
 NetXlsx.ISheet.this[int row, int column].get -> NetXlsx.ICell!
 NetXlsx.ISheet.this[string! a1].get -> NetXlsx.ICell!
+NetXlsx.ISheet.UnmergeCells(string! a1Range) -> void
 NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
 NetXlsx.ISheet.Workbook.get -> NetXlsx.IWorkbook!
 NetXlsx.MalformedFileException
@@ -229,7 +241,9 @@ NetXlsx.WorksheetVisibility.Public = 1 -> NetXlsx.WorksheetVisibility
 const NetXlsx.CellAddress.MaxColumn = 16384 -> int
 const NetXlsx.CellAddress.MaxRow = 1048576 -> int
 static NetXlsx.CellAddress.Format(int row, int column) -> string!
+static NetXlsx.CellAddress.FormatRange(int row1, int col1, int row2, int col2) -> string!
 static NetXlsx.CellAddress.Parse(string! a1) -> (int Row, int Column)
+static NetXlsx.CellAddress.ParseRange(string! a1Range) -> (int Row1, int Col1, int Row2, int Col2)
 static NetXlsx.CellAddress.TryParse(string! a1, out int row, out int column) -> bool
 static NetXlsx.Workbook.Create() -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.IsValidSheetName(string! proposed) -> bool

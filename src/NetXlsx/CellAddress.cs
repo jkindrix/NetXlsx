@@ -131,6 +131,62 @@ public static class CellAddress
     }
 
     /// <summary>
+    /// Parses an <c>A1:C3</c>-style range reference. Returns 1-based row
+    /// and column for top-left and bottom-right. v0.6 accepts only the
+    /// single-cell and bounded-range forms (e.g. <c>A1</c>, <c>A1:C3</c>);
+    /// whole-row (<c>1:1</c>) and whole-column (<c>A:A</c>) forms ship
+    /// with the <see cref="ISheet.Range(string)"/> API in a follow-up
+    /// slice.
+    /// </summary>
+    /// <exception cref="InvalidCellAddressException">The string is not a valid range.</exception>
+    public static (int Row1, int Col1, int Row2, int Col2) ParseRange(string a1Range)
+    {
+        if (a1Range is null)
+            throw new InvalidCellAddressException("<null>", "input is null");
+
+        int colonIdx = a1Range.IndexOf(':');
+        if (colonIdx < 0)
+        {
+            // Single cell — treat as a 1x1 range.
+            var (r, c) = Parse(a1Range);
+            return (r, c, r, c);
+        }
+
+        var left = a1Range.Substring(0, colonIdx);
+        var right = a1Range.Substring(colonIdx + 1);
+
+        // The component parsers re-use the single-cell parser, which
+        // rejects whole-row / whole-column shorthand. Those forms ship
+        // with the IRange slice (decision §6.10).
+        var (r1, c1) = ParseSingleCellComponent(left, a1Range);
+        var (r2, c2) = ParseSingleCellComponent(right, a1Range);
+
+        // Normalize so (Row1, Col1) is top-left.
+        if (r1 > r2) (r1, r2) = (r2, r1);
+        if (c1 > c2) (c1, c2) = (c2, c1);
+        return (r1, c1, r2, c2);
+    }
+
+    private static (int Row, int Column) ParseSingleCellComponent(string component, string fullRange)
+    {
+        if (!TryParse(component, out int row, out int col, out string reason))
+            throw new InvalidCellAddressException(fullRange,
+                $"range component '{component}' is not a single-cell reference: {reason}");
+        return (row, col);
+    }
+
+    /// <summary>
+    /// Formats a 1-based range as the canonical <c>A1:C3</c> string.
+    /// Degenerate 1x1 ranges round-trip as the single-cell form
+    /// (<c>A1</c>) so callers see the canonical address.
+    /// </summary>
+    public static string FormatRange(int row1, int col1, int row2, int col2)
+    {
+        if (row1 == row2 && col1 == col2) return Format(row1, col1);
+        return $"{Format(row1, col1)}:{Format(row2, col2)}";
+    }
+
+    /// <summary>
     /// Formats a 1-based row and column as the canonical <c>A1</c> string
     /// — uppercase column letters, no <c>$</c>.
     /// </summary>

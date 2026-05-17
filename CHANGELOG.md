@@ -9,6 +9,58 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.6 sub-slice A — freeze panes + merge cells + hidden rows/sheets + gridlines
+The first third of the v1.0 "range / freeze / merge / hidden / autosize"
+bundle. Each member here is on `ISheet` or `IRow` directly — no new
+interface required.
+
+Public surface (PublicAPI.Unshipped.txt: +14 entries):
+- `ISheet.FreezeRows(int)`, `FreezeColumns(int)`, `FreezePane(int, int)`.
+  Negative arguments throw `ArgumentOutOfRangeException`. Internally
+  these delegate through `FreezePane`; NPOI's argument order
+  (`colSplit, rowSplit`) is reversed inside the wrapper so the public
+  API reads `(rows, cols)`.
+- `ISheet.MergeCells(string)`, `UnmergeCells(string)`, `MergedRanges`.
+  - `MergeCells` parses the A1 range, checks for overlap with existing
+    merges (throws `InvalidOperationException` per design §6.4), and
+    falls through to NPOI's `AddMergedRegion`. 1×1 ranges are no-ops
+    per decision I-38.
+  - `UnmergeCells` removes the exact-matching merged region, or
+    silently no-ops if no exact match exists (design §6.4).
+  - `MergedRanges` returns canonical `A1:C3` strings.
+- `ISheet.Hidden` (bool) — workbook-level sheet visibility. Maps to
+  NPOI's `SheetVisibility.Hidden` ↔ `Visible`. `VeryHidden` (hidden
+  from VBA) intentionally not modeled in v1; reach through `Underlying`.
+- `ISheet.ShowGridlines` (bool).
+- `IRow.Hidden` (bool) — maps to NPOI's `ZeroHeight`.
+- `CellAddress.ParseRange(string)` returning a 4-tuple `(Row1, Col1,
+  Row2, Col2)`. Accepts `A1:C3` and single-cell forms; normalizes
+  inverted corners. Whole-row (`1:1`) and whole-column (`A:A`)
+  expansion is explicitly *not* supported here — those forms ship
+  with the `IRange` API in sub-slice B.
+- `CellAddress.FormatRange(int, int, int, int)` returning canonical
+  `A1:C3` (1×1 collapses to single-cell form `A1`).
+
+Cookbook recipe update:
+- `TabularExport` now calls `sheet.FreezeRows(1)` after writing the
+  header — the originally-specced "frozen header" behavior that was
+  deferred when v0.3 introduced the IRow API.
+- A new golden-file test asserts the freeze pane survives `Save →
+  Open` round-trip.
+
+Tests (+47 new, 252 per TFM total):
+- `FreezeMergeHiddenTests` (17): freeze pane shape + round-trip;
+  merge succeed / overlap-throws / adjacent-OK / 1×1 no-op /
+  unmerge exact-match / unmerge non-match no-op / round-trip;
+  bad-range rejection; sheet hidden round-trip; gridlines toggle;
+  row hidden round-trip.
+- `CellAddressTests`: +12 cases for `ParseRange` / `FormatRange`
+  including the deferred-form rejections (`A:A`, `1:1`,
+  `Sheet1!A1:B2`).
+- Dispose-matrix: +13 new entries (8 ISheet, 2 IRow plus get/set
+  variants).
+- `TabularExportTests`: +1 case asserting the freeze landed.
+
 ### Diagnostic ID scheme unified (2026-05-16)
 External review #N+1 flagged the dual diagnostic ID format: source-gen
 diagnostics used `NXLS<NNNN>` (4-digit) while MSBuild build-time

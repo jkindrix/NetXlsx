@@ -148,6 +148,56 @@ public interface ISheet
     IRow Row(int index);
 
     /// <summary>
+    /// Freezes the top <paramref name="rows"/> rows. Pass 0 to clear an
+    /// existing row freeze. Equivalent to <c>FreezePane(rows, 0)</c>.
+    /// </summary>
+    void FreezeRows(int rows);
+
+    /// <summary>
+    /// Freezes the leftmost <paramref name="cols"/> columns. Pass 0 to
+    /// clear an existing column freeze. Equivalent to
+    /// <c>FreezePane(0, cols)</c>.
+    /// </summary>
+    void FreezeColumns(int cols);
+
+    /// <summary>
+    /// Freezes a top-left pane of <paramref name="rows"/> rows and
+    /// <paramref name="cols"/> columns. Replaces any prior freeze on
+    /// this sheet. Pass <c>(0, 0)</c> to clear.
+    /// </summary>
+    void FreezePane(int rows, int cols);
+
+    /// <summary>
+    /// Merges the cells in <paramref name="a1Range"/> (e.g. <c>"A1:C3"</c>).
+    /// Pre-existing values in non-anchor cells are preserved in the file
+    /// (OOXML semantics) but only the anchor (top-left) cell's value is
+    /// displayed in Excel.
+    /// </summary>
+    /// <exception cref="InvalidCellAddressException">Not a valid range.</exception>
+    /// <exception cref="System.InvalidOperationException">The range overlaps an existing merged region.</exception>
+    void MergeCells(string a1Range);
+
+    /// <summary>
+    /// Unmerges the cells in <paramref name="a1Range"/>. No-op if the
+    /// exact range is not currently merged (decision §6.4).
+    /// </summary>
+    void UnmergeCells(string a1Range);
+
+    /// <summary>Currently-merged regions on this sheet, as canonical <c>A1:C3</c> strings.</summary>
+    System.Collections.Generic.IReadOnlyList<string> MergedRanges { get; }
+
+    /// <summary>
+    /// Whether this sheet is hidden from Excel's tab bar. Mirrors NPOI's
+    /// <c>SheetVisibility.Hidden</c>. (NPOI's <c>VeryHidden</c> state —
+    /// hidden from VBA — is not modeled here in v1; reach through
+    /// <see cref="Underlying"/> if you need it.)
+    /// </summary>
+    bool Hidden { get; set; }
+
+    /// <summary>Whether the sheet shows gridlines when viewed.</summary>
+    bool ShowGridlines { get; set; }
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFSheet</c>.
     /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>
@@ -201,6 +251,9 @@ public interface IRow
     /// <summary>Writes a <see cref="TimeSpan"/> value as elapsed time.</summary>
     /// <exception cref="ArgumentOutOfRangeException">Negative <paramref name="value"/> (decision I15).</exception>
     IRow Set(int column, TimeSpan value);
+
+    /// <summary>Whether this row is hidden in Excel.</summary>
+    bool Hidden { get; set; }
 
     /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFRow</c>.

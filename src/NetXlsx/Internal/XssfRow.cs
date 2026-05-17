@@ -66,6 +66,12 @@ internal sealed class XssfRow : IRow
     public IRow Set(int column, TimeOnly value) { Cell(column).SetTime(value);     return this; }
     public IRow Set(int column, TimeSpan value) { Cell(column).SetDuration(value); return this; }
 
+    public bool Hidden
+    {
+        get { _workbook.ThrowIfDisposed(); return _underlying.ZeroHeight; }
+        set { _workbook.ThrowIfDisposed(); _underlying.ZeroHeight = value; }
+    }
+
     public XSSFRow Underlying
     {
         get { _workbook.ThrowIfDisposed(); return _underlying; }
