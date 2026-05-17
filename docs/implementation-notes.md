@@ -406,6 +406,54 @@ ForegroundColor + SolidForeground pattern. The first attempt wired
 silently in the same commit. Worth noting because the natural-English
 naming pushes you the wrong way.
 
+### 2026-05-16 — sub-slice C: column letter helpers promoted to public
+
+Design §3 fixes the `IColumn` interface (with `Letter` and
+`Column(string)` factory) but never spec'd the parser/formatter that
+implements them — those lived as private helpers in `CellAddress`.
+Sub-slice C promoted three of them to public:
+
+- `CellAddress.ParseColumn(string)` — throwing form.
+- `CellAddress.TryParseColumn(string, out int)` — non-throwing form.
+- `CellAddress.FormatColumn(int)` — index → letter only (the
+  single-letter form of the existing `Format(row, column)`).
+
+Two reasons to expose rather than keep internal: (a) `IColumn.Letter`
+is implemented by `FormatColumn`, and round-tripping `Column("XFD")`
+→ `Index` → letter is a behavior callers will reasonably want to test;
+(b) the parser is the same logic that backs `ISheet.Column(string)`,
+so callers building dynamic column references benefit from the
+non-throwing form rather than wrapping `try/catch`.
+
+This isn't a design change — design §3 #284–285 implied these had to
+exist — but the symbol-level additions are documented here because
+they were not enumerated in design.md's CellAddress section (it
+declares the type but doesn't enumerate members).
+
+### 2026-05-16 — AutoSize font-failure translation
+
+Decision I3 says "throw MissingFontException with installation
+guidance"; the wire-up question is what to catch. NPOI 2.7.x's
+column-sizing path goes through SixLabors.Fonts on netcoreapp, and
+under WSL test runs we've never actually hit a font-missing failure
+(DejaVu is installed by default on most Ubuntu base images). To
+avoid swallowing real bugs, the `IsFontFailure` helper in
+`XssfColumn` walks the inner-exception chain and matches only:
+
+- Any type from `SixLabors.Fonts.*`.
+- `System.Drawing.SystemFontsException` (legacy GDI+ path).
+- `TypeInitializationException` (e.g. libgdiplus missing at type
+  init).
+- `IOException` / `FileNotFoundException` whose message mentions
+  "font" or whose `FileName` contains "libgdiplus".
+
+The `ColumnApiTests.AutoSize_Either_Sizes_The_Column_Or_Throws_…`
+test deliberately accepts both outcomes: success (with `WidthUnits
+> 0`) or `MissingFontException` (with a non-empty message). This
+is the right shape until we have a dedicated headless-no-fonts CI
+job — at which point that job can assert the throw, and the dev-box
+run can keep asserting the success path.
+
 ---
 
 ## Future entries

@@ -9,6 +9,70 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.6 sub-slice C — Column API (`IColumn`, `ISheet.Column(...)`, AutoSize / Hidden / Width / SetDefaultStyle)
+Final third of the v0.6 bundle. Closes the v1.0 ship-blocker rows for
+column-level width control, hidden columns, default-style fan-out, and
+`AutoSize` with explicit headless-Linux behavior.
+
+Public surface (PublicAPI.Unshipped.txt: +21 entries):
+- New interface `IColumn` with:
+  - `Index` (1-based) and `Letter` (canonical, `1 → "A"`).
+  - `Sheet` — owning sheet.
+  - `Hidden` (bool, read/write) — maps to NPOI's
+    `IsColumnHidden` / `SetColumnHidden`.
+  - `WidthUnits` (double, read/write) and fluent `Width(double)`.
+    Width is in Excel "character" units; NPOI's 256ths-of-a-character
+    integer representation is hidden inside the wrapper. Setter
+    rejects negative and NaN.
+  - `AutoSize()` — sizes to fit populated contents. On headless
+    environments without a usable font stack, throws the new
+    `MissingFontException` with installation guidance for
+    Debian/Ubuntu and Alpine (design decision I3). Translation
+    covers `SixLabors.Fonts.*`, `System.Drawing.SystemFontsException`,
+    `TypeInitializationException`, and font-related IO failures.
+  - `ForEachPopulated(Action<ICell>)` — sparse top-to-bottom
+    iteration over populated cells in this column (empties skipped).
+  - `SetDefaultStyle(CellStyle)` — applies via `CellStylePool`
+    so identical column-default styles share one NPOI
+    `ICellStyle` index; delegates to NPOI's
+    `SetDefaultColumnStyle` so new cells in the column inherit.
+- `ISheet.Column(int)` and `ISheet.Column(string letter)` factories.
+- New exception `MissingFontException : WorkbookException` with the
+  standard four-constructor pattern (parameterless / message-only /
+  inner-only / message-and-inner). Default message includes
+  install commands and points callers at `IColumn.Width(double)`
+  as the deterministic alternative.
+- `CellAddress.ParseColumn(string)` / `TryParseColumn(string, out int)`
+  / `FormatColumn(int)` — public letter ↔ index helpers, reusing
+  the same parser as `ParseRange`'s whole-column shorthand path.
+  `FormatColumn` is the single-letter form of `Format(row, column)`.
+
+Internal:
+- New `Internal/XssfColumn.cs` — `IColumn` implementation. AutoSize
+  failure translation lives here, as a dedicated
+  `IsFontFailure(Exception)` helper that walks the inner-exception
+  chain so wrapped failures (`TypeInitializationException` →
+  `FileNotFoundException(libgdiplus)`) still get classified.
+- `XssfSheet` gains the two `Column(...)` overloads.
+
+Tests (+30):
+- `ColumnApiTests` (+16) covers: construction by index and letter
+  (including `aa`, `$AB`, `XFD` and the `FormatColumn` round-trip),
+  letter-form rejection of garbage (empty, digits, A1, > XFD),
+  index bounds validation, width round-trip through NPOI's
+  quantization, fluent return identity, negative/NaN rejection,
+  Hidden round-trip, `SetDefaultStyle` pool-routed application,
+  `ForEachPopulated` sparse ordering, no-op on empty columns,
+  null-action rejection, `AutoSize` succeed-or-throw-MissingFont
+  (both outcomes acceptable; silent failure is not), and full
+  Save→Open round-trip of width / hidden / default-style.
+- `DisposedWorkbookMatrixTests` (+13): adds two `ISheet.Column(...)`
+  entries plus an entire `ColumnOperations` matrix asserting every
+  `IColumn` member throws `ObjectDisposedException` after
+  `Workbook.Dispose()`.
+- `PublicApiSnapshotTests`: baseline now includes `IColumn`
+  and `MissingFontException`.
+
 ### v0.6 sub-slice B — Range API (`IRange`, `ISheet.Range(...)`)
 Second third of the v0.6 bundle. Introduces a first-class rectangular
 range abstraction so callers can fill, style, merge, or clear an entire

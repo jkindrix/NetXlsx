@@ -211,6 +211,25 @@ NetXlsx.IRow.Hidden.get -> bool
 NetXlsx.IRow.Hidden.set -> void
 NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
 NetXlsx.ISheet
+NetXlsx.IColumn
+NetXlsx.IColumn.AutoSize() -> NetXlsx.IColumn!
+NetXlsx.IColumn.ForEachPopulated(System.Action<NetXlsx.ICell!>! apply) -> NetXlsx.IColumn!
+NetXlsx.IColumn.Hidden.get -> bool
+NetXlsx.IColumn.Hidden.set -> void
+NetXlsx.IColumn.Index.get -> int
+NetXlsx.IColumn.Letter.get -> string!
+NetXlsx.IColumn.SetDefaultStyle(NetXlsx.CellStyle! style) -> NetXlsx.IColumn!
+NetXlsx.IColumn.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IColumn.Width(double units) -> NetXlsx.IColumn!
+NetXlsx.IColumn.WidthUnits.get -> double
+NetXlsx.IColumn.WidthUnits.set -> void
+NetXlsx.MissingFontException
+NetXlsx.MissingFontException.MissingFontException() -> void
+NetXlsx.MissingFontException.MissingFontException(string! message) -> void
+NetXlsx.MissingFontException.MissingFontException(System.Exception! innerException) -> void
+NetXlsx.MissingFontException.MissingFontException(string! message, System.Exception! innerException) -> void
+NetXlsx.ISheet.Column(int index) -> NetXlsx.IColumn!
+NetXlsx.ISheet.Column(string! letter) -> NetXlsx.IColumn!
 NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
 NetXlsx.ISheet.FreezeColumns(int cols) -> void
 NetXlsx.ISheet.FreezePane(int rows, int cols) -> void
@@ -256,10 +275,13 @@ NetXlsx.WorksheetVisibility.Public = 1 -> NetXlsx.WorksheetVisibility
 const NetXlsx.CellAddress.MaxColumn = 16384 -> int
 const NetXlsx.CellAddress.MaxRow = 1048576 -> int
 static NetXlsx.CellAddress.Format(int row, int column) -> string!
+static NetXlsx.CellAddress.FormatColumn(int column) -> string!
 static NetXlsx.CellAddress.FormatRange(int row1, int col1, int row2, int col2) -> string!
 static NetXlsx.CellAddress.Parse(string! a1) -> (int Row, int Column)
+static NetXlsx.CellAddress.ParseColumn(string! letter) -> int
 static NetXlsx.CellAddress.ParseRange(string! a1Range) -> (int Row1, int Col1, int Row2, int Col2)
 static NetXlsx.CellAddress.TryParse(string! a1, out int row, out int column) -> bool
+static NetXlsx.CellAddress.TryParseColumn(string! letter, out int column) -> bool
 static NetXlsx.Workbook.Create() -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.IsValidSheetName(string! proposed) -> bool
 static NetXlsx.Workbook.Open(string! path) -> NetXlsx.IWorkbook!

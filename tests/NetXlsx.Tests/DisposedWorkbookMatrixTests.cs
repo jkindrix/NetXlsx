@@ -64,6 +64,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "ShowGridlines set", (Action<ISheet>)(s => { s.ShowGridlines = false; }) };
         yield return new object[] { "Range(string)", (Action<ISheet>)(s => s.Range("A1:B2")) };
         yield return new object[] { "Range(r,c,r,c)", (Action<ISheet>)(s => s.Range(1, 1, 2, 2)) };
+        yield return new object[] { "Column(int)", (Action<ISheet>)(s => s.Column(1)) };
+        yield return new object[] { "Column(string)", (Action<ISheet>)(s => s.Column("A")) };
     }
 
     [Theory]
@@ -210,6 +212,37 @@ public class DisposedWorkbookMatrixTests
         Action act = () => op(range);
         act.Should().Throw<ObjectDisposedException>(
             $"IRange.{memberName} must throw ObjectDisposedException once its owning workbook is disposed");
+    }
+
+    // ---- IColumn --------------------------------------------------------
+
+    public static IEnumerable<object[]> ColumnOperations()
+    {
+        yield return new object[] { "Index", (Action<IColumn>)(c => { var _ = c.Index; }) };
+        yield return new object[] { "Letter", (Action<IColumn>)(c => { var _ = c.Letter; }) };
+        yield return new object[] { "Sheet", (Action<IColumn>)(c => { var _ = c.Sheet; }) };
+        yield return new object[] { "Hidden get", (Action<IColumn>)(c => { var _ = c.Hidden; }) };
+        yield return new object[] { "Hidden set", (Action<IColumn>)(c => { c.Hidden = true; }) };
+        yield return new object[] { "WidthUnits get", (Action<IColumn>)(c => { var _ = c.WidthUnits; }) };
+        yield return new object[] { "WidthUnits set", (Action<IColumn>)(c => { c.WidthUnits = 10.0; }) };
+        yield return new object[] { "Width", (Action<IColumn>)(c => c.Width(10.0)) };
+        yield return new object[] { "AutoSize", (Action<IColumn>)(c => c.AutoSize()) };
+        yield return new object[] { "ForEachPopulated", (Action<IColumn>)(c => c.ForEachPopulated(_ => { })) };
+        yield return new object[] { "SetDefaultStyle", (Action<IColumn>)(c => c.SetDefaultStyle(CellStyle.Default)) };
+    }
+
+    [Theory]
+    [MemberData(nameof(ColumnOperations))]
+    public void Column_Member_Throws_ObjectDisposed_After_Workbook_Dispose(string memberName, Action<IColumn> op)
+    {
+        var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        var col = sheet.Column("A");
+        wb.Dispose();
+
+        Action act = () => op(col);
+        act.Should().Throw<ObjectDisposedException>(
+            $"IColumn.{memberName} must throw ObjectDisposedException once its owning workbook is disposed");
     }
 
     // ---- Sanity: double-dispose is still a no-op (decision #42) --------

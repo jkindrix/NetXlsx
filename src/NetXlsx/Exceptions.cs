@@ -87,3 +87,31 @@ public sealed class ResourceLimitExceededException : WorkbookException
         Actual = actual;
     }
 }
+
+/// <summary>
+/// Thrown by <see cref="IColumn.AutoSize"/> when the runtime environment
+/// cannot supply font metrics — typically headless Linux without
+/// <c>libgdiplus</c> and a fallback font installed (design decision I3).
+/// Message includes installation guidance for common distributions.
+/// </summary>
+public sealed class MissingFontException : WorkbookException
+{
+    /// <summary>Creates a new <see cref="MissingFontException"/>.</summary>
+    public MissingFontException()
+        : base(BuildMessage()) { }
+    /// <summary>Creates a new <see cref="MissingFontException"/> with a custom message.</summary>
+    public MissingFontException(string message) : base(message) { }
+    /// <summary>Creates a new <see cref="MissingFontException"/> wrapping the underlying font failure.</summary>
+    public MissingFontException(Exception innerException)
+        : base(BuildMessage(), innerException) { }
+    /// <summary>Creates a new <see cref="MissingFontException"/> with message and inner exception.</summary>
+    public MissingFontException(string message, Exception innerException)
+        : base(message, innerException) { }
+
+    private static string BuildMessage() =>
+        "IColumn.AutoSize() requires font metrics that are not available in this environment. "
+        + "On headless Linux, install a font package and (if needed) libgdiplus: "
+        + "Debian/Ubuntu — 'apt-get install -y fontconfig fonts-dejavu-core libgdiplus'; "
+        + "Alpine — 'apk add fontconfig ttf-dejavu libgdiplus'. "
+        + "Alternatively, set column widths explicitly via IColumn.Width(double) (design decision I3).";
+}

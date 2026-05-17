@@ -104,6 +104,23 @@ internal sealed class XssfSheet : ISheet
         return new XssfRow(_workbook, this, npoiRow);
     }
 
+    public IColumn Column(int index)
+    {
+        _workbook.ThrowIfDisposed();
+        if (index < 1 || index > CellAddress.MaxColumn)
+            throw new ArgumentOutOfRangeException(nameof(index), index,
+                $"column index must be in [1, {CellAddress.MaxColumn}]");
+        return new XssfColumn(_workbook, this, index);
+    }
+
+    public IColumn Column(string letter)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(letter);
+        int col = CellAddress.ParseColumn(letter);
+        return new XssfColumn(_workbook, this, col);
+    }
+
     public void FreezeRows(int rows)
     {
         _workbook.ThrowIfDisposed();

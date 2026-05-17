@@ -279,6 +279,48 @@ public static class CellAddress
         return string.Concat(buf.Slice(idx).ToString(), row.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
+    /// <summary>
+    /// Parses a column-letter reference (e.g. <c>"A"</c>, <c>"AA"</c>,
+    /// <c>"XFD"</c>) into its 1-based column index. A leading <c>$</c>
+    /// (absolute marker) is accepted and ignored. Case-insensitive.
+    /// </summary>
+    /// <exception cref="InvalidCellAddressException">Not a valid column letter.</exception>
+    public static int ParseColumn(string letter)
+    {
+        ArgumentNullException.ThrowIfNull(letter);
+        if (!TryParseColumnOnly(letter, out int col))
+            throw new InvalidCellAddressException(letter,
+                $"not a valid column letter (expected A..XFD)");
+        return col;
+    }
+
+    /// <summary>
+    /// Non-throwing form of <see cref="ParseColumn"/>.
+    /// </summary>
+    public static bool TryParseColumn(string letter, out int column) =>
+        TryParseColumnOnly(letter, out column);
+
+    /// <summary>
+    /// Formats a 1-based column index as its letter form (<c>1 → "A"</c>,
+    /// <c>27 → "AA"</c>).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="column"/> outside <c>[1, MaxColumn]</c>.</exception>
+    public static string FormatColumn(int column)
+    {
+        if (column < 1 || column > MaxColumn)
+            throw new ArgumentOutOfRangeException(nameof(column), column, $"column must be in [1, {MaxColumn}]");
+        Span<char> buf = stackalloc char[8];
+        int idx = buf.Length;
+        int c = column;
+        while (c > 0)
+        {
+            c--;
+            buf[--idx] = (char)('A' + c % 26);
+            c /= 26;
+        }
+        return buf.Slice(idx).ToString();
+    }
+
     private static bool IsAsciiLetter(char c) =>
         c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z');
 }
