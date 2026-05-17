@@ -173,6 +173,78 @@ NetXlsx.INamedRange
 NetXlsx.INamedRange.Formula.get -> string!
 NetXlsx.INamedRange.Name.get -> string!
 NetXlsx.INamedRange.SheetScope.get -> string?
+NetXlsx.IStreamingCell
+NetXlsx.IStreamingCell.Address.get -> string!
+NetXlsx.IStreamingCell.ColumnIndex.get -> int
+NetXlsx.IStreamingCell.Kind.get -> NetXlsx.CellKind
+NetXlsx.IStreamingCell.NumberFormat(string! format) -> NetXlsx.IStreamingCell!
+NetXlsx.IStreamingCell.RowIndex.get -> int
+NetXlsx.IStreamingCell.SetBool(bool value) -> void
+NetXlsx.IStreamingCell.SetDate(System.DateTime value) -> void
+NetXlsx.IStreamingCell.SetFormula(string! formula) -> void
+NetXlsx.IStreamingCell.SetNumber(decimal value) -> void
+NetXlsx.IStreamingCell.SetNumber(double value) -> void
+NetXlsx.IStreamingCell.SetNumber(int value) -> void
+NetXlsx.IStreamingCell.SetNumber(long value) -> void
+NetXlsx.IStreamingCell.SetString(string! value) -> void
+NetXlsx.IStreamingCell.Style(NetXlsx.CellStyle! style) -> NetXlsx.IStreamingCell!
+NetXlsx.IStreamingRow
+NetXlsx.IStreamingRow.Cell(int column) -> NetXlsx.IStreamingCell!
+NetXlsx.IStreamingRow.Flush() -> void
+NetXlsx.IStreamingRow.Index.get -> int
+NetXlsx.IStreamingRow.Set(int column, bool value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Set(int column, decimal value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Set(int column, double value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Set(int column, int value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Set(int column, long value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Set(int column, string! value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Set(int column, System.DateTime value) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingRow.Sheet.get -> NetXlsx.IStreamingSheet!
+NetXlsx.IStreamingRow.this[int column].get -> NetXlsx.IStreamingCell!
+NetXlsx.IStreamingRow.this[string! columnLetter].get -> NetXlsx.IStreamingCell!
+NetXlsx.IStreamingSheet
+NetXlsx.IStreamingSheet.AppendRow() -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingSheet.AppendRow(int index) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingSheet.Name.get -> string!
+NetXlsx.IStreamingSheet.Underlying.get -> NPOI.XSSF.Streaming.SXSSFSheet!
+NetXlsx.IStreamingSheet.Workbook.get -> NetXlsx.IStreamingWorkbook!
+NetXlsx.IStreamingWorkbook
+NetXlsx.IStreamingWorkbook.AddSheet(string! name) -> NetXlsx.IStreamingSheet!
+NetXlsx.IStreamingWorkbook.Save(string! path) -> void
+NetXlsx.IStreamingWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
+NetXlsx.IStreamingWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IStreamingWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IStreamingWorkbook.Underlying.get -> NPOI.XSSF.Streaming.SXSSFWorkbook!
+NetXlsx.WorkbookOptions
+NetXlsx.WorkbookOptions.DateSystem.get -> NetXlsx.DateSystem
+NetXlsx.WorkbookOptions.DateSystem.init -> void
+NetXlsx.WorkbookOptions.DefaultFontName.get -> string!
+NetXlsx.WorkbookOptions.DefaultFontName.init -> void
+NetXlsx.WorkbookOptions.DefaultFontSize.get -> double
+NetXlsx.WorkbookOptions.DefaultFontSize.init -> void
+NetXlsx.WorkbookOptions.DisplayCulture.get -> System.Globalization.CultureInfo!
+NetXlsx.WorkbookOptions.DisplayCulture.init -> void
+NetXlsx.WorkbookOptions.MaxCellTextLength.get -> int
+NetXlsx.WorkbookOptions.MaxCellTextLength.init -> void
+NetXlsx.WorkbookOptions.MaxColsPerSheet.get -> int
+NetXlsx.WorkbookOptions.MaxColsPerSheet.init -> void
+NetXlsx.WorkbookOptions.MaxRowsPerSheet.get -> int
+NetXlsx.WorkbookOptions.MaxRowsPerSheet.init -> void
+NetXlsx.WorkbookOptions.ReadMaxSheets.get -> int
+NetXlsx.WorkbookOptions.ReadMaxSheets.init -> void
+NetXlsx.WorkbookOptions.ReadMaxUncompressedBytes.get -> long
+NetXlsx.WorkbookOptions.ReadMaxUncompressedBytes.init -> void
+NetXlsx.WorkbookOptions.WorkbookOptions() -> void
+NetXlsx.StreamingOptions
+NetXlsx.StreamingOptions.CompressTempFiles.get -> bool
+NetXlsx.StreamingOptions.CompressTempFiles.init -> void
+NetXlsx.StreamingOptions.RowAccessWindowSize.get -> int
+NetXlsx.StreamingOptions.RowAccessWindowSize.init -> void
+NetXlsx.StreamingOptions.StreamingOptions() -> void
+NetXlsx.DateSystem
+NetXlsx.DateSystem.Excel1900 = 0 -> NetXlsx.DateSystem
+NetXlsx.DateSystem.Excel1904 = 1 -> NetXlsx.DateSystem
+static NetXlsx.Workbook.CreateStreaming(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!
 NetXlsx.IWorkbook
 NetXlsx.IWorkbook.AddNamedRange(string! name, string! formula, string? sheetScope = null) -> NetXlsx.INamedRange!
 NetXlsx.IWorkbook.NamedRanges.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.INamedRange!>!

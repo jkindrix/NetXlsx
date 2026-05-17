@@ -24,6 +24,19 @@ public static class Workbook
         return new XssfWorkbook(underlying);
     }
 
+    /// <summary>
+    /// Creates a new, empty <b>streaming</b> workbook backed by NPOI's
+    /// SXSSF writer. Use when writing more than ~30k rows — past that
+    /// threshold an in-memory <see cref="Create"/> workbook exceeds the
+    /// design's memory budget per spike 2 (see design §5).
+    /// </summary>
+    /// <param name="options">Streaming-specific knobs (row-access
+    /// window size, temp-file compression). Defaults match NPOI.</param>
+    public static IStreamingWorkbook CreateStreaming(StreamingOptions? options = null)
+    {
+        return new SxssfWorkbook(options ?? new StreamingOptions());
+    }
+
     /// <summary>Opens an existing <c>.xlsx</c> workbook from a file path.</summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> workbook.</exception>

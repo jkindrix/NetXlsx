@@ -429,6 +429,36 @@ exist — but the symbol-level additions are documented here because
 they were not enumerated in design.md's CellAddress section (it
 declares the type but doesn't enumerate members).
 
+### 2026-05-16 — Streaming write: `IStreamingCell`, not `ICell`
+
+Design §6.3 originally specified `IStreamingRow.Cell(int) -> ICell`,
+with the comment "styling/value via the standard fluent ICell." That
+contract can't be honored as written:
+
+- `ICell.Underlying` returns `NPOI.XSSF.UserModel.XSSFCell` (concrete).
+- The streaming cell type is `NPOI.XSSF.Streaming.SXSSFCell`, which
+  does **not** inherit from `XSSFCell` — they share only the NPOI
+  `ICell` interface.
+- So a streaming-cell wrapper implementing `ICell` would either have
+  to throw on `Underlying.get` (runtime trap) or return the wrong
+  concrete type (compile-time lie).
+
+Resolution shipped in v0.9 (decision **I-49**): a sibling
+`IStreamingCell` interface, narrower than `ICell` — value setters,
+`Style`/`NumberFormat`, `Kind`, address fields — with no
+`Underlying`. Consumers reach the raw `SXSSFCell` through
+`IStreamingSheet.Underlying.GetRow(idx).GetCell(col)` if they need
+it. That's an honest reflection of streaming's narrower contract
+(decision #7) and the constraint NPOI's type hierarchy imposes.
+
+Design §6.3 updated to reflect this. The "Style merge semantics" on
+`SxssfCell` are slightly weaker than on `XssfCell` because streaming
+doesn't keep a reverse lookup from NPOI's `ICellStyle.Index` to a
+`CellStyle` record for axes other than `NumberFormat` — incremental
+`Style()` calls on the same cell may not preserve prior axes from
+earlier calls. Practically a non-issue for the streaming use case
+(bulk write, one styling pass), but worth knowing.
+
 ### 2026-05-16 — Named ranges: NPOI's name-uniqueness constraint
 
 Decision I9 leaves cross-scope coexistence semantics unspecified.

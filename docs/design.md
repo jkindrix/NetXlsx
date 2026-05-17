@@ -243,6 +243,7 @@ public interface IStreamingWorkbook : IDisposable, IAsyncDisposable
 public interface IStreamingSheet
 {
     string Name { get; }
+    IStreamingWorkbook Workbook { get; }
     IStreamingRow AppendRow();                    // creates next row; previous rows may be flushed
     IStreamingRow AppendRow(int index);           // explicit index; must be > last index written
 
@@ -252,10 +253,32 @@ public interface IStreamingSheet
 public interface IStreamingRow
 {
     int Index { get; }                            // 1-based
-    ICell Cell(int col);                          // 1-based; styling/value via the standard fluent ICell
-    ICell this[int col] { get; }
-    ICell this[string column] { get; }            // row["B"]
+    IStreamingSheet Sheet { get; }
+    IStreamingCell Cell(int col);                 // 1-based — see I-49
+    IStreamingCell this[int col] { get; }
+    IStreamingCell this[string column] { get; }   // row["B"]
+    IStreamingRow Set(int col, string|double|decimal|int|long|bool|DateTime value);  // fluent (one overload per scalar)
     void Flush();                                 // explicit; auto-flushed on next AppendRow
+}
+
+// I-49 (added 2026-05-16): IStreamingRow.Cell returns IStreamingCell,
+// not ICell. NPOI's SXSSFCell does not inherit from XSSFCell, so the
+// ICell.Underlying contract (returns XSSFCell) cannot be honored on
+// streaming cells. IStreamingCell is the narrower surface — value
+// setters + Style/NumberFormat + Kind — with the escape hatch on
+// IStreamingSheet.Underlying instead of per-cell.
+public interface IStreamingCell
+{
+    string Address { get; }
+    int RowIndex { get; } int ColumnIndex { get; }
+    CellKind Kind { get; }
+    void SetString(string value);
+    void SetNumber(double|decimal|int|long value);
+    void SetBool(bool value);
+    void SetDate(DateTime value);
+    void SetFormula(string formula);
+    IStreamingCell Style(CellStyle style);
+    IStreamingCell NumberFormat(string format);
 }
 ```
 

@@ -9,6 +9,92 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.9 — Streaming write (`IStreamingWorkbook`, `Workbook.CreateStreaming`)
+Lands the biggest remaining v1.0 ship-blocker — write-side streaming via
+NPOI's SXSSF. Random-access write/read stays on `IWorkbook` /
+`Workbook.Create`; bulk writes past ~30k rows now have a first-class
+entry point that holds memory flat per spike 2.
+
+Public surface (PublicAPI.Unshipped.txt: +63 entries):
+- `Workbook.CreateStreaming(StreamingOptions? options = null) ->
+  IStreamingWorkbook` — entry point per design §6.1.
+- `IStreamingWorkbook : IDisposable, IAsyncDisposable` with
+  `AddSheet`, `Save` (sync + async, stream + path), and
+  `Underlying` returning `SXSSFWorkbook`.
+- `IStreamingSheet` with `AppendRow()` / `AppendRow(int index)` —
+  the latter enforces the append-only contract by throwing if
+  `index <= last written`. `Underlying` returns `SXSSFSheet`.
+- `IStreamingRow` with `Index`, indexers `[int]` / `[string]`,
+  `Cell(int)`, seven `Set(int, T)` fluent overloads (string,
+  double, decimal, int, long, bool, DateTime), and an explicit
+  `Flush()` that delegates to `SXSSFSheet.FlushRows()`.
+- `IStreamingCell` — **new, sibling to ICell** (design decision
+  **I-49**, see implementation-notes). Has the value setters
+  (`SetString`/`SetNumber`/`SetBool`/`SetDate`/`SetFormula`),
+  `Style(CellStyle)`, `NumberFormat(string)`, address + `Kind`.
+  No `Underlying` — NPOI's `SXSSFCell` doesn't inherit
+  `XSSFCell`, so the `ICell.Underlying : XSSFCell` contract
+  cannot be honored; consumers reach the raw cell through
+  `IStreamingSheet.Underlying`.
+- `WorkbookOptions` (property bag): `DisplayCulture`,
+  `DateSystem`, `ReadMaxUncompressedBytes`, `ReadMaxSheets`,
+  `MaxRowsPerSheet`, `MaxColsPerSheet`, `MaxCellTextLength`,
+  `DefaultFontName`, `DefaultFontSize`. Defaults match Excel.
+  v0.9 wires `StreamingOptions` properties only; the random-access
+  side will pick up `WorkbookOptions` overloads in a follow-up.
+- `StreamingOptions : WorkbookOptions` adds `RowAccessWindowSize`
+  (default 100, NPOI default) and `CompressTempFiles` (default
+  false).
+- `DateSystem { Excel1900, Excel1904 }` per design §6.1.
+
+Cookbook (v1.0 set is now **13 of 13**):
+- **StreamingMillionRows** (recipe 9). Defaults to 250k rows × 20
+  columns (CI-friendly); `Run(path, rowCount)` overload lets ops
+  bump it up for a true perf check. Mixes int/double/string cells
+  so it isn't a numeric-fast-path-only demo. Sized at 5,000 rows
+  in the golden-file test for fast CI feedback.
+
+Internal:
+- New `Internal/Sxssf{Workbook,Sheet,Row,Cell}.cs` wrappers.
+  `SxssfWorkbook` owns both the SXSSF wrapper *and* the underlying
+  XSSF base so the style pool (which needs an `XSSFWorkbook`) can
+  be reused unchanged.
+- `SxssfCell.Style` merges overlay-non-null over the cell's
+  current style and routes through the same `CellStylePool` as
+  random-access. Reverse-lookup from NPOI's `ICellStyle` to a
+  `CellStyle` record is only fully reliable for `NumberFormat`
+  (the streaming code doesn't index font/fill/border tables);
+  documented as a known weaker-merge corner in implementation-notes.
+
+Design + notes sync:
+- `docs/design.md §6.3` rewritten with the `IStreamingCell` split
+  and decision I-49 reference.
+- `docs/implementation-notes.md` carries the full explanation:
+  why ICell couldn't be reused, what `IStreamingSheet.Underlying`
+  buys callers, and the merge-semantics caveat.
+
+Tests (+20 unit + 1 golden = +21):
+- `StreamingWorkbookTests` covers entry point + lifecycle (type
+  separation from `IWorkbook`, default and explicit window size,
+  double-dispose safe), `AddSheet` (name validation, dup
+  rejection case-insensitive), append-only contract (start at 1,
+  monotonic increment, explicit-index skip-forward, cannot
+  revisit, grid-bound validation), cell-level write (all seven
+  scalar `Set` overloads round-trip through Save→Open via the
+  random-access reader; letter indexer; column-bound validation),
+  `SaveAsync` round-trip, dispose-throws matrix, formula
+  (round-trip + empty/null rejection), and `NumberFormat`
+  surviving save-open.
+- Cookbook golden-file test runs 5,000-row streaming write,
+  checks file size + spot-checks header / first / middle / last
+  / mixed-type cells.
+- `PublicApiSnapshotTests` baseline extended with the six new
+  public types (`DateSystem`, `IStreamingCell`, `IStreamingRow`,
+  `IStreamingSheet`, `IStreamingWorkbook`, `StreamingOptions`,
+  `WorkbookOptions`).
+
+Cookbook is now **complete at 13 of 13 recipes** for the v1.0 set.
+
 ### v0.8.1 — Cookbook recipes 10, 11 (NPOIEscapeHatch, OpenEditSave)
 Two more cookbook recipes — cookbook is now **12 of 13**, with only
 `StreamingMillionRows` (recipe 9) remaining, gated on the streaming

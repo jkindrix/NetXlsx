@@ -26,6 +26,7 @@ public static class Program
         ("hyperlinks-and-comments", HyperlinksAndComments.Run),
         ("npoi-escape-hatch", NPOIEscapeHatch.Run),
         ("open-edit-save", OpenEditSave.Run),
+        ("streaming-million-rows", StreamingMillionRows.Run),
     };
 
     public static async Task<int> Main(string[] args)
