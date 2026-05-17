@@ -55,6 +55,14 @@ internal sealed class XssfWorkbook : IWorkbook
             defaultFont.FontHeightInPoints = (short)_options.DefaultFontSize;
         }
 
+        // Read-side safety checks (zip-bomb defense + sheet-count cap).
+        // These run on the Open path (NumberOfSheets > 0 means the
+        // underlying workbook was constructed from an existing file).
+        if (_underlying.NumberOfSheets > 0)
+        {
+            EnforceReadLimits();
+        }
+
         // Index any sheets that already exist (the Open path).
         for (int i = 0; i < _underlying.NumberOfSheets; i++)
         {
@@ -63,6 +71,83 @@ internal sealed class XssfWorkbook : IWorkbook
             _sheetsByIndex.Add(wrapper);
             _sheetsByName[npoiSheet.SheetName] = wrapper;
         }
+    }
+
+    private void EnforceReadLimits()
+    {
+        // ReadMaxSheets
+        int sheetCount = _underlying.NumberOfSheets;
+        if (sheetCount > _options.ReadMaxSheets)
+        {
+            throw new ResourceLimitExceededException(
+                "sheet count", _options.ReadMaxSheets, sheetCount);
+        }
+
+        // ReadMaxUncompressedBytes — best-effort post-Open check.
+        // NPOI doesn't expose total uncompressed size directly; we sum
+        // each OPC part's stream length. This catches over-the-line
+        // payloads after they've been buffered in memory, which is the
+        // right place to fail loud given that NPOI has no streaming
+        // open API. Pre-buffer zip-bomb defense would need OPC-level
+        // inspection before NPOI parses — out of scope for v1.
+        long limit = _options.ReadMaxUncompressedBytes;
+        if (limit <= 0) return;
+        long total = 0;
+        foreach (var part in _underlying.Package.GetParts())
+        {
+            System.IO.Stream? s = null;
+            try
+            {
+                s = part.GetInputStream();
+            }
+            catch (InvalidOperationException)
+            {
+                // NPOI's PackagePropertiesPart (core/extended/custom
+                // properties) doesn't expose a generic input stream —
+                // GetInputStreamImpl throws "Operation not authorized."
+                // These parts are bounded-small (core.xml etc.); skip
+                // them rather than fail the open.
+                continue;
+            }
+
+            try
+            {
+                if (s.CanSeek)
+                {
+                    total += s.Length;
+                }
+                else
+                {
+                    // Fall back to length-by-CopyTo when the stream is
+                    // not seekable. Bounded so we never read more than
+                    // we'd accept.
+                    total += CountBytes(s, limit - total + 1);
+                }
+            }
+            finally
+            {
+                s.Dispose();
+            }
+
+            if (total > limit)
+            {
+                throw new ResourceLimitExceededException(
+                    "uncompressed package size in bytes", limit, total);
+            }
+        }
+    }
+
+    private static long CountBytes(System.IO.Stream s, long capPlusOne)
+    {
+        byte[] buf = new byte[4096];
+        long count = 0;
+        int read;
+        while ((read = s.Read(buf, 0, buf.Length)) > 0)
+        {
+            count += read;
+            if (count >= capPlusOne) break;
+        }
+        return count;
     }
 
     public int SheetCount

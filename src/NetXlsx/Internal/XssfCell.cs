@@ -295,15 +295,23 @@ internal sealed class XssfCell : ICell
     {
         _workbook.ThrowIfDisposed();
         // Per design §7.10:
-        //   Empty -> ""; String -> stored verbatim; Number -> invariant string;
-        //   Bool -> "TRUE" / "FALSE" (invariant); Formula -> cached result;
-        //   Error -> error code text.
+        //   Empty -> ""; String -> stored verbatim;
+        //   Number (no format) -> invariant G17;
+        //   Date -> display-formatted via DisplayCulture (uses NPOI's
+        //           DataFormatter so the cell's format string drives output);
+        //   Bool -> "TRUE" / "FALSE" (invariant; never localized);
+        //   Formula -> cached result; Error -> error code text.
         switch (_underlying.CellType)
         {
             case CellType.Blank: return string.Empty;
             case CellType.String: return _underlying.StringCellValue ?? string.Empty;
             case CellType.Boolean: return _underlying.BooleanCellValue ? "TRUE" : "FALSE";
             case CellType.Numeric:
+                if (DateUtil.IsCellDateFormatted(_underlying))
+                {
+                    var formatter = new DataFormatter(_workbook.Options.DisplayCulture);
+                    return formatter.FormatCellValue(_underlying);
+                }
                 return _underlying.NumericCellValue.ToString("G17", CultureInfo.InvariantCulture);
             case CellType.Error:
                 return FormulaError.ForInt(_underlying.ErrorCellValue).String;

@@ -429,6 +429,58 @@ exist — but the symbol-level additions are documented here because
 they were not enumerated in design.md's CellAddress section (it
 declares the type but doesn't enumerate members).
 
+### 2026-05-16 — `WorkbookOptions.DateSystem` is informational in v1
+
+Design §6.1 lists `DateSystem { Excel1900, Excel1904 }` on
+`WorkbookOptions`. v1 honors it only **informationally**: the value
+is stored on the workbook but not enforced or written to the
+package, because NPOI 2.7.x's `XSSFWorkbook` constructor hardcodes
+`workbookPr.date1904 = false` ("don't EVER use the 1904 date
+system" — see NPOI source, `XSSFWorkbook.cs:435`).
+
+For read-side date interpretation, NPOI already respects the
+file's own `date1904` flag via `XSSFWorkbook.IsDate1904()`, so
+opening a 1904 workbook authored by Mac Excel pre-2016 reads its
+dates correctly with no v1 wiring required.
+
+What this means in practice:
+- Writing a workbook intended to use the 1904 epoch is not
+  supported in v1. Callers needing that today must reach through
+  `IWorkbook.Underlying` and mutate `CT_WorkbookPr.date1904`
+  directly (deep NPOI internal).
+- The `DateSystem` option on `WorkbookOptions` is kept in the
+  public surface so the contract doesn't need to break when NPOI
+  3.x (or a workaround) makes write-side 1904 viable.
+
+### 2026-05-16 — `ReadMaxUncompressedBytes` is post-open, not pre-open
+
+Real zip-bomb defense would inspect the central directory before
+NPOI buffers any payload. NPOI's `XSSFWorkbook(Stream)` constructor
+materializes the whole package in memory before returning control,
+so v1's check runs *after* the buffer exists. This catches
+over-the-line files at the fail-loud boundary (instead of allowing
+them through to a downstream consumer), but it does NOT prevent
+memory consumption during the open itself.
+
+Two NPOI-side annoyances we work around in `EnforceReadLimits`:
+
+- `NPOI.OpenXml4Net.OPC.Internal.PackagePropertiesPart`
+  (core/extended/custom properties) throws
+  `InvalidOperationException("Operation not authorized")` when
+  you call `GetInputStream()` on it. These parts are bounded-small
+  (a few hundred bytes of XML); we skip them in the size sum
+  rather than fail the open.
+- `PackagePart.Size` returns -1 by default and only a few
+  subclasses override; we can't rely on it. The sum-by-stream
+  path is necessary even though it allocates.
+
+Pre-buffer zip-bomb defense would need OPC-level inspection
+before NPOI parses (e.g., open the OPC package manually, read the
+zip central directory, sum declared uncompressed sizes, reject if
+over). That's a meaningful chunk of code and is deferred past
+v1.0 — the current post-open check covers the "I opened a 256 MB
+expanded payload by accident" case without blocking v1.
+
 ### 2026-05-16 — Streaming write: `IStreamingCell`, not `ICell`
 
 Design §6.3 originally specified `IStreamingRow.Cell(int) -> ICell`,

@@ -9,6 +9,53 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.0-B — `WorkbookOptions` read-side safety + DisplayCulture-aware date rendering
+Second half of the v1.0 `WorkbookOptions` slice. Closes the
+read-side wiring. With this slice the v1.0 `WorkbookOptions`
+contract is fully realized except for `DateSystem`, which v1
+honors only informationally (NPOI hardcodes `date1904 = false`
+on write — documented as a known constraint).
+
+Behavior wired:
+- `WorkbookOptions.ReadMaxSheets` — `Workbook.Open` rejects files
+  whose `NumberOfSheets` exceeds the cap with
+  `ResourceLimitExceededException("sheet count", limit, actual)`.
+  Default is 1000 per design §6.1; well above any realistic file.
+- `WorkbookOptions.ReadMaxUncompressedBytes` — best-effort
+  post-open zip-bomb defense. Sums each OPC part's
+  `GetInputStream().Length`; if the total exceeds the limit,
+  throws `ResourceLimitExceededException("uncompressed package
+  size in bytes", limit, total)`. Default 256 MiB.
+  - NPOI's `PackagePropertiesPart` (core/extended/custom props)
+    throws `"Operation not authorized"` on `GetInputStream()` —
+    those parts are bounded-small and skipped in the sum.
+  - True pre-buffer defense (inspect zip central directory
+    before NPOI materializes) deferred past v1.0; documented
+    in implementation-notes.
+- `WorkbookOptions.DisplayCulture` — `XssfCell.GetString` on
+  date-formatted numeric cells now routes through NPOI's
+  `DataFormatter(culture)`, so date cells render per the
+  configured culture (matches design §7.10). Bare numeric cells
+  remain invariant G17 (§7.10 reserves culture-aware number
+  rendering for v1.1+). Booleans never localize.
+
+Known constraint (documented in implementation-notes):
+- `WorkbookOptions.DateSystem` is informational only in v1.
+  NPOI 2.7.x hardcodes `workbookPr.date1904 = false` in the
+  `XSSFWorkbook` constructor; writing a 1904-epoch workbook
+  isn't possible without reaching through the escape hatch.
+  Read-side date interpretation is already correct because
+  NPOI respects the file's own `IsDate1904()` flag.
+
+Tests (+8): `WorkbookOptionsReadPathTests` covers
+`ReadMaxSheets` (within-limit pass, over-limit
+`ResourceLimitExceededException`, default-1000 doesn't reject
+typical files), `ReadMaxUncompressedBytes` (within-limit pass,
+1 KiB cap on a real .xlsx reliably trips the check), and
+`DisplayCulture`-aware `GetString` (date cell renders
+non-empty under both invariant and de-DE; bare number cell
+stays invariant G17; bool stays invariant TRUE/FALSE).
+
 ### v1.0-A — `WorkbookOptions` entry-point wiring + write-side limit enforcement
 First half of the v1.0 `WorkbookOptions` slice. The type shipped in
 v0.9 but the random-access entry points ignored it; this slice wires
