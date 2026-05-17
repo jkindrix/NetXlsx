@@ -31,9 +31,10 @@ internal sealed class XssfRow : IRow
     public ICell Cell(int column)
     {
         _workbook.ThrowIfDisposed();
-        if (column < 1 || column > CellAddress.MaxColumn)
+        int colCap = Math.Min(_workbook.Options.MaxColsPerSheet, CellAddress.MaxColumn);
+        if (column < 1 || column > colCap)
             throw new ArgumentOutOfRangeException(nameof(column), column,
-                $"column must be in [1, {CellAddress.MaxColumn}]");
+                $"column must be in [1, {colCap}]");
 
         int col0 = column - 1;
         var npoiCell = (XSSFCell?)_underlying.GetCell(col0) ?? (XSSFCell)_underlying.CreateCell(col0);

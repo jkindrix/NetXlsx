@@ -60,17 +60,15 @@ internal sealed class XssfCell : ICell
         }
     }
 
-    /// <summary>Excel hard limit on cell text length (decision #37 / §7.6).</summary>
-    private const int MaxCellTextLength = 32_767;
-
     public void SetString(string value)
     {
         _workbook.ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(value);
-        if (value.Length > MaxCellTextLength)
+        int limit = _workbook.Options.MaxCellTextLength;
+        if (value.Length > limit)
         {
             throw new ResourceLimitExceededException(
-                "cell text length", MaxCellTextLength, value.Length);
+                "cell text length", limit, value.Length);
         }
         _underlying.SetCellValue(value);
     }

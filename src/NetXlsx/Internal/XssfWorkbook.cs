@@ -33,10 +33,28 @@ internal sealed class XssfWorkbook : IWorkbook
     private CellStylePool? _stylePool;
     internal CellStylePool StylePool => _stylePool ??= new CellStylePool(_underlying);
 
-    public XssfWorkbook(XSSFWorkbook underlying)
+    private readonly WorkbookOptions _options;
+    internal WorkbookOptions Options => _options;
+
+    public XssfWorkbook(XSSFWorkbook underlying) : this(underlying, new WorkbookOptions()) { }
+
+    public XssfWorkbook(XSSFWorkbook underlying, WorkbookOptions options)
     {
         ArgumentNullException.ThrowIfNull(underlying);
+        ArgumentNullException.ThrowIfNull(options);
         _underlying = underlying;
+        _options = options;
+
+        // Apply DefaultFontName / DefaultFontSize to the workbook's
+        // default font (index 0). NPOI auto-creates a default font on
+        // first XSSFWorkbook construction; we mutate it in place.
+        if (_underlying.NumberOfFonts > 0)
+        {
+            var defaultFont = _underlying.GetFontAt(0);
+            defaultFont.FontName = _options.DefaultFontName;
+            defaultFont.FontHeightInPoints = (short)_options.DefaultFontSize;
+        }
+
         // Index any sheets that already exist (the Open path).
         for (int i = 0; i < _underlying.NumberOfSheets; i++)
         {

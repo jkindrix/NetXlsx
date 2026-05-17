@@ -17,11 +17,19 @@ public static class Workbook
     private const int MaxSheetNameLength = 31;
     private static readonly char[] s_invalidSheetNameChars = { '\\', '/', '?', '*', '[', ']' };
 
-    /// <summary>Creates a new, empty workbook with no sheets.</summary>
-    public static IWorkbook Create()
+    /// <summary>
+    /// Creates a new, empty workbook with no sheets.
+    /// </summary>
+    /// <param name="options">
+    /// Per-workbook configuration (write-side limits, default font,
+    /// display culture, date system). When <c>null</c>, uses
+    /// <see cref="WorkbookOptions"/> defaults — equivalent to passing
+    /// <c>new WorkbookOptions()</c>.
+    /// </param>
+    public static IWorkbook Create(WorkbookOptions? options = null)
     {
         var underlying = new XSSFWorkbook();
-        return new XssfWorkbook(underlying);
+        return new XssfWorkbook(underlying, options ?? new WorkbookOptions());
     }
 
     /// <summary>
@@ -40,9 +48,10 @@ public static class Workbook
     /// <summary>Opens an existing <c>.xlsx</c> workbook from a file path.</summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> workbook.</exception>
-    public static IWorkbook Open(string path)
+    public static IWorkbook Open(string path, WorkbookOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(path);
+        var opts = options ?? new WorkbookOptions();
 
         // FileNotFoundException / DirectoryNotFoundException / UnauthorizedAccessException
         // are all standard I/O exceptions and should propagate verbatim — they are not
@@ -51,7 +60,7 @@ public static class Workbook
         try
         {
             var underlying = new XSSFWorkbook(fs);
-            return new XssfWorkbook(underlying);
+            return new XssfWorkbook(underlying, opts);
         }
         catch (Exception ex) when (IsKnownMalformedOpenException(ex))
         {
@@ -72,17 +81,18 @@ public static class Workbook
     /// <param name="leaveOpen">If <c>false</c>, the stream is disposed after the workbook is read. Default <c>true</c> per BCL convention.</param>
     /// <exception cref="ArgumentException">The stream is not readable or not seekable.</exception>
     /// <exception cref="MalformedFileException">The stream content is not a valid <c>.xlsx</c> workbook.</exception>
-    public static IWorkbook Open(Stream stream, bool leaveOpen = true)
+    public static IWorkbook Open(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
         if (!stream.CanSeek) throw new ArgumentException("Stream must be seekable (NPOI requires seek).", nameof(stream));
         if (stream.Position != 0) throw new ArgumentException("Stream must be positioned at 0.", nameof(stream));
+        var opts = options ?? new WorkbookOptions();
 
         try
         {
             var underlying = new XSSFWorkbook(stream);
-            return new XssfWorkbook(underlying);
+            return new XssfWorkbook(underlying, opts);
         }
         catch (Exception ex) when (IsKnownMalformedOpenException(ex))
         {
@@ -128,22 +138,22 @@ public static class Workbook
     }
 
     /// <summary>Asynchronously opens an existing <c>.xlsx</c> workbook from a path.</summary>
-    public static Task<IWorkbook> OpenAsync(string path, CancellationToken ct = default)
+    public static Task<IWorkbook> OpenAsync(string path, WorkbookOptions? options = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(path);
         // NPOI is synchronous; we offload to the thread pool per decision #30 / §7.1.
         // CancellationToken is honored only before the offload begins; mid-NPOI
         // cancellation is not supported.
         ct.ThrowIfCancellationRequested();
-        return Task.Run(() => Open(path), ct);
+        return Task.Run(() => Open(path, options), ct);
     }
 
     /// <summary>Asynchronously opens an existing <c>.xlsx</c> workbook from a stream.</summary>
-    public static Task<IWorkbook> OpenAsync(Stream stream, bool leaveOpen = true, CancellationToken ct = default)
+    public static Task<IWorkbook> OpenAsync(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ct.ThrowIfCancellationRequested();
-        return Task.Run(() => Open(stream, leaveOpen), ct);
+        return Task.Run(() => Open(stream, leaveOpen, options), ct);
     }
 
     /// <summary>

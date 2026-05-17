@@ -9,6 +9,61 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.0-A — `WorkbookOptions` entry-point wiring + write-side limit enforcement
+First half of the v1.0 `WorkbookOptions` slice. The type shipped in
+v0.9 but the random-access entry points ignored it; this slice wires
+the write-side and default-font knobs through. Read-side safety
+(`ReadMaxSheets`, `ReadMaxUncompressedBytes`), `DisplayCulture`-aware
+`GetString`, and `DateSystem` land in v1.0-B.
+
+Public surface (changes; no net additions to type count):
+- `Workbook.Create(WorkbookOptions? options = null)` — new optional
+  parameter. Existing `Workbook.Create()` calls continue to work.
+- `Workbook.Open(string path, WorkbookOptions? options = null)` —
+  same.
+- `Workbook.Open(Stream stream, bool leaveOpen = true,
+  WorkbookOptions? options = null)`.
+- `Workbook.OpenAsync(string path, WorkbookOptions? options = null,
+  CancellationToken ct = default)` — parameter inserted before
+  `ct` per design §6.1.
+- `Workbook.OpenAsync(Stream stream, bool leaveOpen = true,
+  WorkbookOptions? options = null, CancellationToken ct = default)`.
+
+Behavior wired:
+- `WorkbookOptions.MaxCellTextLength` — `XssfCell.SetString` now
+  reads the configured cap instead of a hardcoded `32_767`. Default
+  matches the Excel hard cap, so callers see no behavior change
+  unless they configure a smaller limit.
+- `WorkbookOptions.MaxRowsPerSheet` — `XssfSheet.AppendRow`,
+  `Row(int)`, and the `[r, c]` indexer now cap at
+  `min(Options.MaxRowsPerSheet, CellAddress.MaxRow)`. Configuring
+  a smaller value produces earlier failure with a message that
+  reflects the configured cap.
+- `WorkbookOptions.MaxColsPerSheet` — `XssfSheet.Column(int)`,
+  `[r, c]` indexer, and `XssfRow.Cell(int)` cap the same way.
+- `WorkbookOptions.DefaultFontName` / `DefaultFontSize` — applied
+  in the `XssfWorkbook` ctor to the workbook's default font
+  (NPOI font index 0). Defaults to Calibri 11 (matches Excel).
+  Note: on the Open path, the file's authored default font is
+  overwritten by these defaults unless the caller passes matching
+  options — caveat documented in the new test.
+
+Internal:
+- `XssfWorkbook` gains a `WorkbookOptions Options` field, exposed
+  to `internal` consumers (XssfCell, XssfSheet, XssfRow,
+  XssfColumn, XssfRange). Construction takes the options via a
+  new ctor overload; the no-arg overload defaults to
+  `new WorkbookOptions()` and preserves the existing entry point.
+
+Tests (+11): `WorkbookOptionsWritePathTests` covers null-options
+equivalence, default-cap unchanged behavior, file round-trip with
+options on both ends, `MaxCellTextLength` at both default (32,767)
+and configured (50), `MaxRowsPerSheet` cap on `AppendRow`/`Row`/`[r,c]`
+with a configured value of 5, `MaxColsPerSheet` cap on
+`[r,c]`/`Row.Cell`/`Column` with a value of 3, default font Calibri
+11, configured font Arial 14, and the open-default-font round-trip
+caveat.
+
 ### v0.9 — Streaming write (`IStreamingWorkbook`, `Workbook.CreateStreaming`)
 Lands the biggest remaining v1.0 ship-blocker — write-side streaming via
 NPOI's SXSSF. Random-access write/read stays on `IWorkbook` /

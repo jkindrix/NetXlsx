@@ -43,12 +43,7 @@ internal sealed class XssfSheet : ISheet
         get
         {
             _workbook.ThrowIfDisposed();
-            if (row < 1 || row > CellAddress.MaxRow)
-                throw new ArgumentOutOfRangeException(nameof(row), row,
-                    $"row must be in [1, {CellAddress.MaxRow}]");
-            if (column < 1 || column > CellAddress.MaxColumn)
-                throw new ArgumentOutOfRangeException(nameof(column), column,
-                    $"column must be in [1, {CellAddress.MaxColumn}]");
+            ValidateGridCoordinate(row, column);
             return GetOrCreateCell(row, column);
         }
     }
@@ -72,23 +67,34 @@ internal sealed class XssfSheet : ISheet
         return new XssfRange(_workbook, this, row1, col1, row2, col2);
     }
 
-    private static void ValidateGridCoordinate(int row, int column)
+    // Effective caps: min(user-configured option, Excel hard cap).
+    // The option defaults to the Excel hard cap, so default behavior
+    // is unchanged. Configuring a smaller value fails earlier.
+    private int EffectiveMaxRow =>
+        Math.Min(_workbook.Options.MaxRowsPerSheet, CellAddress.MaxRow);
+    private int EffectiveMaxColumn =>
+        Math.Min(_workbook.Options.MaxColsPerSheet, CellAddress.MaxColumn);
+
+    private void ValidateGridCoordinate(int row, int column)
     {
-        if (row < 1 || row > CellAddress.MaxRow)
+        int rowCap = EffectiveMaxRow;
+        int colCap = EffectiveMaxColumn;
+        if (row < 1 || row > rowCap)
             throw new ArgumentOutOfRangeException(nameof(row), row,
-                $"row must be in [1, {CellAddress.MaxRow}]");
-        if (column < 1 || column > CellAddress.MaxColumn)
+                $"row must be in [1, {rowCap}]");
+        if (column < 1 || column > colCap)
             throw new ArgumentOutOfRangeException(nameof(column), column,
-                $"column must be in [1, {CellAddress.MaxColumn}]");
+                $"column must be in [1, {colCap}]");
     }
 
     public IRow AppendRow()
     {
         _workbook.ThrowIfDisposed();
         int next0 = _underlying.PhysicalNumberOfRows == 0 ? 0 : _underlying.LastRowNum + 1;
-        if (next0 + 1 > CellAddress.MaxRow)
+        int rowCap = EffectiveMaxRow;
+        if (next0 + 1 > rowCap)
             throw new ArgumentOutOfRangeException(nameof(AppendRow),
-                $"appending would exceed Excel's row limit of {CellAddress.MaxRow}");
+                $"appending would exceed the configured row limit of {rowCap}");
         var npoiRow = (XSSFRow)_underlying.CreateRow(next0);
         return new XssfRow(_workbook, this, npoiRow);
     }
@@ -96,9 +102,10 @@ internal sealed class XssfSheet : ISheet
     public IRow Row(int index)
     {
         _workbook.ThrowIfDisposed();
-        if (index < 1 || index > CellAddress.MaxRow)
+        int rowCap = EffectiveMaxRow;
+        if (index < 1 || index > rowCap)
             throw new ArgumentOutOfRangeException(nameof(index), index,
-                $"row index must be in [1, {CellAddress.MaxRow}]");
+                $"row index must be in [1, {rowCap}]");
         int row0 = index - 1;
         var npoiRow = (XSSFRow?)_underlying.GetRow(row0) ?? (XSSFRow)_underlying.CreateRow(row0);
         return new XssfRow(_workbook, this, npoiRow);
@@ -107,9 +114,10 @@ internal sealed class XssfSheet : ISheet
     public IColumn Column(int index)
     {
         _workbook.ThrowIfDisposed();
-        if (index < 1 || index > CellAddress.MaxColumn)
+        int colCap = EffectiveMaxColumn;
+        if (index < 1 || index > colCap)
             throw new ArgumentOutOfRangeException(nameof(index), index,
-                $"column index must be in [1, {CellAddress.MaxColumn}]");
+                $"column index must be in [1, {colCap}]");
         return new XssfColumn(_workbook, this, index);
     }
 

@@ -370,11 +370,11 @@ static NetXlsx.CellAddress.ParseColumn(string! letter) -> int
 static NetXlsx.CellAddress.ParseRange(string! a1Range) -> (int Row1, int Col1, int Row2, int Col2)
 static NetXlsx.CellAddress.TryParse(string! a1, out int row, out int column) -> bool
 static NetXlsx.CellAddress.TryParseColumn(string! letter, out int column) -> bool
-static NetXlsx.Workbook.Create() -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.Create(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.IsValidSheetName(string! proposed) -> bool
-static NetXlsx.Workbook.Open(string! path) -> NetXlsx.IWorkbook!
-static NetXlsx.Workbook.Open(System.IO.Stream! stream, bool leaveOpen = true) -> NetXlsx.IWorkbook!
-static NetXlsx.Workbook.OpenAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
-static NetXlsx.Workbook.OpenAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
+static NetXlsx.Workbook.Open(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.Open(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.OpenAsync(string! path, NetXlsx.WorkbookOptions? options = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
+static NetXlsx.Workbook.OpenAsync(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
 static NetXlsx.Workbook.SanitizeSheetName(string! proposed) -> string!
 static NetXlsx.Workbook.SuggestSheetName(NetXlsx.IWorkbook! workbook, string! proposed) -> string!
