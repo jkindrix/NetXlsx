@@ -41,6 +41,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.CellStyle",
             "NetXlsx.Color",
             "NetXlsx.ColumnAttribute",
+            "NetXlsx.FormulaException",
             "NetXlsx.HAlign",
             "NetXlsx.ICell",
             "NetXlsx.IColumn",

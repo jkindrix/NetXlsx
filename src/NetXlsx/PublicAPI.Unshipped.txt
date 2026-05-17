@@ -45,6 +45,8 @@ NetXlsx.ICell.SetNumber(decimal value) -> void
 NetXlsx.ICell.SetNumber(double value) -> void
 NetXlsx.ICell.SetNumber(int value) -> void
 NetXlsx.ICell.SetNumber(long value) -> void
+NetXlsx.ICell.SetFormula(string! formula) -> void
+NetXlsx.ICell.GetFormula() -> string?
 NetXlsx.ICell.SetString(string! value) -> void
 NetXlsx.ICell.SetTime(System.TimeOnly value) -> void
 NetXlsx.ICell.Style(NetXlsx.CellStyle! style) -> NetXlsx.ICell!
@@ -223,6 +225,9 @@ NetXlsx.IColumn.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IColumn.Width(double units) -> NetXlsx.IColumn!
 NetXlsx.IColumn.WidthUnits.get -> double
 NetXlsx.IColumn.WidthUnits.set -> void
+NetXlsx.FormulaException
+NetXlsx.FormulaException.FormulaException(string! message) -> void
+NetXlsx.FormulaException.FormulaException(string! message, System.Exception! innerException) -> void
 NetXlsx.MissingFontException
 NetXlsx.MissingFontException.MissingFontException() -> void
 NetXlsx.MissingFontException.MissingFontException(string! message) -> void

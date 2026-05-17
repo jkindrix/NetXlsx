@@ -148,6 +148,43 @@ internal sealed class XssfCell : ICell
         ApplyDefaultStyleIfUnstyled(_workbook.DurationStyle);
     }
 
+    public void SetFormula(string formula)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(formula);
+
+        // Strip an optional leading '=' so callers can write either
+        // "=A1+B1" or "A1+B1". NPOI's CellFormula property expects the
+        // body without the leading '='.
+        var body = formula.Length > 0 && formula[0] == '=' ? formula.Substring(1) : formula;
+        if (body.Length == 0)
+            throw new FormulaException("formula body is empty (expected '=...' or a non-empty expression)");
+
+        try
+        {
+            _underlying.SetCellFormula(body);
+        }
+        catch (Exception ex)
+        {
+            // NPOI surfaces parse failures as FormulaParseException
+            // (NPOI.SS.Formula.FormulaParseException) wrapped in
+            // various IllegalArgumentException-style throws. We do not
+            // want to leak the NPOI type to callers, so we translate.
+            throw new FormulaException(
+                $"failed to parse formula '{formula}': {ex.Message}", ex);
+        }
+        // Per design decision #46 and §7.8: never pre-compute the
+        // cached result. Excel recalculates on open.
+    }
+
+    public string? GetFormula()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_underlying.CellType != CellType.Formula) return null;
+        var body = _underlying.CellFormula;
+        return body is null ? null : "=" + body;
+    }
+
     public void Clear()
     {
         _workbook.ThrowIfDisposed();

@@ -89,6 +89,23 @@ public sealed class ResourceLimitExceededException : WorkbookException
 }
 
 /// <summary>
+/// Thrown by <see cref="ICell.SetFormula"/> (and other formula-related
+/// APIs) when a formula expression cannot be parsed by NPOI, or when a
+/// caller supplies an empty body. The original NPOI exception is
+/// preserved as <see cref="Exception.InnerException"/> when present;
+/// the message includes the offending expression. Per design decision
+/// #46 / §7.8, no formula evaluation is attempted — this exception
+/// covers parse-time failures only.
+/// </summary>
+public sealed class FormulaException : WorkbookException
+{
+    /// <summary>Creates a new <see cref="FormulaException"/>.</summary>
+    public FormulaException(string message) : base(message) { }
+    /// <summary>Creates a new <see cref="FormulaException"/> with inner exception.</summary>
+    public FormulaException(string message, Exception innerException) : base(message, innerException) { }
+}
+
+/// <summary>
 /// Thrown by <see cref="IColumn.AutoSize"/> when the runtime environment
 /// cannot supply font metrics — typically headless Linux without
 /// <c>libgdiplus</c> and a fallback font installed (design decision I3).

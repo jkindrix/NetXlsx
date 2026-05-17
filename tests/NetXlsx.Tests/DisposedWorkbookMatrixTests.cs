@@ -140,6 +140,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "SetDate(DateOnly)", (Action<ICell>)(c => c.SetDate(new DateOnly(2026, 1, 1))) };
         yield return new object[] { "SetTime", (Action<ICell>)(c => c.SetTime(new TimeOnly(12, 0))) };
         yield return new object[] { "SetDuration", (Action<ICell>)(c => c.SetDuration(TimeSpan.FromHours(1))) };
+        yield return new object[] { "SetFormula", (Action<ICell>)(c => c.SetFormula("=1+1")) };
         yield return new object[] { "Clear", (Action<ICell>)(c => c.Clear()) };
         // Getters
         yield return new object[] { "GetString", (Action<ICell>)(c => c.GetString()) };
@@ -150,6 +151,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "GetTime", (Action<ICell>)(c => c.GetTime()) };
         yield return new object[] { "GetDuration", (Action<ICell>)(c => c.GetDuration()) };
         yield return new object[] { "GetError", (Action<ICell>)(c => c.GetError()) };
+        yield return new object[] { "GetFormula", (Action<ICell>)(c => c.GetFormula()) };
         yield return new object[] { "Style", (Action<ICell>)(c => c.Style(CellStyle.Default)) };
         yield return new object[] { "NumberFormat", (Action<ICell>)(c => c.NumberFormat("0.00")) };
         yield return new object[] { "GetStyle", (Action<ICell>)(c => c.GetStyle()) };

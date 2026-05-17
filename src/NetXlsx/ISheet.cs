@@ -490,6 +490,25 @@ public interface ICell
     /// </exception>
     void SetDuration(TimeSpan value);
 
+    /// <summary>
+    /// Stores <paramref name="formula"/> as a formula. A leading <c>=</c>
+    /// is optional — both <c>"=A1+B1"</c> and <c>"A1+B1"</c> are
+    /// accepted. The cached value is <b>not</b> pre-computed (design
+    /// decision #46 / §7.8): Excel and other competent consumers
+    /// recalculate on open. Cell kind becomes
+    /// <see cref="CellKind.Formula"/>.
+    /// </summary>
+    /// <exception cref="FormulaException">
+    /// The formula body is empty or NPOI cannot parse it.
+    /// </exception>
+    void SetFormula(string formula);
+
+    /// <summary>
+    /// Returns the cell's formula body prefixed with <c>=</c>, or
+    /// <c>null</c> when the cell does not hold a formula.
+    /// </summary>
+    string? GetFormula();
+
     /// <summary>Clears the cell's value and resets its kind to <see cref="CellKind.Empty"/>.</summary>
     void Clear();
 

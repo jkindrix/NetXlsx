@@ -9,6 +9,59 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.7 sub-slice A — Formula API (`ICell.SetFormula` / `GetFormula`)
+First third of the v0.7 "formula + named-range + annotation" bundle.
+Closes the v1.0 ship-blocker row for write-side formula support;
+reads were already covered (formula cells classified as
+`CellKind.Formula`, with `GetString`/`GetNumber`/`GetBool`/`GetError`
+all routing through `CachedFormulaResultType`).
+
+Public surface (PublicAPI.Unshipped.txt: +5 entries):
+- `ICell.SetFormula(string)` — stores a formula. Leading `=` is
+  optional (`"=A1+B1"` and `"A1+B1"` both accepted). Empty body
+  rejected with `FormulaException`. NPOI parse failures translated
+  to `FormulaException` with the original exception preserved as
+  `InnerException` so callers don't see the NPOI type leak through.
+  Per decisions #46 / §7.8 the cached value is **not** pre-computed —
+  Excel and other competent consumers recalculate on open.
+- `ICell.GetFormula() -> string?` — returns the formula body with
+  a re-attached leading `=`, or `null` for non-formula cells.
+- New exception `FormulaException : WorkbookException` with the
+  two-arg constructor pair (message-only / message-and-inner). Per
+  design §6 the design.md already enumerated this exception; the
+  implementation realizes it now.
+
+Internal:
+- `XssfCell.SetFormula` strips an optional leading `=` so callers
+  can write either form. NPOI's `CellFormula` property expects the
+  body without the `=`; we wrap the parse path in a try/catch that
+  translates to `FormulaException`. No pre-computation hook is
+  invoked — `XSSFFormulaEvaluator` is deliberately not touched.
+- `XssfCell.GetFormula` reads `CellType.Formula` cells only; all
+  others return `null`. Body is prefixed with `=` for round-trip
+  symmetry with `SetFormula`.
+
+Tests (+10):
+- `FormulaApiTests` covers: leading-`=` round-trip, no-`=` form
+  acceptance, null rejection, empty-body rejection (`""` and `"="`),
+  garbage-body translation to `FormulaException`, GetFormula null
+  on non-formula cells, sheet-qualified-reference round-trip,
+  no-pre-computation assertion (verifies
+  `CachedFormulaResultType == Numeric` with default `0.0`),
+  SetFormula-replaces-prior-value semantics, Clear-after-SetFormula
+  resets to Empty, and full Save→Open round-trip.
+- `DisposedWorkbookMatrixTests` (+2): adds `SetFormula` and
+  `GetFormula` to the `CellOperations` matrix.
+- `PublicApiSnapshotTests` baseline now includes `FormulaException`.
+
+Known flake (pre-existing, unrelated to this slice):
+`WorkbookRoundTripTests.Concurrent_AddSheet_Throws_InvalidOperationException`
+is racy — it asserts the reentry-counter (decision #43) fires under
+contention but depends on actually observing a collision. The
+detection is "best-effort by design (it's not a lock)" per the test's
+own comment. Will tighten the race window in a follow-up (use a
+`Barrier` to synchronize start of both mutator threads).
+
 ### v0.6 sub-slice C — Column API (`IColumn`, `ISheet.Column(...)`, AutoSize / Hidden / Width / SetDefaultStyle)
 Final third of the v0.6 bundle. Closes the v1.0 ship-blocker rows for
 column-level width control, hidden columns, default-style fan-out, and
