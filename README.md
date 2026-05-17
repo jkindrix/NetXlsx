@@ -2,7 +2,7 @@
 
 Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating and reading `.xlsx` spreadsheets.
 
-**Status:** pre-1.0, tracking toward v1.0. The main public surface is implemented and exercised by 329 tests (per TFM) across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity; the [roadmap](docs/roadmap.md) lists the remaining v1.0 ship-blockers (named ranges, formula API, hyperlinks, comments, streaming write via SXSSF, configurable limits, plus the headless-Linux AutoSize CI job and benchmark-regression gate).
+**Status:** pre-1.0, tracking toward v1.0. The main public surface is implemented and exercised by 388 tests (per TFM) across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity; the [roadmap](docs/roadmap.md) lists the remaining v1.0 ship-blockers (streaming write via SXSSF, `WorkbookOptions` for configurable limits, the remaining cookbook recipes, the headless-Linux AutoSize CI job, and the benchmark-regression gate).
 
 Targets `net8.0` and `net9.0`.
 
@@ -11,7 +11,7 @@ Targets `net8.0` and `net9.0`.
 > **⚠ Not compatible with `PublishAot=true` or `PublishTrimmed=true`.**
 > The engine (NPOI 2.7.x) uses `System.Xml.Serialization` and `System.Reflection.Emit` paths that AOT and trim cannot satisfy — measured by [spike 4](spikes/results/spike-4-aot-trim.md). A build-time guard ships with the package: setting either property emits MSBuild error `NXLS0100` / `NXLS0101`. The block will lift when NPOI removes those dependencies (track NPOI 3.x).
 
-> **Not thread-safe.** NPOI is not thread-safe; this facade does not lock. Concurrent mutation produces undefined behavior. Concurrent-mutation detection per design decision #43 is on the v1.0 roadmap and not yet implemented.
+> **Not thread-safe.** NPOI is not thread-safe; this facade does not lock. Concurrent mutation produces undefined behavior. A best-effort reentry-counter detection per design decision #43 is in place — concurrent `AddSheet`/mutator calls *may* surface as `InvalidOperationException`. The detection is opportunistic, not a lock; do not rely on it to make concurrent use safe.
 
 > **`IColumn.AutoSize()` requires font metrics.** On headless Linux without `libgdiplus` + a fallback font (e.g. DejaVu), `AutoSize()` throws `MissingFontException` with install commands (design decision I3). The deterministic alternative is `IColumn.Width(double)` with an explicit width.
 
