@@ -178,6 +178,19 @@ NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
 NetXlsx.InvalidCellAddressException
 NetXlsx.InvalidCellAddressException.Input.get -> string!
 NetXlsx.InvalidCellAddressException.InvalidCellAddressException(string! input, string! reason) -> void
+NetXlsx.IRange
+NetXlsx.IRange.Address.get -> string!
+NetXlsx.IRange.Apply(NetXlsx.CellStyle! style) -> NetXlsx.IRange!
+NetXlsx.IRange.ClearContents() -> NetXlsx.IRange!
+NetXlsx.IRange.Count.get -> int
+NetXlsx.IRange.EnumerateAll() -> System.Collections.Generic.IEnumerable<NetXlsx.ICell!>!
+NetXlsx.IRange.FirstCol.get -> int
+NetXlsx.IRange.FirstRow.get -> int
+NetXlsx.IRange.LastCol.get -> int
+NetXlsx.IRange.LastRow.get -> int
+NetXlsx.IRange.Merge() -> NetXlsx.IRange!
+NetXlsx.IRange.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IRange.Value(object? value) -> NetXlsx.IRange!
 NetXlsx.IRow
 NetXlsx.IRow.Cell(int column) -> NetXlsx.ICell!
 NetXlsx.IRow.Index.get -> int
@@ -207,6 +220,8 @@ NetXlsx.ISheet.Hidden.set -> void
 NetXlsx.ISheet.MergedRanges.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NetXlsx.ISheet.MergeCells(string! a1Range) -> void
 NetXlsx.ISheet.Name.get -> string!
+NetXlsx.ISheet.Range(int row1, int col1, int row2, int col2) -> NetXlsx.IRange!
+NetXlsx.ISheet.Range(string! a1Range) -> NetXlsx.IRange!
 NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
 NetXlsx.ISheet.ShowGridlines.get -> bool
 NetXlsx.ISheet.ShowGridlines.set -> void

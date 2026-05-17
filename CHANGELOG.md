@@ -9,6 +9,82 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.6 sub-slice B — Range API (`IRange`, `ISheet.Range(...)`)
+Second third of the v0.6 bundle. Introduces a first-class rectangular
+range abstraction so callers can fill, style, merge, or clear an entire
+block without iterating cell-by-cell.
+
+Public surface (PublicAPI.Unshipped.txt: +13 entries):
+- New interface `IRange : IEnumerable<ICell>` with:
+  - `Address` — canonical A1 range string (e.g. `A1:C3`).
+  - `FirstRow` / `LastRow` / `FirstCol` / `LastCol` — inclusive
+    1-based bounds.
+  - `Count` — dense coordinate count (`rows * cols`), not
+    populated-cell count.
+  - `Sheet` — owning sheet.
+  - `EnumerateAll()` — dense iteration that materializes every
+    cell in the rectangle (including empties). Default
+    `GetEnumerator()` is sparse — only populated cells are yielded.
+  - `Value(object?)` — bulk fill. Runtime-type-dispatched
+    (`string`, `int`/`long`/`double`/`decimal`, `bool`, `DateTime`).
+    `null` clears every cell. Unsupported types throw
+    `ArgumentException`. Returns `this` for chaining.
+  - `Apply(CellStyle)` — bulk style. Goes through `CellStylePool`
+    so every cell in the rectangle shares a single `ICellStyle`
+    by index. Returns `this`.
+  - `Merge()` — convenience that delegates to
+    `ISheet.MergeCells(Address)`. Returns `this`.
+  - `ClearContents()` — clears each cell's value but preserves
+    its style (mirrors Excel's "Clear → Contents" command).
+    Returns `this`.
+- `ISheet.Range(string a1Range)` — A1-form factory. Now accepts
+  whole-row (`3:3`) and whole-column (`A:A`) shorthand;
+  `CellAddress.ParseRange` expands these to the full sheet
+  bounds (`CellAddress.MaxRow` / `MaxColumn`). Sub-slice A
+  shipped explicitly *without* this expansion; sub-slice B
+  enables it because `IRange` is the consumer that needs it.
+- `ISheet.Range(int row1, int col1, int row2, int col2)` —
+  coordinate-form factory. Bounds-checked; corner order is
+  normalized so callers can pass corners in any order.
+
+Internal:
+- `CellAddress.ParseRange` extended with `TryParseColumnOnly`
+  and `TryParseRowOnly` helpers; the whole-row/column branches
+  expand directly to `(1, col, MaxRow, col)` /
+  `(row, 1, row, MaxColumn)`.
+- New `Internal/XssfRange.cs` — full `IRange` implementation.
+  Sparse `GetEnumerator()` walks NPOI's physical rows/cells;
+  dense `EnumerateAll()` materializes coordinates through the
+  same `XssfSheet[row, col]` indexer that materializes on access
+  (decision #40).
+- `XssfSheet` gains a private `ValidateGridCoordinate` helper
+  reused by both `Range(int,int,int,int)` and the indexer-side
+  validation path.
+
+Tests (+15):
+- `RangeApiTests` covers: A1 and coordinate-form construction,
+  inverted-corner normalization, bounds validation, single-cell
+  ranges, whole-row/column expansion, runtime-type dispatch
+  (`int`/`long`/`double`/`decimal`/`bool`/`DateTime`/`null` and
+  unsupported-type rejection), `Apply` style-pool dedup,
+  `Merge` delegation, sparse vs dense enumeration,
+  `ClearContents` preserves style index, and full
+  Save→Open round-trip.
+- `CellAddressTests` — the previous "rejects A:A / 1:1" theory
+  is replaced by a positive expansion theory; an
+  invalid-shape rejection theory still guards malformed forms.
+- `DisposedWorkbookMatrixTests` — adds `ISheet.Range(string)`
+  and `Range(int,int,int,int)` to the sheet-level matrix, plus
+  a new `IRange` operation matrix that asserts every `IRange`
+  member throws `ObjectDisposedException` after `Workbook.Dispose()`.
+
+Compatibility:
+- No breaking change. Whole-row/whole-column A1 forms that
+  previously threw `InvalidCellAddressException` now succeed
+  in sub-slice B; this is a behavior expansion, not a contract
+  break (the diagnostic was a v0.6-sub-slice-A placeholder
+  documented as such in `CHANGELOG.md` sub-slice A entry).
+
 ### v0.6 sub-slice A — freeze panes + merge cells + hidden rows/sheets + gridlines
 The first third of the v1.0 "range / freeze / merge / hidden / autosize"
 bundle. Each member here is on `ISheet` or `IRow` directly — no new

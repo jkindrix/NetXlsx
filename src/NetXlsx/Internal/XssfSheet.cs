@@ -53,6 +53,35 @@ internal sealed class XssfSheet : ISheet
         }
     }
 
+    public IRange Range(string a1Range)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(a1Range);
+        var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
+        return new XssfRange(_workbook, this, r1, c1, r2, c2);
+    }
+
+    public IRange Range(int row1, int col1, int row2, int col2)
+    {
+        _workbook.ThrowIfDisposed();
+        ValidateGridCoordinate(row1, col1);
+        ValidateGridCoordinate(row2, col2);
+        // Normalize so callers can pass corners in any order.
+        if (row1 > row2) (row1, row2) = (row2, row1);
+        if (col1 > col2) (col1, col2) = (col2, col1);
+        return new XssfRange(_workbook, this, row1, col1, row2, col2);
+    }
+
+    private static void ValidateGridCoordinate(int row, int column)
+    {
+        if (row < 1 || row > CellAddress.MaxRow)
+            throw new ArgumentOutOfRangeException(nameof(row), row,
+                $"row must be in [1, {CellAddress.MaxRow}]");
+        if (column < 1 || column > CellAddress.MaxColumn)
+            throw new ArgumentOutOfRangeException(nameof(column), column,
+                $"column must be in [1, {CellAddress.MaxColumn}]");
+    }
+
     public IRow AppendRow()
     {
         _workbook.ThrowIfDisposed();

@@ -131,12 +131,18 @@ public static class CellAddress
     }
 
     /// <summary>
-    /// Parses an <c>A1:C3</c>-style range reference. Returns 1-based row
-    /// and column for top-left and bottom-right. v0.6 accepts only the
-    /// single-cell and bounded-range forms (e.g. <c>A1</c>, <c>A1:C3</c>);
-    /// whole-row (<c>1:1</c>) and whole-column (<c>A:A</c>) forms ship
-    /// with the <see cref="ISheet.Range(string)"/> API in a follow-up
-    /// slice.
+    /// Parses an Excel range reference. Returns 1-based top-left and
+    /// bottom-right coordinates. Accepts:
+    /// <list type="bullet">
+    /// <item>Single cell — <c>A1</c>, <c>$A$1</c>, <c>aa10</c>.</item>
+    /// <item>Bounded range — <c>A1:C3</c>, with case + <c>$</c> tolerance.</item>
+    /// <item>Whole-column shorthand — <c>A:A</c> or <c>A:C</c>, auto-expanded
+    /// to <c>A1:A1048576</c> / <c>A1:C1048576</c> respectively.</item>
+    /// <item>Whole-row shorthand — <c>1:1</c> or <c>1:5</c>, auto-expanded
+    /// to <c>A1:XFD1</c> / <c>A1:XFD5</c>.</item>
+    /// </list>
+    /// Both sides of the colon must use the same form
+    /// (cell+cell / column+column / row+row); mixed forms throw.
     /// </summary>
     /// <exception cref="InvalidCellAddressException">The string is not a valid range.</exception>
     public static (int Row1, int Col1, int Row2, int Col2) ParseRange(string a1Range)
@@ -155,24 +161,86 @@ public static class CellAddress
         var left = a1Range.Substring(0, colonIdx);
         var right = a1Range.Substring(colonIdx + 1);
 
-        // The component parsers re-use the single-cell parser, which
-        // rejects whole-row / whole-column shorthand. Those forms ship
-        // with the IRange slice (decision §6.10).
-        var (r1, c1) = ParseSingleCellComponent(left, a1Range);
-        var (r2, c2) = ParseSingleCellComponent(right, a1Range);
+        // Both sides single-cell? (A1:C3 form.)
+        if (TryParse(left, out int leftRow, out int leftCol, out _)
+            && TryParse(right, out int rightRow, out int rightCol, out _))
+        {
+            if (leftRow > rightRow) (leftRow, rightRow) = (rightRow, leftRow);
+            if (leftCol > rightCol) (leftCol, rightCol) = (rightCol, leftCol);
+            return (leftRow, leftCol, rightRow, rightCol);
+        }
 
-        // Normalize so (Row1, Col1) is top-left.
-        if (r1 > r2) (r1, r2) = (r2, r1);
-        if (c1 > c2) (c1, c2) = (c2, c1);
-        return (r1, c1, r2, c2);
+        // Both sides column-only? (A:A or A:C — whole-column form.)
+        if (TryParseColumnOnly(left, out int leftColOnly)
+            && TryParseColumnOnly(right, out int rightColOnly))
+        {
+            if (leftColOnly > rightColOnly) (leftColOnly, rightColOnly) = (rightColOnly, leftColOnly);
+            return (1, leftColOnly, MaxRow, rightColOnly);
+        }
+
+        // Both sides row-only? (1:1 or 1:5 — whole-row form.)
+        if (TryParseRowOnly(left, out int leftRowOnly)
+            && TryParseRowOnly(right, out int rightRowOnly))
+        {
+            if (leftRowOnly > rightRowOnly) (leftRowOnly, rightRowOnly) = (rightRowOnly, leftRowOnly);
+            return (leftRowOnly, 1, rightRowOnly, MaxColumn);
+        }
+
+        throw new InvalidCellAddressException(a1Range,
+            "range sides must both be single cells (A1:C3), both columns (A:C), or both rows (1:5)");
     }
 
-    private static (int Row, int Column) ParseSingleCellComponent(string component, string fullRange)
+    /// <summary>
+    /// True when <paramref name="input"/> is a column-letter reference
+    /// with no row digits — <c>A</c>, <c>AA</c>, <c>$A</c>. Out param is
+    /// the 1-based column index.
+    /// </summary>
+    private static bool TryParseColumnOnly(string input, out int column)
     {
-        if (!TryParse(component, out int row, out int col, out string reason))
-            throw new InvalidCellAddressException(fullRange,
-                $"range component '{component}' is not a single-cell reference: {reason}");
-        return (row, col);
+        column = 0;
+        if (string.IsNullOrEmpty(input)) return false;
+        int i = 0;
+        if (input[i] == '$') i++;
+        int col = 0;
+        int letterStart = i;
+        while (i < input.Length && IsAsciiLetter(input[i]))
+        {
+            char c = input[i];
+            int v = (c >= 'a' ? c - 'a' : c - 'A') + 1;
+            col = col * 26 + v;
+            if (col > MaxColumn) return false;
+            i++;
+        }
+        if (i == letterStart) return false;
+        if (i != input.Length) return false;   // anything trailing → not column-only
+        column = col;
+        return true;
+    }
+
+    /// <summary>
+    /// True when <paramref name="input"/> is a row-number reference with
+    /// no column letters — <c>1</c>, <c>10</c>, <c>$5</c>. Out param is
+    /// the 1-based row index.
+    /// </summary>
+    private static bool TryParseRowOnly(string input, out int row)
+    {
+        row = 0;
+        if (string.IsNullOrEmpty(input)) return false;
+        int i = 0;
+        if (input[i] == '$') i++;
+        long acc = 0;
+        int digitStart = i;
+        while (i < input.Length && input[i] is >= '0' and <= '9')
+        {
+            acc = acc * 10 + (input[i] - '0');
+            if (acc > MaxRow) return false;
+            i++;
+        }
+        if (i == digitStart) return false;
+        if (i != input.Length) return false;
+        if (acc == 0) return false;
+        row = (int)acc;
+        return true;
     }
 
     /// <summary>

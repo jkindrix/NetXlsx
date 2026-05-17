@@ -133,6 +133,22 @@ public interface ISheet
     ICell this[int row, int column] { get; }
 
     /// <summary>
+    /// Returns a rectangular range of cells parsed from an A1-style
+    /// reference (e.g. <c>"A1:C3"</c>, <c>"A:A"</c>, <c>"1:5"</c>).
+    /// Whole-row and whole-column shorthand auto-expand per design §6.10.
+    /// </summary>
+    /// <exception cref="InvalidCellAddressException">Not a valid range.</exception>
+    IRange Range(string a1Range);
+
+    /// <summary>
+    /// Returns a rectangular range from explicit 1-based coordinates.
+    /// Coordinates are normalized: passing <c>(3, 3, 1, 1)</c> yields
+    /// the same range as <c>(1, 1, 3, 3)</c>.
+    /// </summary>
+    /// <exception cref="System.ArgumentOutOfRangeException">Any coordinate out of Excel's grid.</exception>
+    IRange Range(int row1, int col1, int row2, int col2);
+
+    /// <summary>
     /// Appends a new row immediately after the last written row. For an
     /// empty sheet, creates row 1. Idempotent w.r.t. the underlying NPOI
     /// row index (never overwrites an existing row).
@@ -259,6 +275,71 @@ public interface IRow
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFRow</c>.
     /// </summary>
     NPOI.XSSF.UserModel.XSSFRow Underlying { get; }
+}
+
+/// <summary>
+/// A rectangular range of cells on an <see cref="ISheet"/>.
+/// Enumeration is sparse by default (only currently-populated cells);
+/// use <see cref="EnumerateAll"/> for dense iteration.
+/// </summary>
+public interface IRange : System.Collections.Generic.IEnumerable<ICell>
+{
+    /// <summary>
+    /// Canonical A1 form of the range — <c>A1:C3</c> for bounded
+    /// ranges, single-cell form for 1×1 ranges. Whole-row and
+    /// whole-column shorthand expands to the canonical bounded form
+    /// per design §6.10.
+    /// </summary>
+    string Address { get; }
+
+    /// <summary>1-based top row.</summary>
+    int FirstRow { get; }
+    /// <summary>1-based bottom row (inclusive).</summary>
+    int LastRow { get; }
+    /// <summary>1-based leftmost column.</summary>
+    int FirstCol { get; }
+    /// <summary>1-based rightmost column (inclusive).</summary>
+    int LastCol { get; }
+
+    /// <summary>The total number of cell coordinates in the rectangle (dense count).</summary>
+    int Count { get; }
+
+    /// <summary>The owning sheet.</summary>
+    ISheet Sheet { get; }
+
+    /// <summary>
+    /// Yields every cell coordinate in the rectangle, including blanks.
+    /// Lazily materializes empty cells on demand. For whole-row /
+    /// whole-column ranges this can be 1M+ items — sparse base
+    /// enumeration via <c>foreach</c> is the usual idiom.
+    /// </summary>
+    System.Collections.Generic.IEnumerable<ICell> EnumerateAll();
+
+    /// <summary>
+    /// Sets every cell in the rectangle to <paramref name="value"/>.
+    /// Dispatched on runtime type: string / bool / numeric (int, long,
+    /// float, double, decimal) / DateTime / DateOnly / TimeOnly /
+    /// TimeSpan. Null clears the cell. Unsupported types throw
+    /// <see cref="System.ArgumentException"/>.
+    /// </summary>
+    IRange Value(object? value);
+
+    /// <summary>Applies <paramref name="style"/> to every cell in the rectangle (dense).</summary>
+    IRange Apply(CellStyle style);
+
+    /// <summary>
+    /// Merges this range. Shorthand for
+    /// <c>sheet.MergeCells(range.Address)</c>; same semantics
+    /// (decision §6.4): 1×1 is a no-op; overlap with an existing merge
+    /// throws.
+    /// </summary>
+    IRange Merge();
+
+    /// <summary>
+    /// Clears the value of every cell in the rectangle. Styles are
+    /// preserved. Inverse of <see cref="Value"/> with a non-null arg.
+    /// </summary>
+    IRange ClearContents();
 }
 
 /// <summary>

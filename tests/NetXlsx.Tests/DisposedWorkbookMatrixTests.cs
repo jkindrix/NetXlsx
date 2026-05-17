@@ -62,6 +62,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Hidden set", (Action<ISheet>)(s => { s.Hidden = true; }) };
         yield return new object[] { "ShowGridlines get", (Action<ISheet>)(s => { var _ = s.ShowGridlines; }) };
         yield return new object[] { "ShowGridlines set", (Action<ISheet>)(s => { s.ShowGridlines = false; }) };
+        yield return new object[] { "Range(string)", (Action<ISheet>)(s => s.Range("A1:B2")) };
+        yield return new object[] { "Range(r,c,r,c)", (Action<ISheet>)(s => s.Range(1, 1, 2, 2)) };
     }
 
     [Theory]
@@ -163,6 +165,51 @@ public class DisposedWorkbookMatrixTests
         Action act = () => op(cell);
         act.Should().Throw<ObjectDisposedException>(
             $"ICell.{memberName} must throw ObjectDisposedException once its owning workbook is disposed");
+    }
+
+    // ---- IRange ---------------------------------------------------------
+
+    public static IEnumerable<object[]> RangeOperations()
+    {
+        yield return new object[] { "Address", (Action<IRange>)(r => { var _ = r.Address; }) };
+        yield return new object[] { "FirstRow", (Action<IRange>)(r => { var _ = r.FirstRow; }) };
+        yield return new object[] { "LastRow", (Action<IRange>)(r => { var _ = r.LastRow; }) };
+        yield return new object[] { "FirstCol", (Action<IRange>)(r => { var _ = r.FirstCol; }) };
+        yield return new object[] { "LastCol", (Action<IRange>)(r => { var _ = r.LastCol; }) };
+        yield return new object[] { "Count", (Action<IRange>)(r => { var _ = r.Count; }) };
+        yield return new object[] { "Sheet", (Action<IRange>)(r => { var _ = r.Sheet; }) };
+        yield return new object[] { "GetEnumerator", (Action<IRange>)(r =>
+        {
+            using var it = r.GetEnumerator();
+            _ = it.MoveNext();
+        }) };
+        yield return new object[] { "EnumerateAll", (Action<IRange>)(r =>
+        {
+            using var it = r.EnumerateAll().GetEnumerator();
+            _ = it.MoveNext();
+        }) };
+        yield return new object[] { "Value", (Action<IRange>)(r => r.Value("x")) };
+        yield return new object[] { "Apply", (Action<IRange>)(r => r.Apply(CellStyle.Default)) };
+        yield return new object[] { "ClearContents", (Action<IRange>)(r => r.ClearContents()) };
+        // Note: Merge() not in this matrix — Merge throws InvalidOperation
+        // on overlap and a 1x1 is a no-op; the throw-after-dispose path
+        // happens to coincide with ranges where Merge would already throw,
+        // making the test fragile. The Range-level Merge dispatching to
+        // sheet-level MergeCells is covered by RangeApiTests.
+    }
+
+    [Theory]
+    [MemberData(nameof(RangeOperations))]
+    public void Range_Member_Throws_ObjectDisposed_After_Workbook_Dispose(string memberName, Action<IRange> op)
+    {
+        var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        var range = sheet.Range("A1:B2");
+        wb.Dispose();
+
+        Action act = () => op(range);
+        act.Should().Throw<ObjectDisposedException>(
+            $"IRange.{memberName} must throw ObjectDisposedException once its owning workbook is disposed");
     }
 
     // ---- Sanity: double-dispose is still a no-op (decision #42) --------

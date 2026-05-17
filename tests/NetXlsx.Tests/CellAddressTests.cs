@@ -122,16 +122,35 @@ public class CellAddressTests
     }
 
     [Theory]
-    [InlineData("A:A")]       // whole-column — deferred to IRange slice
-    [InlineData("1:1")]       // whole-row    — deferred to IRange slice
-    [InlineData("Sheet1!A1:B2")]
+    [InlineData("Sheet1!A1:B2")]    // sheet-qualified — not accepted by Range
     [InlineData("garbage")]
-    [InlineData(":A1")]
-    [InlineData("A1:")]
-    public void ParseRange_Rejects_Forms_Not_In_v0_6(string input)
+    [InlineData(":A1")]              // empty left side
+    [InlineData("A1:")]              // empty right side
+    [InlineData("A:5")]              // mixed column-then-row
+    [InlineData("1:A")]              // mixed row-then-column
+    public void ParseRange_Rejects_Invalid_Forms(string input)
     {
         ((Action)(() => CellAddress.ParseRange(input))).Should()
             .Throw<InvalidCellAddressException>();
+    }
+
+    [Theory]
+    [InlineData("A:A",   1,            1, CellAddress.MaxRow,    1)]
+    [InlineData("A:C",   1,            1, CellAddress.MaxRow,    3)]
+    [InlineData("AA:AB", 1,           27, CellAddress.MaxRow,   28)]
+    [InlineData("1:1",   1,            1, 1,                     CellAddress.MaxColumn)]
+    [InlineData("1:5",   1,            1, 5,                     CellAddress.MaxColumn)]
+    [InlineData("C:A",   1,            1, CellAddress.MaxRow,    3)]   // normalized
+    [InlineData("$A:$A", 1,            1, CellAddress.MaxRow,    1)]   // dollar-sign tolerance
+    [InlineData("$1:$3", 1,            1, 3,                     CellAddress.MaxColumn)]
+    public void ParseRange_Expands_WholeRow_And_WholeColumn_Shorthand(string input,
+        int r1, int c1, int r2, int c2)
+    {
+        var (row1, col1, row2, col2) = CellAddress.ParseRange(input);
+        row1.Should().Be(r1);
+        col1.Should().Be(c1);
+        row2.Should().Be(r2);
+        col2.Should().Be(c2);
     }
 
     [Theory]
