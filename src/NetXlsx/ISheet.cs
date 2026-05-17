@@ -99,11 +99,52 @@ public interface IWorkbook : IDisposable
     Task SaveAsync(string path, CancellationToken ct = default);
 
     /// <summary>
+    /// Adds a named range to the workbook. <paramref name="name"/> must be
+    /// a valid Excel name (letters / digits / underscores / periods;
+    /// must start with a letter or underscore; cannot collide with an
+    /// existing cell reference like <c>A1</c>). <paramref name="formula"/>
+    /// is the body of the reference (e.g. <c>"Sheet1!$A$1:$B$10"</c>) —
+    /// no leading <c>=</c>. <paramref name="sheetScope"/> selects the
+    /// sheet the name is scoped to; <c>null</c> (the default, decision I9)
+    /// scopes it workbook-wide.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> or <paramref name="formula"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> violates Excel's name rules or already exists at the requested scope.</exception>
+    /// <exception cref="SheetNameException"><paramref name="sheetScope"/> is non-null and does not match an existing sheet.</exception>
+    INamedRange AddNamedRange(string name, string formula, string? sheetScope = null);
+
+    /// <summary>The named ranges currently defined on the workbook (scope-agnostic).</summary>
+    System.Collections.Generic.IReadOnlyList<INamedRange> NamedRanges { get; }
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFWorkbook</c>
     /// per decision #32. Direct mutation is supported but is not synchronized
     /// with wrapper state; callers using this hatch own the consequences.
     /// </summary>
     NPOI.XSSF.UserModel.XSSFWorkbook Underlying { get; }
+}
+
+/// <summary>
+/// A named range (a workbook- or sheet-scoped alias for a cell or
+/// region). Named ranges are useful for human-readable formula
+/// references (<c>=SUM(Sales)</c>) and for documenting intent.
+/// </summary>
+public interface INamedRange
+{
+    /// <summary>The range's name as it appears in Excel.</summary>
+    string Name { get; }
+
+    /// <summary>
+    /// The range body (e.g. <c>"Sheet1!$A$1:$B$10"</c>). No leading
+    /// <c>=</c>.
+    /// </summary>
+    string Formula { get; }
+
+    /// <summary>
+    /// The sheet this name is scoped to, or <c>null</c> for a
+    /// workbook-scoped name (decision I9).
+    /// </summary>
+    string? SheetScope { get; }
 }
 
 /// <summary>

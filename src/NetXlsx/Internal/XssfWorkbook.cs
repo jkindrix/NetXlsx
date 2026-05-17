@@ -133,6 +133,75 @@ internal sealed class XssfWorkbook : IWorkbook
         return Task.Run(() => Save(path), ct);
     }
 
+    public INamedRange AddNamedRange(string name, string formula, string? sheetScope = null)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(formula);
+        if (name.Length == 0)
+            throw new ArgumentException("name cannot be empty", nameof(name));
+        if (formula.Length == 0)
+            throw new ArgumentException("formula cannot be empty", nameof(formula));
+
+        using var _ = EnterMutation();
+
+        int? sheetIndex = null;
+        if (sheetScope is not null)
+        {
+            int idx = _underlying.GetSheetIndex(sheetScope);
+            if (idx < 0)
+                throw new SheetNameException(sheetScope, "no sheet with that name exists in this workbook (sheetScope)");
+            sheetIndex = idx;
+        }
+
+        // Excel itself permits a workbook-scope name and a same-text
+        // sheet-scope name to coexist, but NPOI 2.7.x rejects this at
+        // XSSFName.ValidateName ("The workbook already contains this
+        // name"). v1 therefore requires names to be unique workbook-wide
+        // regardless of scope. Documented in implementation-notes.md.
+        foreach (var existing in _underlying.GetAllNames())
+        {
+            if (string.Equals(existing.NameName, name, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    $"a named range '{name}' already exists in the workbook " +
+                    "(case-insensitive). NPOI 2.7.x requires names to be unique " +
+                    "workbook-wide regardless of scope.", nameof(name));
+        }
+
+        // Strip an optional leading '=' for consistency with SetFormula.
+        var body = formula.Length > 0 && formula[0] == '=' ? formula.Substring(1) : formula;
+
+        NPOI.SS.UserModel.IName npoiName;
+        try
+        {
+            npoiName = _underlying.CreateName();
+            npoiName.NameName = name;
+            if (sheetIndex is int si) npoiName.SheetIndex = si;
+            npoiName.RefersToFormula = body;
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException(
+                $"invalid named range '{name}' = '{formula}': {ex.Message}", nameof(name), ex);
+        }
+
+        return new XssfNamedRange(this, npoiName);
+    }
+
+    public IReadOnlyList<INamedRange> NamedRanges
+    {
+        get
+        {
+            ThrowIfDisposed();
+            var all = _underlying.GetAllNames();
+            if (all.Count == 0) return Array.Empty<INamedRange>();
+            var list = new INamedRange[all.Count];
+            for (int i = 0; i < all.Count; i++)
+                list[i] = new XssfNamedRange(this, all[i]);
+            return list;
+        }
+    }
+
     public XSSFWorkbook Underlying
     {
         get { ThrowIfDisposed(); return _underlying; }

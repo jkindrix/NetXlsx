@@ -26,6 +26,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Save(stream)", (Action<IWorkbook>)(wb => wb.Save(new MemoryStream())) };
         yield return new object[] { "Save(path)", (Action<IWorkbook>)(wb => wb.Save(Path.Combine(Path.GetTempPath(), "x.xlsx"))) };
         yield return new object[] { "Underlying", (Action<IWorkbook>)(wb => { var _ = wb.Underlying; }) };
+        yield return new object[] { "AddNamedRange", (Action<IWorkbook>)(wb => wb.AddNamedRange("X", "S!$A$1")) };
+        yield return new object[] { "NamedRanges", (Action<IWorkbook>)(wb => { var _ = wb.NamedRanges; }) };
     }
 
     [Theory]

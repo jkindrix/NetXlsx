@@ -9,6 +9,56 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v0.7 sub-slice B — Named ranges (`IWorkbook.AddNamedRange`, `NamedRanges`, `INamedRange`)
+Second third of the v0.7 bundle. Lands the workbook-level named-range
+contract from design §3 #212–213 and §6.2.
+
+Public surface (PublicAPI.Unshipped.txt: +5 entries):
+- New interface `INamedRange` with `Name`, `Formula`,
+  `SheetScope` (string? — `null` == workbook-scoped per decision I9).
+- `IWorkbook.AddNamedRange(string name, string formula, string?
+  sheetScope = null) -> INamedRange` — single overload (I9).
+  Leading `=` on the formula is stripped for consistency with
+  `SetFormula`. Returns the created range so callers can chain
+  property inspection.
+- `IWorkbook.NamedRanges` — workbook-wide enumeration (scope-agnostic).
+
+Validation:
+- Null / empty `name` or `formula` rejected with
+  `ArgumentNullException` / `ArgumentException`.
+- `sheetScope` referencing an unknown sheet throws
+  `SheetNameException`.
+- Duplicate names rejected with `ArgumentException` (case-insensitive)
+  per the NPOI 2.7.x constraint documented below.
+- NPOI parse failures (invalid name text, cell-reference-style names
+  like `R1`) wrapped in `ArgumentException` with the original
+  preserved as `InnerException`.
+
+NPOI quirk handled (see implementation-notes for full discussion):
+NPOI 2.7.x rejects coexistence of a workbook-scope name and a
+sheet-scope name with the same text, even though Excel itself
+permits it. v1 enforces workbook-wide uniqueness regardless of
+scope. Revisit if/when NPOI relaxes this.
+
+Internal:
+- New `Internal/XssfNamedRange.cs` — wraps NPOI's `IName`.
+  `SheetScope` resolves the workbook's sheet index back to a name
+  (returns `null` for index `< 0` == workbook scope).
+- `XssfWorkbook` uses NPOI's `GetAllNames()` (the post-3.16
+  replacement for the deprecated `GetNameAt(int)`).
+
+Tests (+13):
+- `NamedRangeApiTests` covers: workbook-scope and sheet-scope
+  round-trip, leading-`=` strip, empty `NamedRanges` on fresh
+  workbook, multi-range enumeration, null/empty validation,
+  unknown-sheet-scope rejection, case-insensitive duplicate
+  rejection at workbook scope, same-name-different-scope rejection
+  (NPOI constraint), and Save→Open round-trip of a named range
+  used in a cross-sheet `SUM(Sales)` formula.
+- `DisposedWorkbookMatrixTests` (+2): `AddNamedRange` and
+  `NamedRanges` added to the `WorkbookOperations` matrix.
+- `PublicApiSnapshotTests` baseline now includes `INamedRange`.
+
 ### v0.7 sub-slice A — Formula API (`ICell.SetFormula` / `GetFormula`)
 First third of the v0.7 "formula + named-range + annotation" bundle.
 Closes the v1.0 ship-blocker row for write-side formula support;

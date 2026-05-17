@@ -429,6 +429,34 @@ exist — but the symbol-level additions are documented here because
 they were not enumerated in design.md's CellAddress section (it
 declares the type but doesn't enumerate members).
 
+### 2026-05-16 — Named ranges: NPOI's name-uniqueness constraint
+
+Decision I9 leaves cross-scope coexistence semantics unspecified.
+Excel itself permits a workbook-scope name `Sales` *and* a
+sheet-scope name `Sales` to coexist (sheet-scope wins when the
+formula lives on that sheet). NPOI 2.7.x's `XSSFName.ValidateName`
+rejects this — "The workbook already contains this name" — even
+when the new name carries a non-default `SheetIndex`.
+
+v1 therefore enforces workbook-wide uniqueness regardless of scope,
+case-insensitively. Our own duplicate check is unconditional now
+(not scope-aware) and produces a clearer message than NPOI's; we
+keep the NPOI exception only as a backstop via the same wrapping
+`ArgumentException` translation we use for invalid name/formula
+parse failures.
+
+Revisit if/when NPOI relaxes this (likely 3.x). Until then, the
+contract documented on `IWorkbook.AddNamedRange` matches what we
+can actually enforce, not Excel's full semantics. Tracked in
+`docs/scheduled-spikes.md`-style follow-up — but the workaround for
+callers who need cross-scope is to qualify name text explicitly
+(`Sales_workbook`, `Sales_Data`).
+
+Also discovered while writing tests: NPOI rejects names that parse
+as cell references. `R1`, `C1`, `RC1` (R1C1-style) all fail with
+"cannot be $A$1-style cell reference". Test fixtures use `Range1` /
+`Range2` / `Range3` instead.
+
 ### 2026-05-16 — AutoSize font-failure translation
 
 Decision I3 says "throw MissingFontException with installation

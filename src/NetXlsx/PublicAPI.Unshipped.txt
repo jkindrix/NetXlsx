@@ -164,7 +164,13 @@ const NetXlsx.NumberFormats.PercentTwo = "0.00%" -> string!
 const NetXlsx.NumberFormats.Scientific = "0.00E+00" -> string!
 const NetXlsx.NumberFormats.Text = "@" -> string!
 const NetXlsx.NumberFormats.Time = "hh:mm:ss" -> string!
+NetXlsx.INamedRange
+NetXlsx.INamedRange.Formula.get -> string!
+NetXlsx.INamedRange.Name.get -> string!
+NetXlsx.INamedRange.SheetScope.get -> string?
 NetXlsx.IWorkbook
+NetXlsx.IWorkbook.AddNamedRange(string! name, string! formula, string? sheetScope = null) -> NetXlsx.INamedRange!
+NetXlsx.IWorkbook.NamedRanges.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.INamedRange!>!
 NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
 NetXlsx.IWorkbook.Save(string! path) -> void
 NetXlsx.IWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void

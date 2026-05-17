@@ -45,6 +45,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.HAlign",
             "NetXlsx.ICell",
             "NetXlsx.IColumn",
+            "NetXlsx.INamedRange",
             "NetXlsx.IRange",
             "NetXlsx.IRow",
             "NetXlsx.ISheet",
