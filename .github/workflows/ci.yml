@@ -44,7 +44,9 @@ jobs:
         run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal" --collect:"XPlat Code Coverage"
+        # Excludes Category=HeadlessNoFonts tests, which require a known
+        # font-less environment (the dedicated headless-no-fonts job below).
+        run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal" --collect:"XPlat Code Coverage" --filter "Category!=HeadlessNoFonts"
 
       - name: Upload coverage artifacts
         if: always()
@@ -53,3 +55,48 @@ jobs:
           name: coverage-${{ matrix.os }}
           path: '**/TestResults/**/coverage.cobertura.xml'
           if-no-files-found: ignore
+
+  # Strict failure-path test for IColumn.AutoSize() per design decision I3.
+  # Runs on an Ubuntu host with all font packages purged so SixLabors.Fonts
+  # has nothing to fall back to and AutoSize must throw MissingFontException.
+  # Without this gate, a future NPOI / SixLabors update that silently
+  # accepts a font-less environment (and produces wrong widths) wouldn't
+  # surface until a user reports it.
+  headless-no-fonts:
+    name: headless-no-fonts (AutoSize MissingFontException gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Purge all fonts + libgdiplus from the runner image
+        # ubuntu-latest ships with a font stack; remove it so the test
+        # environment matches a minimal container deployment.
+        run: |
+          sudo apt-get remove -y --purge 'fonts-*' 'libgdiplus*' 'libcairo*' 'fontconfig*' || true
+          sudo apt-get autoremove -y
+          sudo rm -rf /usr/share/fonts /usr/local/share/fonts /etc/fonts
+          # Verify the purge: zero font files anywhere accessible to apps
+          font_count=$(find /usr/share /usr/local/share /etc -name '*.ttf' -o -name '*.otf' 2>/dev/null | wc -l)
+          echo "Font files remaining: $font_count"
+          if [ "$font_count" -gt 0 ]; then
+            echo "::warning::Expected 0 font files after purge, found $font_count. The MissingFontException assertion may not fire."
+          fi
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
+
+      - name: Run only the HeadlessNoFonts-trait tests
+        run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal" --filter "Category=HeadlessNoFonts"

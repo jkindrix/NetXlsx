@@ -175,7 +175,10 @@ public class ColumnApiTests
     {
         // AutoSize requires font metrics; on a headless CI without fonts
         // we get MissingFontException (decision I3). Either outcome is
-        // acceptable — failing silently is not.
+        // acceptable — failing silently is not. The dedicated
+        // HeadlessNoFonts trait covers the *strict* failure-path
+        // assertion; this test stays accept-either so dev-box runs
+        // (which have fonts) don't flake.
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
         sheet["A1"].SetString("hello");
@@ -192,6 +195,35 @@ public class ColumnApiTests
         {
             ex.Message.Should().Contain("AutoSize");
         }
+    }
+
+    /// <summary>
+    /// Strict failure-path test: in a known headless-no-fonts CI job,
+    /// AutoSize **must** throw <see cref="MissingFontException"/> — the
+    /// design promise is "fail loud, not silently produce wrong widths"
+    /// (decision I3). This test is excluded from regular CI via the
+    /// <c>HeadlessNoFonts</c> trait; the dedicated CI job filters
+    /// <c>Trait=HeadlessNoFonts</c> and runs only this test in an
+    /// environment where fonts have been removed.
+    /// </summary>
+    [Fact]
+    [Trait("Category", "HeadlessNoFonts")]
+    public void AutoSize_Must_Throw_MissingFontException_When_NoFonts_Available()
+    {
+        using var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        sheet["A1"].SetString("hello");
+        var col = sheet.Column("A");
+
+        Action act = () => col.AutoSize();
+        act.Should().Throw<MissingFontException>(
+            "design decision I3 — AutoSize on a headless-no-fonts host must " +
+            "fail loud with installation guidance, not silently produce " +
+            "wrong widths. If this assertion fires in your environment, " +
+            "either install a font stack (apt-get install fontconfig " +
+            "fonts-dejavu-core libgdiplus) or use IColumn.Width(double) " +
+            "with an explicit width.")
+            .Which.Message.Should().Contain("AutoSize");
     }
 
     // ---- Round-trip ---------------------------------------------------
