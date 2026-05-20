@@ -14,7 +14,7 @@ public class CommentAndHyperlinkTests
     // ---- Comments ----------------------------------------------------
 
     [Fact]
-    public void Comment_Default_Author_Is_CMA_Sheets_Per_I11()
+    public void Comment_Default_Author_Is_NetXlsx_Per_I11()
     {
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");

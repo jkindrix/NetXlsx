@@ -2,9 +2,34 @@
 
 Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating and reading `.xlsx` spreadsheets.
 
-**Status:** pre-1.0, tracking toward v1.0. The main public surface is implemented and exercised by 388 tests (per TFM) across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity; the [roadmap](docs/roadmap.md) lists the remaining v1.0 ship-blockers (streaming write via SXSSF, `WorkbookOptions` for configurable limits, the remaining cookbook recipes, the headless-Linux AutoSize CI job, and the benchmark-regression gate).
+**Status:** pre-1.0, tracking toward v1.0. The public surface is implemented and exercised by 433 tests (per TFM) across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity; the [roadmap](docs/roadmap.md) lists the remaining v1.0 ship-blockers (benchmark-regression CI gate, headless-Linux AutoSize CI job, full pivot/CF/customXML/threaded-comments preservation fixture).
 
-Targets `net8.0` and `net9.0`.
+Targets `net8.0` and `net9.0`. MIT-licensed.
+
+## Why this exists
+
+NPOI is the only complete OOXML implementation for .NET, but its API is a Java port — it shows. NetXlsx is a thin, opinionated layer on top that:
+
+- **Adds fluent ergonomics.** `sheet.Range("A1:C1").Value("header").Apply(new CellStyle { Bold = true })` instead of the multi-step NPOI dance.
+- **Deduplicates styles automatically.** A single internal pool keyed off `CellStyle` value equality. Avoids NPOI's 64K-style cap that bites every team writing many-colored reports (spike-measured at 60–64K — this is a correctness fix, not just polish).
+- **Generates typed export/import at compile time.** `[Worksheet]` on a record gets you `sheet.AddRows<T>(items)` / `sheet.ReadRows<T>()` via source generator. No reflection at runtime, AOT-safe in principle.
+- **Doesn't hide NPOI.** Every public type exposes `.Underlying` returning the raw `XSSF*` (or `SXSSF*` for streaming) handle. The facade is *additive over NPOI*, not a sandbox.
+- **Splits streaming from random-access at the type level.** `Workbook.CreateStreaming()` returns `IStreamingWorkbook` — not the same type as the random-access one. Random-access members are absent from the streaming surface because they'd lie. (Looking at you, EPPlus.)
+
+### How is this different from ClosedXML / EPPlus / MiniExcel?
+
+| | NetXlsx | ClosedXML | EPPlus | MiniExcel |
+|---|---|---|---|---|
+| Engine | wraps NPOI | own OOXML impl | own OOXML impl | own OOXML impl |
+| License | MIT | MIT | Commercial (since 5.0) | Apache-2.0 |
+| `.xls` (legacy) | no (explicit `Never`) | no | no | yes |
+| Streaming write | yes (SXSSF) | partial | yes | yes |
+| Typed export via source gen | yes | no (reflection) | no (reflection) | yes |
+| Style auto-dedup | yes (required for correctness past 60K cells) | yes | yes | n/a |
+| Formula *evaluation* | no (explicit `Never`) | yes (limited) | yes | no |
+| Escape hatch to raw OOXML | yes (`.Underlying`) | partial | partial | no |
+
+**Pick NetXlsx if** you're already using NPOI and want better ergonomics, you write large styled reports (the dedup pool is real), or you want compile-time-checked typed mapping without runtime reflection. **Pick ClosedXML** if you need formula evaluation or want a non-NPOI engine. **Pick MiniExcel** if you need `.xls` support.
 
 ## Requirements & known limitations
 
@@ -94,6 +119,42 @@ hiddenSheet.Hidden = true;
 sheet.ShowGridlines = false;
 ```
 
+### Streaming write (large workbooks)
+
+```csharp
+// Use streaming once you're past ~30k rows — spike-2-measured threshold
+// where in-memory writes exceed the design's memory budget.
+await using var wb = Workbook.CreateStreaming(new StreamingOptions { RowAccessWindowSize = 1_000 });
+var sheet = wb.AddSheet("BigData");
+
+for (int r = 1; r <= 1_000_000; r++)
+    sheet.AppendRow().Set(1, r).Set(2, $"row-{r}").Set(3, r * 1.5);
+
+await wb.SaveAsync("big.xlsx");
+```
+
+`IStreamingWorkbook` is a deliberately narrower contract — random-access members are absent because they'd lie once a row is flushed past the window.
+
+### Formulas and named ranges
+
+```csharp
+sheet["A1"].SetNumber(10);
+sheet["A2"].SetNumber(20);
+sheet["A3"].SetFormula("=SUM(A1:A2)");        // leading '=' optional
+
+wb.AddNamedRange("MonthlySales", "Data!$A$1:$A$12");
+sheet["B1"].SetFormula("=SUM(MonthlySales)"); // readable formulas via named ranges
+```
+
+Formula *evaluation* is intentionally out of scope — Excel and other competent consumers recalculate on open. NetXlsx never pre-computes cached values (design §7.8).
+
+### Comments and hyperlinks
+
+```csharp
+sheet["A1"].Comment("Reviewer flagged for follow-up");          // default author "NetXlsx"
+sheet["B2"].Hyperlink("https://example.com", display: "Docs");  // sniffed scheme
+```
+
 ### Typed export / import (source-generated)
 
 ```csharp
@@ -110,7 +171,7 @@ foreach (var row in read["Sales"].ReadRows<SalesRow>())
     Console.WriteLine($"{row.Region}: {row.Revenue:C}");
 ```
 
-The generator (`NetXlsx.SourceGen`) emits stable diagnostic IDs `NXLS0001`–`NXLS0006` for invalid `[Worksheet]` / `[Column]` usage.
+The generator (`NetXlsx.SourceGen`) emits stable diagnostic IDs `NXLS0001`–`NXLS0099` for invalid `[Worksheet]` / `[Column]` usage; build-time guards under `NXLS0100`–`NXLS0199` cover AOT/trim incompatibility.
 
 ### Escape hatch
 
@@ -125,7 +186,7 @@ XSSFCell     rawC   = cell.Underlying;
 
 This is by design (#1, #32) — the facade is *additive over NPOI*, not a sandbox around it.
 
-See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for seven worked recipes that double as golden-file tests.
+See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 13 worked recipes covering every public-surface area; each recipe doubles as a golden-file test.
 
 ## Documentation
 
@@ -143,10 +204,9 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for seven worked reci
 src/         NetXlsx, NetXlsx.SourceGen
 tests/       NetXlsx.Tests, NetXlsx.GoldenFiles, NetXlsx.PublicApi
 benchmarks/  NetXlsx.Benchmarks (BenchmarkDotNet)
-samples/     NetXlsx.Cookbook
+samples/     NetXlsx.Cookbook (13 worked recipes)
 spikes/      NetXlsx.AotSpike + Spike{1,2,3} harnesses + results/
 build/       build.sh / build.ps1 (local + CI entry points)
-.teamcity/   pipeline-as-code (Kotlin DSL placeholder)
 docs/        design, roadmap, implementation-notes, scheduled-spikes, npoi-workarounds
 ```
 
@@ -161,10 +221,10 @@ build/build.sh -- spike-1   # run a specific pre-impl spike
 
 PowerShell equivalent: `build/build.ps1`. Both scripts auto-detect a user-level .NET install under `~/.dotnet` and prefer it over a system install (lets `net9.0` work on a machine whose system SDK is older).
 
-## Scaffold placeholders (filled before first publish)
+## Contributing
 
-- `nuget.config` — public NuGet feed URL.
-- `Directory.Build.props` `RepositoryUrl` — github.com/jkindrix.
-- `CODEOWNERS` — owning team identifiers.
-- `.teamcity/` Kotlin DSL — bound to a real Git host project.
-- Source Link package wired (depends on Git host choice).
+Issues and pull requests welcome. The project follows a deliberate design-then-implement loop: substantive new API surface should be discussed against [`docs/design.md`](docs/design.md) before code lands. The [public-API analyzer](src/NetXlsx/PublicAPI.Shipped.txt) gates additions at compile time.
+
+## License
+
+MIT — see [LICENSE](LICENSE).

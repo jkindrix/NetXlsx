@@ -33,12 +33,13 @@
 
   <PropertyGroup Label="PackageMetadata">
     <Authors>Justin Kindrix</Authors>
-    <Company>Justin Kindrix</Company>
     <Copyright>Copyright (c) 2026 Justin Kindrix</Copyright>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/jkindrix/NetXlsx</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
-    <!-- Public OSS at github.com/jkindrix/NetXlsx -->
-    <RepositoryUrl>https://github.com/jkindrix/netxlsx</RepositoryUrl>
+    <RepositoryUrl>https://github.com/jkindrix/NetXlsx</RepositoryUrl>
+    <PackageTags>xlsx;excel;npoi;spreadsheet;ooxml;source-generator</PackageTags>
+    <Description>Idiomatic C# facade over NPOI for creating and reading .xlsx spreadsheets. Adds fluent ergonomics, automatic style-pool deduplication (avoids NPOI's 64K-style cap), typed import/export via source generator, and a first-class .Underlying escape hatch for anything not yet wrapped.</Description>
   </PropertyGroup>
 
   <PropertyGroup Label="Versioning (MinVer)">
@@ -53,8 +54,7 @@
     <!-- CS1591: Missing XML comment for publicly visible type or member. Enforced on library projects (quality gate per design §5). -->
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(IsLibraryProject)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath="" Visible="false" />
-  </ItemGroup>
+  <!-- PackageLicenseExpression=MIT (above) is sufficient for NuGet; no
+       need to pack the LICENSE file as content. -->
 
 </Project>
