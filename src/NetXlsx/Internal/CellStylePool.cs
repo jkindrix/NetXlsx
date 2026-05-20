@@ -147,8 +147,17 @@ internal sealed class CellStylePool
         return f;
     }
 
-    private static XSSFColor ToXssfColor(Color c) =>
-        new(new byte[] { c.R, c.G, c.B });
+    private static XSSFColor ToXssfColor(Color c)
+    {
+        // The byte[]-only XSSFColor constructor was removed in NPOI 2.7.4+;
+        // construct from a CT_Color XML bean instead — that ctor has been
+        // present since the 2.5.x line and is stable across all NPOI 2.x.
+        var ct = new NPOI.OpenXmlFormats.Spreadsheet.CT_Color
+        {
+            rgb = new byte[] { 0xFF, c.R, c.G, c.B },  // ARGB; alpha=FF (opaque)
+        };
+        return new XSSFColor(ct);
+    }
 
     private static Color? MapXssfColorToColor(XSSFColor? xc)
     {
