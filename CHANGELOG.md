@@ -9,6 +9,67 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Revise v2 planning docs per external critique (no code change)
+A second external agent pointed out that the v2 planning docs led with
+the from-scratch OOXML implementation as the headline option because
+the maintainer had stated intent to "go all-in" on it. That was
+commitment laundering, not planning. The revised framing puts
+honest EV first.
+
+- **`docs/long-term.md` adjacent options reordered** by expected
+  value, not authorial preference:
+  1. Bind ClosedXML as the engine (MIT, .NET-native, mature, no
+     OSMF risk; reintroduces single-vendor-upstream pattern with
+     a different vendor; does NOT unlock AOT).
+  2. Fork NPOI 2.7.3 under Apache-2.0 (~30-50k LOC realistic
+     maintenance surface, not the 200k headline — most is HSSF +
+     HWPF we don't use).
+  3. Accept OSMF terms after an honest legal read on transitive
+     obligations to wrapper-library consumers.
+  4. Full from-scratch — last, not first. Strengthens only if AOT
+     becomes binding and neither NPOI 3.x nor ClosedXML moves on
+     AOT in a reasonable horizon.
+
+- **`docs/long-term.md` R&D sequence rewritten** as parallel
+  spikes. R&D-1 now runs from-scratch *and* bind-ClosedXML
+  prototypes at identical scope (single-sheet text+number write,
+  ~2k LOC + 2-3 weeks respectively). Step 4 is a real gate that
+  compares the two, not a continuation step. R&D-2 and R&D-3
+  are reached only if the gate selects from-scratch. The
+  original "R&D-1 → R&D-2 → R&D-3 from-scratch only" was a
+  sunk-cost ladder that compared from-scratch against itself.
+
+- **`docs/v2-ooxml-planning.md` reframed** to acknowledge it
+  covers option 4 of 4, not the headline alternative.
+  Hardening-phase estimate revised from "3-6 months" to
+  "6-18 months full-time" (probably underweighted by 2-3× per
+  the critique; ClosedXML's 427 open issues + 10 years of weird-
+  file triage are evidence of the long-tail cost). Added explicit
+  solo-maintainer-permanence caveat and opportunity-cost
+  framing.
+
+- **AOT centrality reframed** as the *active* question the
+  quarterly Spike 5-Q watches for, not a "one case where I'd
+  change my mind" contingency. New trigger conditions named:
+  two-or-more of {NPOI-3.x-doesn't-do-AOT,
+  ClosedXML-doesn't-do-AOT, consumer-side-AOT-demand} firing in
+  the same quarterly review re-baselines from-scratch from
+  option 4 to option 1.
+
+- **Bus-factor honesty** added to `long-term.md`: the solo-
+  maintainer cliff a 50k-LOC engine introduces is a delta on top
+  of the wrapper's existing bus-factor, not a new category of
+  risk. From-scratch makes it worse but doesn't introduce it.
+
+- **Anchoring honesty paragraph** added to `long-term.md`:
+  explicit acknowledgement that the original framing was skewed
+  by maintainer's stated intent rather than honest EV. The
+  revision removes the anchor.
+
+The critique's biggest contribution was the parallel-spike R&D-1
+design — that produces an actual decision input where the original
+sunk-cost ladder didn't.
+
 ### Review actionables: NPOI 3.x plan, OOXML v2 planning, XssfCell split, test-count sweep
 Six small items from the latest review's recommendations. No code
 behavior changes; XssfCell refactored to partials with no public

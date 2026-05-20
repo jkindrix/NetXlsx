@@ -1,13 +1,36 @@
 # v2.0 OOXML implementation — planning notes
 
-This doc captures the research and time estimates for the v2.0 path
-that `docs/long-term.md` calls out: implement OOXML directly inside
-NetXlsx and drop the NPOI engine. Complementary to
-`docs/npoi-3x-migration.md` (the v1.x path that keeps NPOI as the
-engine but adopts NPOI 3.x once trigger conditions fire).
+This doc captures the research and time estimates for one of the v2
+paths `docs/long-term.md` lists: implement OOXML directly inside
+NetXlsx and drop the NPOI engine. Complementary to:
+
+- `docs/npoi-3x-migration.md` — the v1.x "stay on NPOI but bump major"
+  path.
+- `docs/long-term.md` — the parent doc that puts this in context as
+  the **last** of four adjacent options, ordered by current EV.
+
+**Important framing (revised 2026-05-20 per external critique):**
+the from-scratch path is **not** the headline alternative to staying
+on NPOI 2.7.3. Per `docs/long-term.md`'s EV-ordered options, the
+current best alternatives are (in order):
+
+1. Bind ClosedXML as the engine.
+2. Fork NPOI 2.7.3 under Apache-2.0.
+3. Accept OSMF terms after an honest legal read.
+4. From-scratch OOXML implementation (this doc).
+
+This doc covers option 4 in detail because if we ever do pursue it,
+the work is by far the largest and benefits most from research being
+done early. **Reading the spec and competitor architectures is durable
+knowledge regardless of which option we ultimately pick** — the
+ClosedXML-bind path also benefits from understanding what ClosedXML
+gets right and wrong about OOXML.
 
 **Status (2026-05-20):** research only. No commitment to start before
-v1.0 ships.
+v1.0 ships. The case for actually executing this path strengthens
+only if AOT cleanness becomes a hard requirement for our users
+*and* neither NPOI 3.x nor ClosedXML moves on AOT — see the AOT
+contingency section below.
 
 ## The specification
 
@@ -61,20 +84,78 @@ we just preserve them as opaque OPC parts. That cuts approximately
 | Hardening + fuzz tests + real-world corpus | 3-6 months | 6-12 months |
 | **Total to "ready as v2.0 default engine"** | **12-18 months** | **24-36 months** |
 
-**Caveats on the estimate:**
+**Caveats on the estimate (revised 2026-05-20 per external critique):**
 
-- The hardening phase is the one most rebuilds underestimate. It's
-  where you encounter Excel-authored files that violate the spec
-  (Excel itself does this regularly) but that consumers expect to
-  round-trip without throwing.
+- **The hardening phase is probably underestimated by 2-3×.** Excel
+  emits invalid OOXML routinely. LibreOffice emits *different*
+  invalid OOXML. Google Sheets has its own quirks. The graveyard
+  of half-finished OOXML libraries is large for a reason — the
+  spec is 5,000 pages and reality is a superset of the spec.
+  ClosedXML has 10 years and 427 open issues' worth of "how to
+  not throw on this weird file" baked in; we'd be re-paying that
+  tuition. Realistic hardening phase: 6-18 months full-time, not
+  3-6.
 - Multi-contributor speedup is sublinear. Two contributors splitting
   spec-reading + MVP write probably doesn't halve the timeline —
   realistic best case is ~30% reduction.
 - The "as v2.0 default engine" bar means it passes the existing
-  433+ test/TFM suite *and* the preservation fixture's four-part-
+  434+ test/TFM suite *and* the preservation fixture's four-part-
   type round-trip *and* the bench gate without > 15% regression.
   Skipping any of those bars cuts time but compromises the v1.0
   contract guarantee.
+- **Solo-maintainer permanence.** A 50k-LOC OOXML engine is a
+  permanent maintenance commitment: every CVE in the XML parsing
+  chain, every new Excel-version quirk, every conditional-formatting
+  edge case lands on the maintainer. NPOI exists because a team
+  maintains it; ClosedXML exists because a team maintains it. A
+  one-person fork-or-rebuild becomes a bus-factor cliff. (See the
+  bus-factor honesty paragraph in `docs/long-term.md` — it's a
+  delta on top of the wrapper's existing bus-factor, not a new
+  category of risk, but a real delta.)
+- **Opportunity cost.** In 18 months of v2 reimplementation, the
+  v1.1 roadmap could land Tables, data validation, image
+  embedding, rich text, themes, autofilter — all high-user-value
+  features that go faster on the existing engine. The from-scratch
+  path defers all of that.
+
+## AOT contingency — when from-scratch becomes the right answer
+
+The from-scratch case is dormant *unless* AOT cleanness becomes a
+hard requirement for a meaningful chunk of our users. If that
+happens, the EV calculation flips: from-scratch becomes the only
+path that delivers AOT, since both NPOI and ClosedXML use
+`System.Xml.Serialization` + reflection patterns that the AOT
+compiler can't satisfy.
+
+**Active signals we're watching** (folded into the existing quarterly
+`Spike 5-Q`):
+
+1. **NPOI 3.x's AOT posture.** If NPOI 3.x ships AOT-clean, the
+   from-scratch case weakens further — bind NPOI 3.x and we get
+   AOT for free.
+2. **ClosedXML's AOT posture.** Same logic. As of 2026-05, neither
+   engine is AOT-clean and neither has announced AOT work.
+3. **Consumer-side demand signal.** Specific signals to weight
+   heavily:
+   - Issues filed on NetXlsx asking for AOT/trim support.
+   - .NET ecosystem trends: Native AOT in API hosts (e.g.
+     ASP.NET Core 8+ minimal APIs), Blazor WASM trimming
+     pushing toward mandatory, .NET MAUI mobile (iOS App Store
+     basically requires AOT).
+   - Direct consumer requests from teams who tried NetXlsx and
+     found the AOT block disqualifying.
+
+**Trigger.** If two or more of these signals fire within the same
+quarterly Spike 5-Q review *and* neither NPOI 3.x nor ClosedXML
+has announced AOT work, the from-scratch path moves from "option 4"
+to "option 1" in `docs/long-term.md`'s ordering. That's a real
+re-baselining event recorded under the new "Roadmap re-baselining"
+process — not silent drift.
+
+Until then, the from-scratch option stays parked. Don't let the
+research investment in this doc create pressure to execute the
+path — the doc's job is to keep the option open and to make the
+trigger condition explicit, not to make execution inevitable.
 
 ## Study sequence (pre-implementation)
 
@@ -117,24 +198,36 @@ Independent of when the implementation work itself starts, the
 
 ## Decision shape
 
-Per `docs/long-term.md`'s R&D milestones, the decision to *start*
-the v2.0 implementation work isn't pre-committed. The trigger is:
+Per `docs/long-term.md`'s revised R&D milestones, the decision to
+*start* the from-scratch implementation isn't pre-committed. Two
+gates have to pass:
 
-- v1.0 is in consumer hands long enough that the actually-used
-  surface is known (probably 6-12 months post-tag).
-- The NPOI 3.x situation has resolved one way or the other (either
-  3.x ships with terms we accept, or it doesn't ship at all by
-  some reasonable horizon).
-- Project owner commits the time-budget (full-time vs day-job-side
-  changes the timeline by 2-3x — see table above).
+1. **Spike-comparison gate** (`docs/long-term.md` R&D-1 step):
+   the parallel from-scratch + bind-ClosedXML single-sheet-write
+   spikes produce comparable measures. If the bind-ClosedXML
+   spike covers our v1.0 facade with bounded effort and acceptable
+   peer-dependency posture, this gate selects bind-ClosedXML and
+   the from-scratch path stays parked. The from-scratch spike's
+   output becomes a documented "we considered and rejected"
+   artifact rather than the input to a continuation.
+2. **AOT contingency gate** (this doc's AOT-contingency section):
+   if AOT becomes binding (per the trigger conditions above) *and*
+   neither NPOI 3.x nor ClosedXML has moved toward AOT support,
+   the from-scratch case re-strengthens regardless of what the
+   spike-comparison gate said.
 
-The study sequence above can begin **today** regardless of
-implementation start. Reading the spec and competitor architectures
-is durable knowledge whether or not we ever write a line of v2 code.
+The study sequence above can begin **today** regardless of which
+gate eventually triggers execution — reading the OOXML spec and
+the competitor architectures is durable knowledge for the
+bind-ClosedXML path too (we'd need to understand what ClosedXML
+gets right and wrong about OOXML to translate effectively).
 
 ## Status
 
-- **Current** (2026-05-20): research-only. Not started.
-- **Next milestone:** post-v1.0-tag, project owner decides whether
-  to begin the study sequence in parallel with v1.x maintenance
-  or wait until v1.x is in stable maintenance mode.
+- **Current** (2026-05-20): research-only. Not started. From-scratch
+  is option 4 of 4 in `docs/long-term.md`'s EV-ordered list.
+- **Next milestone:** post-v1.0-tag, run the R&D-1 parallel spikes
+  (from-scratch + bind-ClosedXML at same scope). The output
+  selects between continuing from-scratch (R&D-2/R&D-3),
+  switching to bind-ClosedXML, or shelving both and re-evaluating
+  NPOI 3.x.
