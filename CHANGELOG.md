@@ -9,6 +9,82 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.0 ship-blockers all landed: AutoSize CI gate, bench regression gate, full preservation fixture
+The three named v1.0 DoD ship-blockers from the latest review all
+landed. v1.0 is now technically ready to tag (per the
+release-PR checklist in `docs/roadmap.md`).
+
+**Ship-blocker 1/3 — Headless-Linux AutoSize CI job (commit `66e4f4d`):**
+- New `ColumnApiTests.AutoSize_Must_Throw_MissingFontException_When_NoFonts_Available`
+  with `Trait("Category", "HeadlessNoFonts")` strictly asserts
+  `MissingFontException` is thrown (no accept-either carve-out).
+- Existing regular-CI matrix excludes this trait via
+  `--filter Category!=HeadlessNoFonts`.
+- New `headless-no-fonts` CI job in `ci.yml` runs on ubuntu-latest
+  with all font packages + `libgdiplus` + `fontconfig` aggressively
+  purged, then runs only the strict trait test. Verifies the design
+  decision I3 promise that AutoSize fails loud on font-less hosts
+  rather than silently producing wrong widths.
+
+**Ship-blocker 2/3 — Benchmark regression CI gate (commits `97b981f`, `6b8be75`):**
+- New `benchmarks/NetXlsx.Benchmarks/Benchmarks.cs` with five
+  CI-friendly `[Benchmark]`s exercising the design §5 perf claims:
+  `ColdCreateAndSave`, `Write5kRows`, `StyledWrite_SmallPalette`,
+  `StreamingWrite_50kRows`, `OpenAndReadColumnSum`. Sized at
+  ~45 seconds total via `ShortRun` config.
+- New `benchmarks/compare-bench.py` reads BDN's brief-JSON
+  output, compares per-benchmark `Statistics.Mean` to a baseline,
+  exits 1 if any regresses > threshold (default 15% — design DoD's
+  10% + 5% CI-noise headroom).
+- New `.github/workflows/bench.yml` triggers on PRs and pushes
+  that touch src, benchmarks, or build config. Caches a
+  CI-hardware baseline keyed by source-tree hash; main pushes
+  auto-refresh the baseline even when the run flags a regression
+  (regression info on main is signal, not blocker); PRs fail loud
+  on > 15% regression.
+- Two-baseline model documented in `benchmarks/README.md`:
+  committed `benchmarks/baseline/` is dev-local sanity reference;
+  the CI cache is the actual regression gate.
+
+**Ship-blocker 3/3 — Full preservation fixture (commit `4dfb001`):**
+- `tests/NetXlsx.GoldenFiles/RoundTripPreservationTests.cs`
+  expanded from synthetic-customXML-only to all four part types
+  named in decision #44 / design §7.7:
+  - Category 1: custom XML at `/customXml/item1.xml` (raw OPC).
+  - Category 2: conditional formatting via NPOI's high-level API
+    (greaterThan-50 rule on B1:B5, italic+bold font formatting) —
+    serializes into the worksheet XML the way Excel would.
+  - Category 3: pivot cache definition at
+    `/xl/pivotCache/pivotCacheDefinition1.xml` (raw OPC stub with
+    correct namespace).
+  - Category 4: threaded comments at
+    `/xl/threadedComments/threadedComment1.xml` (raw OPC stub
+    with Excel 365 namespace).
+- Three test methods: `All_Four_Unmodeled_Part_Types_Survive_Open_Modify_Save`,
+  `Noop_Open_Save_Does_Not_Mutate_Any_Of_The_Four_Part_Types`,
+  and the original single-customXML smoke test kept for back-compat.
+- Fixture built programmatically per decision I18 option b (script-
+  generated; inline helper acts as the `.gen.cs` sibling).
+
+### Dep wave: NPOI 2.7.3 forward-compat, AwesomeAssertions, action bumps
+Adjacent dependency hygiene that landed during the ship-blocker push:
+
+- `BenchmarkDotNet` 0.14.0 → 0.15.8 (merged via PR #9).
+- `actions/cache` v4 → v5 (latest stable; resolves a Node.js 20
+  deprecation notice).
+- `Internal/CellStylePool.cs`: switched `XSSFColor` construction from
+  the `byte[]`-only ctor to `CT_Color`-based construction (commit
+  `42fbda3`). Forward-compat to NPOI 2.7.4+, which removed the
+  `byte[]`-only ctor — keeps our code resilient if we ever do bump
+  to a 2.7.x patch, without taking such a bump now. Still builds and
+  works on the pinned 2.7.3.
+- PR #10 (NPOI 2.7.3 → 2.7.6) closed. The 2.7.x patch line has
+  introduced two breaking API changes (2.7.4 removed `XSSFColor(byte[])`,
+  2.7.6 `[Obsolete]`d `XSSFColor(CT_Color)`) — not patch-release
+  discipline. Dependabot's NPOI patch updates are now also ignored
+  alongside majors+minors; we opt in to specific bumps manually if
+  upstream stabilizes.
+
 ### Doc tightening from review pass (no code changes)
 Four documentation/policy refinements from the latest external review.
 No code behavior changes; CI matrix unchanged.
