@@ -1,0 +1,123 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'benchmarks/**'
+      - 'Directory.Packages.props'
+      - 'Directory.Build.props'
+      - '.github/workflows/bench.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'benchmarks/**'
+      - 'Directory.Packages.props'
+      - 'Directory.Build.props'
+      - '.github/workflows/bench.yml'
+  workflow_dispatch:
+    inputs:
+      refresh_baseline:
+        description: 'Refresh the cached baseline with this run'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    name: benchmarks + regression gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Install libgdiplus + fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus fonts-dejavu-core fontconfig
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      # Cache key is hash-of-source-tree-folder so any code or csproj
+      # change invalidates the previous baseline. This is intentional —
+      # we want the baseline to refresh when meaningful inputs change.
+      # On PRs, the cache is read-only by default (write only happens
+      # on the main-branch push run).
+      - name: Restore baseline cache
+        id: cache-baseline
+        uses: actions/cache@v4
+        with:
+          path: benchmarks/ci-baseline
+          key: bench-baseline-${{ runner.os }}-${{ hashFiles('src/**', 'benchmarks/**/*.cs', 'Directory.Packages.props') }}
+          restore-keys: |
+            bench-baseline-${{ runner.os }}-
+
+      - name: Restore (dotnet)
+        run: dotnet restore
+
+      - name: Build (Release)
+        run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
+
+      - name: Run benchmarks
+        run: |
+          dotnet run --project benchmarks/NetXlsx.Benchmarks --configuration Release --no-build --framework net10.0 -- --filter "*Benchmarks*" --exporters JSON
+          mkdir -p benchmarks/current
+          cp BenchmarkDotNet.Artifacts/results/*-report-brief.json benchmarks/current/
+          ls -la benchmarks/current/
+
+      - name: Compare against CI baseline (rolling cache)
+        id: compare
+        run: |
+          mkdir -p benchmarks/ci-baseline
+          if [ -z "$(ls -A benchmarks/ci-baseline 2>/dev/null)" ]; then
+            echo "::notice::No CI baseline cached yet — recording current run as the new baseline."
+            cp benchmarks/current/*.json benchmarks/ci-baseline/
+            echo "fresh_baseline=true" >> $GITHUB_OUTPUT
+          else
+            python3 benchmarks/compare-bench.py benchmarks/current benchmarks/ci-baseline --threshold 15
+          fi
+
+      # On main pushes, overwrite the cached baseline with the just-run
+      # results so the next PR is compared against a current snapshot.
+      # Cache writes only happen automatically when the workflow exits;
+      # actions/cache restores in the restore step and writes at end-of-job
+      # if the key didn't already exist. To force-refresh, we'd need to
+      # delete the cache via the GH API; instead, we rely on the hash key
+      # rolling forward when source changes.
+      - name: Refresh baseline (main push or explicit dispatch)
+        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.refresh_baseline == 'true')
+        run: |
+          rm -rf benchmarks/ci-baseline/*
+          cp benchmarks/current/*.json benchmarks/ci-baseline/
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bench-results-${{ github.run_number }}
+          path: benchmarks/current/
+          if-no-files-found: error
+
+      - name: Upload baseline (for inspection)
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: bench-baseline-${{ github.run_number }}
+          path: benchmarks/ci-baseline/
+          if-no-files-found: ignore
