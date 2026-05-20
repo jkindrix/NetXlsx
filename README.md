@@ -2,9 +2,9 @@
 
 Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating and reading `.xlsx` spreadsheets.
 
-**Status:** pre-1.0, tracking toward v1.0. The public surface is implemented and exercised by 434 tests (per TFM × 3 TFMs = 1,302 total runs per CI build) across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity; the v1.0 ship-blockers from the latest review are all landed — see the v1.0 release-PR checklist in [docs/roadmap.md](docs/roadmap.md) for the remaining tag-time work.
+**Status:** **v1.0.0** (LTS). The public surface is exercised by 434 tests per TFM × 2 TFMs = **868 total runs per CI build** across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. Future surface additions land via the standard `PublicAPI.Unshipped.txt` → `PublicAPI.Shipped.txt` flip at the next tagged release; the [v1.1 roadmap](docs/roadmap.md#v11--common-asks-target-tbd) lists the next batch of common asks (Tables, data validation, image embedding, fuzz harness, strict-concurrency opt-in).
 
-Targets `net8.0`, `net9.0`, and `net10.0`. MIT-licensed.
+Targets `net8.0` and `net10.0` (both LTS). MIT-licensed.
 
 ## Why this exists
 
