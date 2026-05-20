@@ -35,7 +35,12 @@ jobs:
         run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
       - name: Test (release smoke)
-        run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal"
+        # Excludes Category=HeadlessNoFonts tests — those require a
+        # known font-less environment (see the headless-no-fonts job
+        # in ci.yml). The release runner installs libgdiplus + DejaVu
+        # so AutoSize succeeds, which would make the HeadlessNoFonts
+        # trait test's "must throw MissingFontException" assertion fail.
+        run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal" --filter "Category!=HeadlessNoFonts"
 
       - name: Pack
         run: |
