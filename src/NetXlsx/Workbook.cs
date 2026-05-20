@@ -174,6 +174,15 @@ public static class Workbook
     /// satisfies <see cref="IsValidSheetName"/>: truncated to 31 chars,
     /// invalid characters replaced with underscore. Empty input becomes
     /// <c>"Sheet"</c>.
+    /// <para>
+    /// <b>Important:</b> this method does <b>not</b> guarantee uniqueness
+    /// against an existing workbook. Sanitization can produce collisions
+    /// (e.g. <c>"Q1/2026"</c> and <c>"Q1?2026"</c> both sanitize to
+    /// <c>"Q1_2026"</c>). When you need both sanitization <i>and</i>
+    /// uniqueness against an existing workbook, call
+    /// <see cref="SuggestSheetName"/> instead — it sanitizes internally
+    /// and then resolves collisions with a numeric suffix.
+    /// </para>
     /// </summary>
     public static string SanitizeSheetName(string proposed)
     {

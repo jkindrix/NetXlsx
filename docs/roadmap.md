@@ -81,10 +81,27 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | **Platform**                            |      |      |      |      |       |
 | `net8.0`, `net9.0`                      | Yes  |      |      |      |       |
 | `netstandard2.0` / .NET Framework       |      |      |      |      | No    |
-| Native AOT compatible                   |      |      |      |      | No†   |
-| Trim compatible                         |      |      |      |      | No†   |
+| Native AOT compatible                   |      |      |      |      | Deferred† |
+| Trim compatible                         |      |      |      |      | Deferred† |
 
-† AOT/Trim: spike 4 (see `spikes/results/spike-4-aot-trim.md`) measured both as runtime-incompatible with NPOI 2.7.3 — `XSSFWorkbook` initialization throws `POIXMLException` under both `PublishAot=true` and `PublishTrimmed=true`. The facade layer itself is AOT-clean; the engine is not. Promote to `Yes` only when NPOI removes its `System.Xml.Serialization` / `System.Reflection.Emit` dependencies (likely an NPOI 3.x change).
+† AOT/Trim are **deferred, not refused.** Spike 4 (see
+`spikes/results/spike-4-aot-trim.md`) measured both as runtime-incompatible
+with NPOI 2.7.3 — `XSSFWorkbook` initialization throws `POIXMLException`
+under both `PublishAot=true` and `PublishTrimmed=true`. The facade layer
+itself is AOT-clean; the engine is not. The build-time MSBuild guards
+`NXLS0100` / `NXLS0101` prevent silent runtime failures by failing the
+build loudly.
+
+Two paths to promote these matrix cells to `Yes`:
+- **NPOI 3.x** removes its `System.Xml.Serialization` /
+  `System.Reflection.Emit` dependencies (no announced date). Quarterly
+  re-spike per `docs/scheduled-spikes.md` Spike 4-Q.
+- **Native OOXML engine** (`docs/long-term.md`) implemented from
+  scratch with AOT-clean design from day one. Long-term R&D track;
+  not v1.0 work.
+
+Either resolution lifts the deferral. The matrix is updated when one
+of them lands, not when one of them is decided.
 
 ## Release themes
 
@@ -248,6 +265,47 @@ These govern *how* the roadmap is executed. They are referenced from `docs/desig
 
 - The PR that cuts a tagged release also moves the contents of `PublicAPI.Unshipped.txt` into `PublicAPI.Shipped.txt` for every project.
 - Between releases, all additions go to `Unshipped.txt`. The CI PR check enforces this — no addition to `Shipped.txt` outside a release PR is permitted.
+
+### v1.0 release-PR checklist
+
+The PR that tags **v1.0.0** must include all of the following as
+discrete commits or coherent stacked diffs — none silently:
+
+- [ ] **PublicAPI flip.** Move every entry from `PublicAPI.Unshipped.txt`
+      into `PublicAPI.Shipped.txt` for every library project
+      (`NetXlsx`, `NetXlsx.SourceGen`). After the flip, `Unshipped.txt`
+      contains only the `#nullable enable` header line.
+- [ ] **`PublicApiSnapshotTests` baseline reconciliation.** The
+      expected baseline in `PublicApiSnapshotTests.cs` should already
+      match `Shipped.txt` post-flip. Verify by running the test.
+- [ ] **net9.0 drop.** Per decision **I24** (TFM support window):
+      remove `net9.0` from `Directory.Build.props` `TargetFrameworks`,
+      from `global.json` rollForward target if applicable, from
+      `.github/workflows/ci.yml` and `release.yml` setup-dotnet blocks,
+      and from the spikes/benchmarks csproj where net9.0 was an
+      explicit target.
+- [ ] **CHANGELOG breaking-change banner.** Add a `### BREAKING CHANGES`
+      section at the top of the v1.0.0 entry: net9.0 dropped (STS EOS
+      2026-05-12, kept through pre-1.0 for adoption); migration is
+      "retarget to net8.0 (LTS, supported through Nov 2026) or
+      net10.0 (LTS, current)." Reference I24 in the CHANGELOG entry.
+- [ ] **Version tag.** Tag `v1.0.0` from the merge commit. MinVer
+      picks up the tag for the NuGet package version. The release
+      workflow fires on tag push and packs + publishes if
+      `NUGET_API_KEY` is set.
+- [ ] **NUGET_API_KEY secret** verified present in repo settings
+      before the tag is pushed — release workflow gracefully skips
+      the push if missing, but for v1.0 we want the publish to land
+      synchronously with the tag.
+- [ ] **README test count** + **continuation file** + **changelog**
+      sweep for any stale "433 tests/TFM × 3 TFMs" math now that
+      net9.0 is gone (post-drop: 433 × 2 = 866).
+- [ ] **Three v1.0 ship-blockers landed** before the tag:
+      benchmark-regression CI gate, headless-Linux AutoSize CI job,
+      round-trip preservation fixture covering pivot caches +
+      conditional formatting + custom XML + threaded comments. The
+      gate is "all three named in this checklist pass on the
+      release-PR CI run" — no aspirational tags.
 
 ### Spike-failure handling
 

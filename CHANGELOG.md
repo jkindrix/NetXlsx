@@ -9,6 +9,45 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Doc tightening from review pass (no code changes)
+Four documentation/policy refinements from the latest external review.
+No code behavior changes; CI matrix unchanged.
+
+- **AOT/trim matrix wording.** `roadmap.md` matrix rows for Native
+  AOT and Trim compatibility now read **`Deferred†`** instead of
+  `No†`. The footnote was expanded: two named paths to promotion
+  (NPOI 3.x removes its problematic deps, *or* the native OOXML
+  engine in `docs/long-term.md` lands), and an explicit note that
+  AOT/trim are deferred-not-refused. The build-time MSBuild guards
+  (`NXLS0100`/`0101`) still fail loud, but the matrix language now
+  matches the actual project posture.
+- **`Workbook.SanitizeSheetName` XML doc.** Now explicitly warns
+  that sanitization can produce collisions (e.g. `"Q1/2026"` and
+  `"Q1?2026"` both sanitize to `"Q1_2026"`) and points callers at
+  `SuggestSheetName` for the sanitize-then-unique-against-workbook
+  case. Closes the documented foot-gun the review flagged.
+- **`docs/long-term.md` framing elevated** from "deferred aspiration"
+  to **v2.0 R&D track**. The single OOXML-from-scratch section
+  becomes a six-step milestone sequence (R&D-1: native write spike;
+  R&D-2: native read spike; R&D-3: full coverage matrix run against
+  the existing test suite; then a decision point). Each step is
+  scoped enough to become a milestone with a date and an owner —
+  not a free-form wishlist. No commitment to start; the work is
+  recorded as gated on v1.0 stability and consumer signal.
+- **v1.0 release-PR checklist** added to `roadmap.md` under
+  "Process rules". Seven discrete steps the v1.0 release PR must
+  execute: PublicAPI Unshipped → Shipped flip, PublicApiSnapshot
+  baseline reconciliation, net9.0 TFM drop per I24, CHANGELOG
+  breaking-change banner with migration guidance, version tag,
+  `NUGET_API_KEY` secret verification, README/continuation/CHANGELOG
+  test-count sweep, plus a confirmation that all three v1.0
+  ship-blockers (benchmark CI gate, headless-Linux AutoSize CI job,
+  round-trip preservation fixture) are landed.
+
+Reviewer's three ship-blockers (benchmark regression gate, AutoSize
+CI job, preservation fixture) remain as named v1.0 work — not
+addressed in this slice; they're the next push, not a quick win.
+
 ### Add net10.0 TFM + patch CVE-flagged transitive deps (I22, I24)
 - Target framework list expands to `net8.0; net9.0; net10.0` per
   decision **I22** (new TFMs added in the next minor release after

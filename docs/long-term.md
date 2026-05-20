@@ -1,10 +1,11 @@
 # NetXlsx — long-term direction
 
-This is the parking-lot doc for ideas that are real but not v1.0 work.
-Items here are deliberate aspirations, not commitments. They live here
-so the design discipline doesn't lose them.
+This is the doc for tracked R&D work that is real but post-v1.0.
+Items here are deliberate aspirations with framing tight enough that
+they could become a milestone with a date and an owner — they're not
+free-form wishlist entries.
 
-## OOXML implementation from scratch (post-v1.0)
+## OOXML implementation from scratch — v2.0 R&D track
 
 NetXlsx is a wrapper over NPOI today. That was the right call for
 v1.0 — it let us focus on the ergonomics layer (fluent API, style-pool
@@ -43,25 +44,43 @@ the NPOI dependency entirely.
   OOXML surface area is actually used in practice. Implementing the
   long tail before that signal arrives is a recipe for over-investing.
 
-**Plausible sequencing (not a commitment):**
+**R&D track milestones (sequence; not yet dated):**
 
 1. **v1.0 ships** on NPOI 2.7.3. Get consumer adoption. Measure the
-   surface area that's actually exercised.
+   surface area that's actually exercised. (Status: pre-v1.0, three
+   ship-blockers remaining.)
 2. **v1.x maintenance** continues on the 2.7.3 pin. Issues filed
    against the wrapper layer get fixed; NPOI quirks documented as
-   they're encountered.
-3. **Spike: OOXML write path MVP.** Pick the smallest surface (write
-   a single sheet with text + number cells, save) and implement the
-   OOXML package + workbook.xml + sharedStrings.xml + sheet1.xml
-   serialization directly. Match the observable behavior of the
-   current `Workbook.Create().AddSheet(...).Save(...)` path. Measure
-   complexity, time-to-MVP, and remaining-surface-area honestly.
-4. **Decision point.** Based on the spike: continue full
-   reimplementation as a parallel `NetXlsx.Native` engine, or
-   reverse the call and accept the NPOI dependency long-term.
+   they're encountered. (Status: continuous from v1.0.)
+3. **R&D-1: Native OOXML write spike.** Implement the smallest
+   end-to-end surface (write a single sheet with text + number cells,
+   save) by directly serializing the OOXML package + workbook.xml +
+   sharedStrings.xml + sheet1.xml. Match the observable behavior of
+   the current `Workbook.Create().AddSheet(...).Save(...)` path
+   under the same `IWorkbook` facade. Lands as
+   `Workbook.CreateNative()` returning `IWorkbook`. Measures:
+   complexity, time-to-MVP, remaining-surface-area, AOT cleanliness,
+   golden-file byte-comparable output. Spike, not production work.
+4. **R&D-2: Native OOXML read spike.** Same scope inversion — implement
+   the smallest open/read path under the same `IWorkbook` facade.
+   `Workbook.OpenNative(...)` returning `IWorkbook`. Same measures.
+5. **R&D-3: Coverage matrix.** Iterate R&D-1 and R&D-2 surface
+   coverage until the facade's full v1.0 contract is satisfied. Run
+   the existing 433-test suite (golden + unit) against both the
+   NPOI engine and the native engine through the same `IWorkbook`
+   interface; any divergence is a bug in the native engine.
+6. **Decision point.** When the native engine passes the existing
+   test suite, decide: ship as v2.0 (deprecate NPOI engine), ship
+   alongside as opt-in (`Workbook.CreateNative()` stays explicit),
+   or shelve as completed R&D and re-evaluate NPOI 3.x.
 
-The decision at step 4 is the load-bearing one and we don't pre-commit
-to it. The spike makes it informed.
+The decision at step 6 is the load-bearing one and we don't pre-commit
+to it. The R&D delivers data; the decision uses it.
+
+**Investment shape.** R&D-1 alone is bounded — a single-sheet
+text+number write is < 2k LOC of OOXML serialization. The R&D track
+becomes expensive at R&D-3 (full coverage); that's where the real
+multi-quarter commitment lives. Each step gates the next.
 
 **Adjacent options that aren't full reimplementation:**
 
