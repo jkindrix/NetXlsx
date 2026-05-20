@@ -99,6 +99,50 @@ multi-quarter commitment lives. Each step gates the next.
 None of these are pre-decided. The quarterly spike (`Spike 5-Q` in
 `scheduled-spikes.md`) keeps the option open.
 
+## Roadmap re-baselining (post-v1.0)
+
+The roadmap matrix in `docs/roadmap.md` has three states that aren't
+binary "Yes" or "Never": **v1.1** / **v2.0** / **v3.0** (scheduled
+intent) and **Deferred†** (intent contingent on an upstream unblock).
+Without a structured re-look, those rows drift — features get
+scheduled for "v1.1" and then quietly stay there release after
+release; "Deferred†" rows lose their unblock-trigger context.
+
+**Cadence.** After v1.0 ships, the matrix is re-baselined twice a
+year (alongside the existing quarterly spike re-checks):
+
+1. **Q1 review** (Jan/Feb): every non-Yes/non-Never row gets one of
+   three verdicts:
+   - **Promote** — move to the next-earlier release column (e.g.,
+     v1.1 → v1.0 patch line if there's a real consumer ask).
+   - **Demote** — move later (v1.1 → v2.0) or to Never if the row's
+     premise has eroded. Demotions require a one-line rationale in
+     CHANGELOG.
+   - **Hold** — keep the current column but add a date-stamped
+     "still expected" note. A row in Hold for 4 consecutive reviews
+     (2 years) auto-demotes to v3.0 or Never.
+2. **Q3 review** (Jul/Aug): same process; lighter cadence between
+   reviews. Adjacent to the Spike 4-Q + Spike 5-Q quarterly re-checks
+   so review sessions amortize.
+
+**Method.** A markdown checklist generated from `docs/roadmap.md`'s
+matrix is added to a tracking issue. Each row gets a one-line verdict.
+The matrix gets edited in-place; the checklist gets archived on the
+tracking issue.
+
+**Deferred† rows have stronger rules.** Each Deferred† row names the
+unblock trigger explicitly (the AOT/trim rows name "NPOI 3.x removes
+its problematic deps OR our native OOXML engine lands"). If the
+trigger event happens, Promote/Demote in the next review. If the
+trigger event doesn't happen for 8 consecutive reviews (4 years),
+demote to Never — the deferral has become indefinite, which isn't a
+state we keep.
+
+**This is not v1.0 work.** It's the v1.x+ maintenance discipline.
+Recorded here so the matrix doesn't accumulate drift between major
+releases. First scheduled review after v1.0 tag: the **next** Jan/Feb
+or Jul/Aug, whichever is closer.
+
 ## Other long-term items
 
 (Add new sections here as they come up. Format: `## Title` + 1-2

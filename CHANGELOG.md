@@ -9,6 +9,55 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Review actionables: NPOI 3.x plan, OOXML v2 planning, XssfCell split, test-count sweep
+Six small items from the latest review's recommendations. No code
+behavior changes; XssfCell refactored to partials with no public
+surface change.
+
+- **New doc `docs/npoi-3x-migration.md`** — concrete contingency plan
+  for adopting NPOI 3.x once trigger conditions fire (license
+  posture, API compatibility, AOT/trim re-spike, benchmark + test
+  suite gating). Complements `docs/long-term.md` (which is the
+  v2.0 "leave NPOI" path). Two docs, two paths, neither
+  pre-committed.
+- **New doc `docs/v2-ooxml-planning.md`** — research notes for the
+  v2.0 path: ECMA-376 spec sizes + download locations, competitor
+  project facts (ClosedXML / NPOI / Open-XML-SDK / EPPlus /
+  MiniExcel — verified via GitHub API), realistic time estimate
+  with confidence intervals (12-18 months solo full-time, 24-36
+  months solo with day job), and a study sequence for the
+  pre-implementation reading phase.
+- **`docs/long-term.md` extended** with a "Roadmap re-baselining"
+  section: post-v1.0, the non-Yes/non-Never matrix rows
+  (v1.1/v2.0/v3.0/Deferred†) get a structured semi-annual review
+  (Promote / Demote / Hold). Deferred† rows that don't promote in
+  4 years auto-demote to Never. Prevents drift between major
+  releases.
+- **Roadmap: `WorkbookOptions.StrictConcurrencyDetection` v1.1
+  entry** — reviewer-recommended opt-in that takes a real lock for
+  callers who'd trade some throughput for "you cannot silently
+  corrupt a workbook even if you ignore the thread-safety doc."
+  Default stays opportunistic (decision #43 reentry counter).
+- **`Internal/XssfCell.cs` split into four partial classes**
+  (flagged by three consecutive reviewers). 495-LOC mega-file
+  becomes:
+  - `XssfCell.cs` (90 LOC) — core: fields, ctor, identity
+    getters, Kind, Clear, `.Underlying`, default-style helper.
+  - `XssfCell.Values.cs` (268 LOC) — SetX/GetX for every scalar
+    type + formula + error code mapping.
+  - `XssfCell.Style.cs` (63 LOC) — Style merge + NumberFormat +
+    GetStyle + Merge helper.
+  - `XssfCell.Annotations.cs` (113 LOC) — Comment + Hyperlink +
+    SniffHyperlinkScheme.
+  Same `internal sealed partial class XssfCell`; zero public API
+  change; 434/TFM × 3 TFMs = 1,302 runs all green post-split.
+- **Test-count sweep**: stale "433 tests/TFM" updated to **434**
+  (the preservation fixture added one golden test). README,
+  continuation file, and the v1.0 release-PR checklist's
+  pre-drop/post-drop math all updated. Historical CHANGELOG
+  entries left as-is (they accurately reflect the count at the
+  time they were written).
+
 ### v1.0 ship-blockers all landed: AutoSize CI gate, bench regression gate, full preservation fixture
 The three named v1.0 DoD ship-blockers from the latest review all
 landed. v1.0 is now technically ready to tag (per the

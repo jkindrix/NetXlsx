@@ -227,6 +227,15 @@ A release ships when **all** of the following are true:
 - [ ] AutoFilter
 - [ ] Named / reusable styles API
 - [ ] Custom type converters for `Rows<T>`
+- [ ] `WorkbookOptions.StrictConcurrencyDetection` (opt-in). Decision
+      #43's reentry counter is opportunistic — concurrent mutations
+      *may* surface as `InvalidOperationException` but the detection
+      isn't a lock, so silent corruption in the gap is possible for
+      callers who don't read the docs. Strict mode would take a real
+      lock on the workbook's mutating paths, trading some throughput
+      for "you cannot silently corrupt a workbook even if you ignore
+      the thread-safety doc." Opt-in (default stays opportunistic) so
+      single-threaded callers don't pay the lock cost.
 
 ### v2.0 — Advanced styling & charts (target: TBD)
 
@@ -298,8 +307,8 @@ discrete commits or coherent stacked diffs — none silently:
       the push if missing, but for v1.0 we want the publish to land
       synchronously with the tag.
 - [ ] **README test count** + **continuation file** + **changelog**
-      sweep for any stale "433 tests/TFM × 3 TFMs" math now that
-      net9.0 is gone (post-drop: 433 × 2 = 866).
+      sweep for any stale "434 tests/TFM × 3 TFMs = 1,302" math now
+      that net9.0 is gone (post-drop: 434 × 2 = 868).
 - [ ] **Three v1.0 ship-blockers landed** before the tag:
       benchmark-regression CI gate, headless-Linux AutoSize CI job,
       round-trip preservation fixture covering pivot caches +
