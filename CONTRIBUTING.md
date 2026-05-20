@@ -29,7 +29,13 @@ build/build.sh bench   # run benchmarks
 
 PowerShell equivalent: `build/build.ps1`.
 
-Both scripts auto-detect a user-level .NET install under `~/.dotnet` and prefer it over a system install. This lets `net9.0` work on a machine whose system SDK is older.
+### SDK requirements
+
+The project targets `net8.0`, `net9.0`, and `net10.0`. **The .NET 10 SDK is required** to build the repository — `global.json` pins it with `rollForward: latestFeature` (any `10.x` version is fine). The .NET 8 + .NET 9 runtimes are also needed for the test matrix.
+
+Install via your platform's package manager or the official installer at [dotnet.microsoft.com](https://dotnet.microsoft.com/download). On Linux/WSL the `dotnet-install` script with `--channel 10.0` works and drops the SDK into `~/.dotnet/` without root.
+
+Both build scripts (`build/build.sh`, `build/build.ps1`) auto-detect a user-level .NET install under `~/.dotnet` and prefer it over a system install — useful if your system SDK is older than 10.x or if you maintain multiple SDK versions side-by-side.
 
 ## Reporting issues
 

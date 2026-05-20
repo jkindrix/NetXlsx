@@ -236,6 +236,18 @@ A release ships when **all** of the following are true:
       for "you cannot silently corrupt a workbook even if you ignore
       the thread-safety doc." Opt-in (default stays opportunistic) so
       single-threaded callers don't pay the lock cost.
+- [ ] **Fuzz harness for the open path** (SharpFuzz or libFuzzer). The
+      design's "bounded-resource parsing" claim (decision #20,
+      `ReadMaxSheets` + `ReadMaxUncompressedBytes`) is enforced by a
+      handful of explicit checks. A fuzz harness against
+      `Workbook.Open` / `OpenAsync` with mutated zip + XML inputs
+      would surface edge cases the explicit checks don't cover (XML
+      expansion bombs, malformed relationships, OOXML schema
+      violations that NPOI handles silently, etc.). High-leverage for
+      the security posture; low LOC investment. Lives under
+      `tests/NetXlsx.Fuzz/` as a separate project so it can be opt-in
+      in CI (long-running on a nightly cadence) without blocking
+      every PR.
 
 ### v2.0 — Advanced styling & charts (target: TBD)
 

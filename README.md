@@ -219,7 +219,9 @@ build/build.sh bench   # run benchmarks
 build/build.sh -- spike-1   # run a specific pre-impl spike
 ```
 
-PowerShell equivalent: `build/build.ps1`. Both scripts auto-detect a user-level .NET install under `~/.dotnet` and prefer it over a system install (lets `net9.0` work on a machine whose system SDK is older).
+PowerShell equivalent: `build/build.ps1`. Both scripts auto-detect a user-level .NET install under `~/.dotnet` and prefer it over a system install (useful if your system SDK is older than 10.x or if you maintain multiple SDK versions side-by-side).
+
+**SDK requirement:** building from source needs the **.NET 10 SDK** (`global.json` pins it with `rollForward: latestFeature`). The .NET 8 + 9 runtimes are needed for the test matrix. See [CONTRIBUTING.md](CONTRIBUTING.md) for install pointers.
 
 ## Contributing
 
