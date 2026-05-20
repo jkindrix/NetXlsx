@@ -130,7 +130,7 @@ A release ships when **all** of the following are true:
 - [ ] `CHANGELOG.md` initialized in Keep-a-Changelog format (S21)
 - [ ] `CODEOWNERS` (S22)
 - [ ] `build/build.ps1` and `build/build.sh` (S18)
-- [ ] `.teamcity/` Kotlin DSL pipeline (S17): build, test, golden-file tests, public-API snapshot, benchmarks, pack, publish
+- [ ] `.github/workflows/` (S17): build, test, golden-file tests, public-API snapshot, benchmarks, pack, publish
 - [ ] MinVer wired (S11); first tag `v0.1.0`
 - [ ] Strong-name key generated and committed (S12)
 - [ ] Source Link configured (S14)

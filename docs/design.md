@@ -798,7 +798,7 @@ NetXlsx/
 ├─ build/
 │  ├─ build.ps1                    # local + CI entry point (Windows)
 │  └─ build.sh                     # local + CI entry point (Linux/macOS)
-├─ .teamcity/                      # TeamCity Kotlin DSL pipeline config
+├─ .github/workflows/              # GitHub Actions CI + release pipelines
 ├─ .editorconfig                   # code style (whole repo)
 ├─ Directory.Build.props           # shared MSBuild settings (TFM, nullable, deterministic, signing)
 ├─ Directory.Packages.props        # central package management (single NPOI pin)
@@ -864,7 +864,7 @@ The decisions in §3 govern the API and contracts. The decisions below govern th
 
 | #   | Decision                       | Choice                                                                       | Rationale                                                          |
 |-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
-| S17 | CI platform                    | TeamCity; pipeline as Kotlin DSL in `.teamcity/`              | TeamCity is a common .NET CI choice                                |
+| S17 | CI platform                    | GitHub Actions; workflows under `.github/workflows/` (CI on push/PR, release on tag) | GH Actions is the default for OSS hosted on GitHub; zero infra cost |
 | S18 | Local + CI build entry point   | `build/build.ps1` (Windows) and `build/build.sh` (Unix); both call the same MSBuild targets | One command runs the whole build locally; CI calls the same script |
 | S19 | Branching                      | Trunk-based (`main`); short-lived feature branches; no long-running releases | Modern default; matches v1.0 cadence                               |
 | S20 | PR policy                      | All changes via PR; at least one approval; all CI checks must pass            | Minimum bar; can tighten later                                     |

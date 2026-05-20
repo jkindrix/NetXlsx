@@ -9,6 +9,47 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Pre-publish polish: CI, dependabot, contributor docs
+Repo-side polish for the first public push. No library behavior changes.
+
+Added:
+- `.github/workflows/ci.yml` — build + test on push/PR. Matrix over
+  `ubuntu-latest` and `windows-latest`. Installs `libgdiplus` +
+  `fonts-dejavu-core` on Linux runners so `IColumn.AutoSize()` has a
+  font stack and the AutoSize test takes the success branch (the
+  test accepts either success or `MissingFontException` per decision
+  I3, but green Linux CI now exercises the success path).
+- `.github/workflows/release.yml` — on tag push matching `v*`,
+  packs `NetXlsx` + `NetXlsx.SourceGen`, pushes to nuget.org
+  (uses `NUGET_API_KEY` secret; skips push if absent), uploads
+  the .nupkg artifacts to the workflow run, and creates a GitHub
+  Release with generated notes. MinVer (already wired in
+  `Directory.Build.props`) resolves the version from the tag.
+- `.github/dependabot.yml` — monthly NuGet updates (grouped:
+  test stack and analyzers) and weekly GitHub Actions updates.
+- `CONTRIBUTING.md` — points contributors at the design doc, the
+  public-API analyzer gate, the conventional-commits convention,
+  the spike-before-design discipline, and the build entry points.
+- `SECURITY.md` — vulnerability disclosure via GitHub private
+  security advisories with a 90-day default coordinated-disclosure
+  window. Calls out the SNK-in-repo as documented behavior (not
+  a vulnerability) and routes NPOI-side findings upstream.
+
+Cleaned:
+- `nuget.config`: removed the placeholder feed-mapping comments
+  that referenced a never-defined private feed.
+- `CODEOWNERS`: collapsed the duplicate `@jkindrix @jkindrix`
+  entries (artifact of an earlier dual-reviewer placeholder
+  pattern) into a single default-owner line.
+
+Removed:
+- `.teamcity/settings.kts` — the project's CI lives in
+  `.github/workflows/` for public OSS hosted on GitHub. Design
+  §S17 updated to record GitHub Actions as the CI platform.
+
+Repo presents on day one with a working CI pipeline, a release
+path, dependency hygiene, and the standard OSS docs.
+
 ### v1.0-B — `WorkbookOptions` read-side safety + DisplayCulture-aware date rendering
 Second half of the v1.0 `WorkbookOptions` slice. Closes the
 read-side wiring. With this slice the v1.0 `WorkbookOptions`
@@ -898,8 +939,9 @@ literal-42 ambiguity, etc.); design.md now holds the *current state*.
 ### Added
 - Initial project scaffold (Directory.Build.props, Directory.Packages.props,
   nuget.config, .editorconfig, LICENSE, CODEOWNERS, build scripts,
-  TeamCity DSL placeholder, source project skeletons, test/benchmark/
-  sample/golden-file project skeletons, public-API snapshot files).
+  GitHub Actions CI + release workflows, source project skeletons,
+  test/benchmark/sample/golden-file project skeletons, public-API
+  snapshot files).
 - Strong-name key (`netxlsx.snk`) generated and committed.
 - Public marker attributes: `[Worksheet]`, `[Column]`, `[Ignore]`, plus
   `WorksheetVisibility` enum. Empty `ISheet` / `IWorkbook` marker

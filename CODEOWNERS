@@ -1,15 +1,6 @@
 # NetXlsx code owners
 #
 # Format: <path pattern>    <owner1> <owner2> ...
-#
-# TODO: replace placeholders with real maintainer / individual identifiers.
-# Until filled, PR review routing for this repo is unowned.
 
-# Default owners — everything in the repo
-*                           @jkindrix
-
-# Design / methodology decisions — extra eyes
-/docs/                      @jkindrix @jkindrix
-/Directory.Build.props      @jkindrix @jkindrix
-/Directory.Packages.props   @jkindrix @jkindrix
-/.teamcity/                 @jkindrix @jkindrix
+# Default owner — everything in the repo.
+*    @jkindrix

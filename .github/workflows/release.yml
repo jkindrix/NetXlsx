@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write   # required to create GitHub Releases
+
+jobs:
+  pack-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # MinVer needs full tag history
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Install libgdiplus + DejaVu fonts (for the AutoSize-bearing tests during release smoke build)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgdiplus fonts-dejavu-core fontconfig
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=true
+
+      - name: Test (release smoke)
+        run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal"
+
+      - name: Pack
+        run: |
+          dotnet pack src/NetXlsx/NetXlsx.csproj --configuration Release --no-build -o artifacts
+          dotnet pack src/NetXlsx.SourceGen/NetXlsx.SourceGen.csproj --configuration Release --no-build -o artifacts
+
+      - name: Push to NuGet
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "NUGET_API_KEY secret not set; skipping push. Artifacts uploaded to the workflow run."
+            exit 0
+          fi
+          dotnet nuget push 'artifacts/*.nupkg' \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-${{ github.ref_name }}
+          path: artifacts/*.*nupkg
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.*nupkg
+          generate_release_notes: true

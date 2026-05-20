@@ -1,0 +1,33 @@
+version: 2
+updates:
+  # NuGet — Directory.Packages.props (central package management) is the
+  # single source of truth for transitive versions.
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "nuget"
+    groups:
+      # Group dev dependencies together to reduce PR churn.
+      test-stack:
+        patterns:
+          - "xunit*"
+          - "FluentAssertions"
+          - "Microsoft.NET.Test.Sdk"
+          - "coverlet.*"
+      analyzers:
+        patterns:
+          - "Microsoft.CodeAnalysis.*"
+          - "*Analyzer*"
+
+  # GitHub Actions — keep workflow actions up to date.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "actions"
