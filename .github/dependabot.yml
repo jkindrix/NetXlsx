@@ -26,12 +26,18 @@ updates:
       # NPOI 2.8.0 added an Open Source Maintenance Fee (OSMF) EULA on
       # binary releases. NetXlsx pins NPOI at 2.7.3 (last Apache-2.0)
       # per design decision I23. Re-evaluated quarterly per
-      # docs/scheduled-spikes.md. Patch updates within 2.7.x would
-      # still be welcome if any are published.
+      # docs/scheduled-spikes.md.
+      #
+      # Patches within 2.7.x are also ignored: the 2.7.4 / 2.7.6 patches
+      # introduced breaking API changes (byte[]-only XSSFColor ctor
+      # removed; CT_Color ctor [Obsolete]d) which is not patch-release
+      # discipline. We opt in to specific bumps manually if upstream
+      # stabilizes.
       - dependency-name: "NPOI"
         update-types:
           - "version-update:semver-major"
           - "version-update:semver-minor"
+          - "version-update:semver-patch"
 
       # FluentAssertions 8.0 switched to the Xceed Community License
       # (non-commercial free; commercial requires a paid license).
