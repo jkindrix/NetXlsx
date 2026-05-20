@@ -43,9 +43,11 @@ jobs:
         run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal" --filter "Category!=HeadlessNoFonts"
 
       - name: Pack
-        run: |
-          dotnet pack src/NetXlsx/NetXlsx.csproj --configuration Release --no-build -o artifacts
-          dotnet pack src/NetXlsx.SourceGen/NetXlsx.SourceGen.csproj --configuration Release --no-build -o artifacts
+        # NetXlsx.SourceGen is bundled into NetXlsx.nupkg under
+        # analyzers/dotnet/cs (see _BundleSourceGenAsAnalyzer target
+        # in NetXlsx.csproj); SourceGen is marked IsPackable=false
+        # and is NOT shipped as a standalone NuGet package.
+        run: dotnet pack src/NetXlsx/NetXlsx.csproj --configuration Release --no-build -o artifacts
 
       - name: Push to NuGet
         env:

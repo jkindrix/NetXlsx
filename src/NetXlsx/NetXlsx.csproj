@@ -5,8 +5,7 @@
     <RootNamespace>NetXlsx</RootNamespace>
     <AssemblyName>NetXlsx</AssemblyName>
     <PackageId>NetXlsx</PackageId>
-    <Description>Idiomatic C# facade over NPOI for creating and reading .xlsx files. Public OSS project.</Description>
-    <PackageTags>excel;xlsx;npoi;cma</PackageTags>
+    <!-- Description + PackageTags inherited from Directory.Build.props -->
   </PropertyGroup>
 
   <ItemGroup>
@@ -41,5 +40,20 @@
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>
+
+  <!-- Bundle the source generator dll into THIS package under
+       analyzers/dotnet/cs so PackageReference consumers receive the
+       generator automatically. NetXlsx.SourceGen.csproj is marked
+       IsPackable=false; this is the canonical Roslyn pattern (see
+       dotnet/Roslyn-sdk samples) for shipping a generator as part
+       of its host library's nupkg. -->
+  <Target Name="_BundleSourceGenAsAnalyzer" BeforeTargets="_GetPackageFiles">
+    <ItemGroup>
+      <None Include="..\NetXlsx.SourceGen\bin\$(Configuration)\netstandard2.0\NetXlsx.SourceGen.dll"
+            Pack="true"
+            PackagePath="analyzers\dotnet\cs"
+            Visible="false" />
+    </ItemGroup>
+  </Target>
 
 </Project>

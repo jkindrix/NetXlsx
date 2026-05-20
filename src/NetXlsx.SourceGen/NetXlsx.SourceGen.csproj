@@ -13,6 +13,13 @@
     <RootNamespace>NetXlsx.SourceGen</RootNamespace>
     <AssemblyName>NetXlsx.SourceGen</AssemblyName>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- This project is NOT a standalone NuGet package. Its dll is
+         bundled into NetXlsx.nupkg under analyzers/dotnet/cs/ via
+         the _BundleSourceGenAsAnalyzer target in NetXlsx.csproj.
+         IsPackable=false prevents NU5128 ("no lib for declared TFM")
+         from firing on a standalone SourceGen package that has only
+         analyzer outputs. -->
+    <IsPackable>false</IsPackable>
     <!-- Strong-name signing inherited from Directory.Build.props -->
   </PropertyGroup>
 
@@ -24,14 +31,6 @@
   <ItemGroup>
     <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
-  </ItemGroup>
-
-  <!-- Pack the generator into the consuming library's nupkg under analyzers/ -->
-  <ItemGroup>
-    <None Include="$(OutputPath)\$(AssemblyName).dll"
-          Pack="true"
-          PackagePath="analyzers/dotnet/cs"
-          Visible="false" />
   </ItemGroup>
 
 </Project>
