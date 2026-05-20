@@ -53,17 +53,20 @@ jobs:
         with:
           python-version: '3.x'
 
-      # Cache key is hash-of-source-tree-folder so any code or csproj
-      # change invalidates the previous baseline. This is intentional —
-      # we want the baseline to refresh when meaningful inputs change.
-      # On PRs, the cache is read-only by default (write only happens
-      # on the main-branch push run).
+      # Cache key hashes runtime-affecting inputs only: .cs sources
+      # under src/ + benchmarks/ + the package-version pins. PublicAPI
+      # snapshot files, AnalyzerReleases md, CHANGELOG, and other
+      # build-time-only metadata are intentionally excluded — they
+      # don't affect benchmark timings, and including them caused
+      # spurious cache misses on PRs that only touched metadata
+      # (the v1.0 release PR was the trigger case). On PRs the cache
+      # is read-only by default; main-branch push runs refresh it.
       - name: Restore baseline cache
         id: cache-baseline
         uses: actions/cache@v5
         with:
           path: benchmarks/ci-baseline
-          key: bench-baseline-${{ runner.os }}-${{ hashFiles('src/**', 'benchmarks/**/*.cs', 'Directory.Packages.props') }}
+          key: bench-baseline-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'benchmarks/**/*.cs', 'Directory.Packages.props') }}
           restore-keys: |
             bench-baseline-${{ runner.os }}-
 

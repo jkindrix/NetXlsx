@@ -287,46 +287,75 @@ These govern *how* the roadmap is executed. They are referenced from `docs/desig
 - The PR that cuts a tagged release also moves the contents of `PublicAPI.Unshipped.txt` into `PublicAPI.Shipped.txt` for every project.
 - Between releases, all additions go to `Unshipped.txt`. The CI PR check enforces this — no addition to `Shipped.txt` outside a release PR is permitted.
 
-### v1.0 release-PR checklist
+### Release-PR checklist (template, applies to every tagged release)
 
-The PR that tags **v1.0.0** must include all of the following as
-discrete commits or coherent stacked diffs — none silently:
+Every release-PR (v1.0, v1.1, v2.0, …) must include all of the
+following as discrete commits or coherent stacked diffs — none
+silently. Sections marked **(when applicable)** apply only to
+releases that perform the action; skip cleanly when not.
 
 - [ ] **PublicAPI flip.** Move every entry from `PublicAPI.Unshipped.txt`
-      into `PublicAPI.Shipped.txt` for every library project
-      (`NetXlsx`, `NetXlsx.SourceGen`). After the flip, `Unshipped.txt`
-      contains only the `#nullable enable` header line.
-- [ ] **`PublicApiSnapshotTests` baseline reconciliation.** The
-      expected baseline in `PublicApiSnapshotTests.cs` should already
-      match `Shipped.txt` post-flip. Verify by running the test.
-- [ ] **net9.0 drop.** Per decision **I24** (TFM support window):
-      remove `net9.0` from `Directory.Build.props` `TargetFrameworks`,
-      from `global.json` rollForward target if applicable, from
-      `.github/workflows/ci.yml` and `release.yml` setup-dotnet blocks,
-      and from the spikes/benchmarks csproj where net9.0 was an
-      explicit target.
-- [ ] **CHANGELOG breaking-change banner.** Add a `### BREAKING CHANGES`
-      section at the top of the v1.0.0 entry: net9.0 dropped (STS EOS
-      2026-05-12, kept through pre-1.0 for adoption); migration is
-      "retarget to net8.0 (LTS, supported through Nov 2026) or
-      net10.0 (LTS, current)." Reference I24 in the CHANGELOG entry.
-- [ ] **Version tag.** Tag `v1.0.0` from the merge commit. MinVer
-      picks up the tag for the NuGet package version. The release
-      workflow fires on tag push and packs + publishes if
+      into `PublicAPI.Shipped.txt` for every library project. After
+      the flip, `Unshipped.txt` contains only the `#nullable enable`
+      header line.
+- [ ] **`PublicApiSnapshotTests` baseline reconciliation.** Verify
+      the expected baseline still matches by running the test.
+- [ ] **TFM drops (when applicable).** When this release drops one
+      or more TFMs per decision I24, remove them from
+      `Directory.Build.props` `TargetFrameworks`, `global.json`
+      rollForward target if relevant, every workflow's `setup-dotnet`
+      block, and any spike/benchmark csproj that pinned the TFM.
+- [ ] **CHANGELOG release entry** with explicit `### BREAKING CHANGES`
+      section at the top when this release has any breaks. Include
+      migration guidance and a reference to the relevant decision
+      number(s) (e.g. I24 for a TFM drop). Rename the `[Unreleased]`
+      header to `[X.Y.Z] — YYYY-MM-DD` and add a fresh empty
+      `[Unreleased]` above it.
+- [ ] **Doc-count sweep.** README, `~/dev/prompts/netxlsx-continuation.md`,
+      and the upcoming CHANGELOG entry should all carry the
+      post-release test totals and TFM counts. Historical CHANGELOG
+      entries stay at the count they were written under.
+- [ ] **Named ship-blockers landed.** Every checkbox in this
+      release's per-version section above must be green. The gate is
+      "all the boxes pass on the release-PR CI run" — no aspirational
+      tags.
+- [ ] **Version tag.** Tag `vX.Y.Z` from the merge commit (or the
+      latest fix commit if release-PR validation surfaces a workflow
+      bug — see the v1.0 retrospective entry in `implementation-notes.md`).
+      MinVer picks up the tag for the NuGet package version. The
+      release workflow fires on tag push and packs + publishes if
       `NUGET_API_KEY` is set.
-- [ ] **NUGET_API_KEY secret** verified present in repo settings
-      before the tag is pushed — release workflow gracefully skips
-      the push if missing, but for v1.0 we want the publish to land
-      synchronously with the tag.
-- [ ] **README test count** + **continuation file** + **changelog**
-      sweep for any stale "434 tests/TFM × 3 TFMs = 1,302" math now
-      that net9.0 is gone (post-drop: 434 × 2 = 868).
-- [ ] **Three v1.0 ship-blockers landed** before the tag:
-      benchmark-regression CI gate, headless-Linux AutoSize CI job,
-      round-trip preservation fixture covering pivot caches +
-      conditional formatting + custom XML + threaded comments. The
-      gate is "all three named in this checklist pass on the
-      release-PR CI run" — no aspirational tags.
+- [ ] **`NUGET_API_KEY` secret** decision: either confirm it's set
+      in repo Settings → Secrets and Actions before tag push (push
+      lands synchronously with the tag), or accept that this release
+      ships as a GitHub-only release with the .nupkg available from
+      the GH Release page. Both are valid; pick deliberately.
+
+#### v1.0 retrospective (lessons for future release PRs)
+
+The v1.0.0 release-PR run surfaced two workflow bugs that weren't
+visible until the release workflow ran end-to-end for the first time:
+
+1. `release.yml`'s `Test (release smoke)` step ran ALL tests,
+   including the `HeadlessNoFonts`-trait test that requires a
+   font-less environment. The release runner installs `libgdiplus`
+   + fonts (so AutoSize succeeds in the normal test paths), so the
+   strict failure-path test fired and the workflow exited 1. Fix:
+   `--filter "Category!=HeadlessNoFonts"` in the test invocation
+   (matches `ci.yml`).
+2. `NetXlsx.SourceGen` was being packed as a separate NuGet
+   package, producing NU5128 ("declared netstandard2.0 deps but no
+   `lib/netstandard2.0`") which became a build error under our
+   `TreatWarningsAsErrors=true`. Fix: bundle the SourceGen dll into
+   `NetXlsx.nupkg` under `analyzers/dotnet/cs/` via a target in
+   `NetXlsx.csproj`; mark `NetXlsx.SourceGen.csproj` with
+   `IsPackable=false`. Single package, no separate SourceGen
+   .nupkg.
+
+Both fixes landed before v1.0.0 was re-tagged. Future release PRs
+should verify the release workflow on a dry-run (workflow_dispatch
+or against a `v0.0.0-rc.N`-style throwaway tag) before tagging the
+real version, to avoid the delete-and-re-tag dance.
 
 ### Spike-failure handling
 

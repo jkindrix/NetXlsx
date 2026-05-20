@@ -50,7 +50,9 @@ Per the NetXlsx surface, the NPOI 3.x acceptance criteria are:
       `spikes/NetXlsx.AotSpike/`. If either still fails at runtime,
       the MSBuild guards `NXLS0100/0101` stay in place and the
       matrix rows in `roadmap.md` stay `Deferred†`.
-- [ ] **No regression on the 433-test/TFM suite.**
+- [ ] **No regression on the current test suite** (434 per TFM at
+      v1.0.0; future releases may add more — assert "current count,
+      no failures" rather than a literal number).
 - [ ] **No regression > 15% on any benchmark in
       `benchmarks/NetXlsx.Benchmarks/`** (the same threshold our CI
       gate enforces).
