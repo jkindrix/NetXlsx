@@ -18,11 +18,15 @@
   </ItemGroup>
 
   <ItemGroup Label="Testing">
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <PackageVersion Include="xunit" Version="2.9.2" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
-    <PackageVersion Include="FluentAssertions" Version="6.12.2" />
-    <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- FluentAssertions 8.x switched to the Xceed Community License (non-commercial
+         free; commercial use requires a paid license). We track AwesomeAssertions
+         instead — the community fork that continued from FluentAssertions 6.12.2
+         under Apache-2.0. Namespaces are preserved, so test code reads identical. -->
+    <PackageVersion Include="AwesomeAssertions" Version="9.4.0" />
+    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
   </ItemGroup>
 
   <ItemGroup Label="Benchmarks">
@@ -30,8 +34,14 @@
   </ItemGroup>
 
   <ItemGroup Label="SourceGenAndAnalyzers">
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.11.0" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+    <!-- Microsoft.CodeAnalysis.CSharp pinned at the 4.x line. 5.x ships with
+         Roslyn 5 (.NET 10 SDK); referencing it from a source generator
+         loaded by a .NET 9 SDK csc fails with CS9057 ("references version
+         '5.3.0.0' of the compiler, which is newer than the currently
+         running version '4.14.0.0'"). Stays on 4.14.0 (latest 4.x stable)
+         until we adopt .NET 10 as the minimum SDK. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
   </ItemGroup>
 
 </Project>

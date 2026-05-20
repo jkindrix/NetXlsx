@@ -4,7 +4,7 @@
 
 using System;
 using System.IO;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;

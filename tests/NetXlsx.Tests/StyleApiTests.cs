@@ -2,7 +2,7 @@
 // ICell.Style/NumberFormat/GetStyle, and the style-pool dedup behavior.
 
 using System;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;

@@ -52,6 +52,49 @@ question.
 
 ---
 
+## Spike 5-Q — NPOI OSMF posture re-check
+
+**Question.** Has the NPOI OSMF (Open Source Maintenance Fee, introduced
+in 2.8.0) situation changed in a way that would let us bump past 2.7.3?
+Specifically:
+
+- Have the OSMF terms been clarified to exclude transitive (wrapper)
+  dependencies?
+- Has the OSI weighed in on whether the OSMF EULA preserves OSI-approved
+  status?
+- Has the NPOI community forked a clean-Apache-2.0 maintained line?
+- Has the long-term own-OOXML work in NetXlsx progressed to where we
+  could drop NPOI entirely?
+
+**Method.** Read the current OSMF site (`opensourcemaintenancefee.org/consumers/`),
+the NPOI GitHub discussions, the OSI license-discuss archives, and any
+SPDX or FSF positions. Summarize. Decide whether decision **I23** holds,
+needs amendment, or needs reversal.
+
+**Cadence.** Quarterly. Next due: **2026-08-16** (aligned with
+Spike 4-Q to amortize the review session). Subsequent: 2026-11-16, …
+
+**Outcome record.** Append a dated row to the table below per run.
+
+| Run date   | NPOI latest | OSMF status            | I23 verdict        | Notes |
+|------------|-------------|------------------------|--------------------|-------|
+| 2026-05-20 | 2.8.0       | EULA on binary; transitive obligations unclear | **Hold pin at 2.7.3** | Initial assessment. |
+| 2026-08-16 | (pending)   | (pending)              | (pending)          | (pending) |
+
+**Promotion rules.**
+- If OSMF terms exclude transitive dependencies *and* the community
+  accepts that interpretation: lift the pin to latest 2.x. Update I23.
+- If a clean Apache-2.0 maintained fork emerges with comparable scope:
+  switch to it. Document the migration.
+- If the own-OOXML work has reached MVP coverage of the v1.0 surface:
+  start the deprecation conversation for the NPOI dependency.
+- Otherwise: pin stands.
+
+**Owner.** Project owner (license/business call; not a build-script
+question).
+
+---
+
 ## Conventions
 
 - One file per scheduled spike, additive history (don't overwrite past

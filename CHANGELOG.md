@@ -9,6 +9,68 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Dependency hygiene: MinVer 7, AwesomeAssertions, NPOI 2.7.3 pin (I23)
+Sweep of the four dependabot PRs opened on the initial push.
+Outcomes summarized at the top, details below.
+
+**Merged clean:**
+- `MinVer` 5.0.0 → 7.0.0. No breaking change to our
+  `MinVerTagPrefix` / `MinVerDefaultPreReleaseIdentifiers` config.
+- `Microsoft.NET.Test.Sdk` 17.11.1 → 18.5.1
+- `xunit` 2.9.2 → 2.9.3
+- `xunit.runner.visualstudio` 2.8.2 → 3.1.5
+- `coverlet.collector` 6.0.2 → 10.0.1
+- `Microsoft.CodeAnalysis.Analyzers` 3.11.0 → 5.3.0 (the
+  design-time analyzer package; safe in isolation)
+- `Microsoft.CodeAnalysis.CSharp` 4.11.0 → 4.14.0 (latest 4.x;
+  cannot bump to 5.x — see "Held" below)
+
+**License-driven substitution:**
+- `FluentAssertions` 6.12.2 → **removed**; replaced with
+  `AwesomeAssertions` 9.4.0. FluentAssertions 8.0 switched to the
+  Xceed Community License (free non-commercial only; commercial
+  requires a paid license). AwesomeAssertions is the community
+  fork from FA 6.12.2 under Apache-2.0. Namespace changed
+  (`FluentAssertions` → `AwesomeAssertions` in `using` directives);
+  `BeLessOrEqualTo` / `BeGreaterOrEqualTo` renamed to
+  `BeLessThanOrEqualTo` / `BeGreaterThanOrEqualTo` — the only
+  source-level breaking changes in our test code. All 433 tests
+  per TFM still pass.
+
+**Held — new design decision I23:**
+- `NPOI` 2.7.3 → 2.8.0 **rejected**. NPOI 2.8.0 added an Open
+  Source Maintenance Fee (OSMF) EULA on binary releases:
+  organizations or users with ≥ US $10K annual revenue who depend
+  on the library (directly or transitively) are required to pay
+  a monthly maintenance fee. NetXlsx is MIT-licensed; passing the
+  OSMF obligation transitively to downstream consumers would
+  erode the "MIT all the way down" promise.
+- New decision **I23** in `docs/design.md`: pin NPOI at 2.7.3
+  (last clean Apache-2.0 release) and re-evaluate quarterly via
+  the new `Spike 5-Q — NPOI OSMF posture re-check` in
+  `docs/scheduled-spikes.md` (aligned with the existing AOT/trim
+  Spike 4-Q cadence). Long-term direction recorded in the new
+  `docs/long-term.md`: implement OOXML directly inside NetXlsx
+  and drop the NPOI dependency entirely.
+
+**Held — compiler-version compatibility:**
+- `Microsoft.CodeAnalysis.CSharp` 4.x → 5.x **rejected**. 5.x
+  requires Roslyn 5 (the .NET 10 SDK compiler); our TFMs are
+  net8.0/net9.0 whose SDKs ship Roslyn 4.x. Source generators
+  referencing a newer compiler than the loading `csc` fail with
+  `CS9057`. Bumped to the latest 4.x (4.14.0) instead.
+
+**Dependabot ignore rules added** (`.github/dependabot.yml`):
+- `NPOI`: ignore major and minor bumps (I23). Patch updates
+  within 2.7.x would still be welcome if upstream publishes any.
+- `FluentAssertions`: ignore major+minor; the package is removed
+  from the project.
+- `Microsoft.CodeAnalysis.CSharp`: ignore majors. Patch updates
+  within 4.x are fine.
+
+Test count unchanged: 433/TFM (405 unit + 27 golden-file + 1
+public-API snapshot).
+
 ### Pre-publish polish: CI, dependabot, contributor docs
 Repo-side polish for the first public push. No library behavior changes.
 

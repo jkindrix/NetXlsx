@@ -9,7 +9,7 @@
 // Writing error values directly requires .Underlying (no Set-side API
 // for errors in v0.4); we exercise reading and the formula-result path.
 
-using FluentAssertions;
+using AwesomeAssertions;
 using NPOI.SS.UserModel;
 using Xunit;
 

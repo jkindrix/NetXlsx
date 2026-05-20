@@ -563,6 +563,74 @@ is the right shape until we have a dedicated headless-no-fonts CI
 job — at which point that job can assert the throw, and the dev-box
 run can keep asserting the success path.
 
+### 2026-05-20 — NPOI 2.7.3 pin (decision I23)
+
+NPOI 2.8.0 introduced the **Open Source Maintenance Fee (OSMF)**
+model. The Apache-2.0 source remains in principle, but the binary
+distribution on NuGet now carries an EULA: organizations or users
+with ≥ US $10,000 annual revenue who depend on libraries in the
+project family are obligated to pay a monthly maintenance fee via
+GitHub Sponsors.
+
+For NetXlsx — MIT-licensed, public OSS — accepting that bump means:
+
+- Downstream consumers above the revenue threshold inherit a
+  transitive monthly-fee obligation just by installing NetXlsx.
+  Even if NetXlsx itself stays MIT, the package they receive
+  pulls in a fee-encumbered binary.
+- Our README's promise of "MIT all the way down" gets a footnote
+  that erodes consumer trust at exactly the point most reviewers
+  pay attention to (license details on a first-impression read).
+- The OSMF terms aren't OSI-approved and the long-term legal
+  interpretation (especially the transitive-via-wrapper question)
+  isn't yet settled in public docs.
+
+**Decision** (I23, 2026-05-20): pin at NPOI 2.7.3 — the last
+Apache-2.0-only release. Dependabot configured (`.github/dependabot.yml`)
+to ignore minor and major NPOI updates so the PRs don't keep
+cycling. Quarterly re-check folded into the existing NPOI AOT/trim
+spike cadence (`docs/scheduled-spikes.md`).
+
+**Trade-offs accepted with this pin:**
+- No upstream NPOI security fixes after 2.7.3. Mitigated by:
+  the surface we expose is the wrapper, not raw NPOI; specific
+  CVEs against NPOI 2.7.x can be patched by bumping to the
+  patched 2.7.x if Apache-2.0-only patch releases continue, or
+  by a NetXlsx-side workaround.
+- No upstream bug fixes for the NPOI quirks we documented
+  (workbook-name-uniqueness constraint, `date1904 = false`
+  hardcode, etc.). Those stay as-is until either the pin moves
+  or the long-term own-OOXML work lands.
+
+**Forward direction.** The long-term resolution is to implement
+OOXML directly inside NetXlsx and drop the NPOI dependency
+entirely. That's a multi-month effort and a separate-from-v1.0
+project; tracked in `docs/long-term.md`. v1.0 ships on the 2.7.3
+pin and the wrapper architecture; the OOXML-from-scratch work
+becomes a v2.0 conversation after v1.0 is in consumer hands and
+the use cases have stabilized.
+
+### 2026-05-20 — FluentAssertions → AwesomeAssertions
+
+FluentAssertions 8.0 switched to the Xceed Community License:
+free only for non-commercial use; commercial use requires a paid
+Xceed license. v6 and earlier remain Apache-2.0.
+
+Same logic as the NPOI pin applies: a commercial-encumbered test
+dependency on an MIT library hurts the "free for commercial use"
+promise at exactly the point reviewers verify it.
+
+**Decision** (informal — test-stack choice, not API-affecting):
+migrate to **AwesomeAssertions** 9.4.0, the community fork that
+continued from FluentAssertions 6.12.2 under Apache-2.0. Namespace
+changed (`FluentAssertions` → `AwesomeAssertions` in `using`
+directives); two assertion methods renamed (`BeLessOrEqualTo` →
+`BeLessThanOrEqualTo`, `BeGreaterOrEqualTo` → `BeGreaterThanOrEqualTo`).
+All 433 tests/TFM passed after the swap.
+
+Dependabot configured to ignore FluentAssertions major bumps so
+the 6.x → 8.x PR doesn't keep cycling.
+
 ---
 
 ## Future entries

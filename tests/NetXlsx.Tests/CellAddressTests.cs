@@ -1,7 +1,7 @@
 // Coverage for the A1 parser per design §6.10.
 
 using System;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;

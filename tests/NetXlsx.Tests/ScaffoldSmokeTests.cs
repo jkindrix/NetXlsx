@@ -1,4 +1,4 @@
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;
@@ -16,7 +16,7 @@ public class ScaffoldSmokeTests
     }
 
     [Fact]
-    public void FluentAssertions_Loaded()
+    public void AwesomeAssertions_Loaded()
     {
         var two = 1 + 1;
         two.Should().Be(2);

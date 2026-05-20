@@ -5,7 +5,7 @@
 using System;
 using System.Globalization;
 using System.IO;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;

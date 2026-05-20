@@ -2,7 +2,7 @@
 // Each verifies the diagnostic fires on its trigger case.
 
 using System.Linq;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests.SourceGen;

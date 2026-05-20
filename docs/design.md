@@ -101,6 +101,7 @@ These are below the API contract but above implementation discretion. They are d
 | I20 | `PublicAPI.Shipped/Unshipped` policy | At every tagged release, the release PR moves the `Unshipped.txt` content into `Shipped.txt` | Single, mechanical, reviewable transition                            |
 | I21 | Spike-failure handling         | If a pre-impl spike misses its target, the architect (current: project owner) decides among: revise target, implement workaround, descope. Decision recorded as a new design-doc revision before code lands | No silent target erosion |
 | I22 | Future TFM policy              | New TFMs (`net10.0+`) added in the next minor release after the TFM reaches GA; never in a patch release | Predictable consumer impact |
+| I23 | NPOI version pin policy        | Pin at **NPOI 2.7.3** (last Apache-2.0 release). Do not bump to 2.8+ while the Open Source Maintenance Fee (OSMF) EULA is in effect on binary releases. Re-evaluate quarterly per `docs/scheduled-spikes.md`. | NPOI 2.8.0 added an OSMF EULA requiring revenue-generating consumers (≥ US $10K/year) to pay a monthly maintenance fee. NetXlsx is MIT-licensed and would not pass that obligation cleanly to downstream consumers without a loud disclosure. Pinning preserves the project's "MIT all the way down" promise; quarterly re-check keeps the option open. The long-term resolution (decision-deferred) is to implement OOXML directly and drop the NPOI dependency entirely — see `docs/long-term.md`. |
 
 ## 4. Performance targets (v1)
 

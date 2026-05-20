@@ -16,7 +16,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using NetXlsx;
-using FluentAssertions;
+using AwesomeAssertions;
 using NPOI.OpenXml4Net.OPC;
 using NPOI.XSSF.UserModel;
 using Xunit;

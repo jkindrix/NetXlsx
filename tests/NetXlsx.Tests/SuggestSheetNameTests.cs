@@ -1,7 +1,7 @@
 // Workbook.SuggestSheetName — design line 160.
 
 using System;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;
@@ -51,7 +51,7 @@ public class SuggestSheetNameTests
         wb.AddSheet(thirtyOne);
 
         var result = Workbook.SuggestSheetName(wb, thirtyOne);
-        result.Length.Should().BeLessOrEqualTo(31);
+        result.Length.Should().BeLessThanOrEqualTo(31);
         result.Should().EndWith(" (2)");
     }
 

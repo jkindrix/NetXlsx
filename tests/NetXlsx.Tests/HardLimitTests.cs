@@ -1,6 +1,6 @@
 // Excel hard-limit enforcement on write (decision #37 / §7.6).
 
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;

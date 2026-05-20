@@ -6,7 +6,7 @@ using System.IO;
 using System.Threading.Tasks;
 using NetXlsx;
 using NetXlsx.Cookbook.Recipes;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.GoldenFiles.Recipes;

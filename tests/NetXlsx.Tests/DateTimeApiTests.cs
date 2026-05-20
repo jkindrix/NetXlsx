@@ -1,7 +1,7 @@
 // Coverage for the date/time/duration surface (v0.3.x date-time slice).
 
 using System;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;

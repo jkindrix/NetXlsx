@@ -1,7 +1,7 @@
 // Verifies the generator emits the expected extension class shape.
 
 using System.Linq;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests.SourceGen;

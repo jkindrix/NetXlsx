@@ -15,13 +15,42 @@ updates:
       test-stack:
         patterns:
           - "xunit*"
-          - "FluentAssertions"
+          - "AwesomeAssertions"
           - "Microsoft.NET.Test.Sdk"
           - "coverlet.*"
       analyzers:
         patterns:
-          - "Microsoft.CodeAnalysis.*"
+          - "Microsoft.CodeAnalysis.Analyzers"
           - "*Analyzer*"
+    ignore:
+      # NPOI 2.8.0 added an Open Source Maintenance Fee (OSMF) EULA on
+      # binary releases. NetXlsx pins NPOI at 2.7.3 (last Apache-2.0)
+      # per design decision I23. Re-evaluated quarterly per
+      # docs/scheduled-spikes.md. Patch updates within 2.7.x would
+      # still be welcome if any are published.
+      - dependency-name: "NPOI"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+      # FluentAssertions 8.0 switched to the Xceed Community License
+      # (non-commercial free; commercial requires a paid license).
+      # We migrated to AwesomeAssertions (Apache-2.0 community fork
+      # from FA 6.12.2). Ignore FA majors entirely; we don't track
+      # the package anymore. Documented in implementation-notes.md.
+      - dependency-name: "FluentAssertions"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+
+      # Microsoft.CodeAnalysis.CSharp 5.x ships with Roslyn 5
+      # (.NET 10 SDK). Our source generator references this; if it
+      # references a version newer than the loading csc, the build
+      # fails with CS9057. Stay on 4.x until .NET 10 becomes the
+      # minimum SDK. Patch updates within 4.x are fine.
+      - dependency-name: "Microsoft.CodeAnalysis.CSharp"
+        update-types:
+          - "version-update:semver-major"
 
   # GitHub Actions — keep workflow actions up to date.
   - package-ecosystem: "github-actions"

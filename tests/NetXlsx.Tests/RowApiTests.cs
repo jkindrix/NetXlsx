@@ -1,7 +1,7 @@
 // Coverage for the v0.3.x IRow surface and the new sheet[r,c] indexer.
 
 using System;
-using FluentAssertions;
+using AwesomeAssertions;
 using Xunit;
 
 namespace NetXlsx.Tests;
