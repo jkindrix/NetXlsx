@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup Label="BuildAndPackaging">
-    <PackageVersion Include="MinVer" Version="5.0.0" />
+    <PackageVersion Include="MinVer" Version="7.0.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" />
     <!-- Source Link deferred: depends on the github.com/jkindrix choice (placeholder).
          Re-add Microsoft.SourceLink.* once the host is known. -->
