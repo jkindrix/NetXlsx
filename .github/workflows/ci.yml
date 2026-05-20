@@ -29,6 +29,7 @@ jobs:
           dotnet-version: |
             8.0.x
             9.0.x
+            10.0.x
 
       - name: Install libgdiplus + DejaVu fonts (Linux only, required for IColumn.AutoSize)
         if: matrix.os == 'ubuntu-latest'

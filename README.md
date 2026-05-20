@@ -4,7 +4,7 @@ Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating 
 
 **Status:** pre-1.0, tracking toward v1.0. The public surface is implemented and exercised by 433 tests (per TFM) across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity; the [roadmap](docs/roadmap.md) lists the remaining v1.0 ship-blockers (benchmark-regression CI gate, headless-Linux AutoSize CI job, full pivot/CF/customXML/threaded-comments preservation fixture).
 
-Targets `net8.0` and `net9.0`. MIT-licensed.
+Targets `net8.0`, `net9.0`, and `net10.0`. MIT-licensed.
 
 ## Why this exists
 

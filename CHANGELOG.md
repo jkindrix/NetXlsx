@@ -9,6 +9,32 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Add net10.0 TFM + patch CVE-flagged transitive deps (I22, I24)
+- Target framework list expands to `net8.0; net9.0; net10.0` per
+  decision **I22** (new TFMs added in the next minor release after
+  GA). global.json bumps to require .NET 10 SDK. CI matrix and the
+  release workflow install all three runtimes. AotSpike retargets
+  to net10.0 to keep the spike on the newest available framework.
+- New design decision **I24** records the TFM support window policy:
+  **latest LTS + previous LTS + current STS** while in support.
+  net9.0 STS support ended 2026-05-12; per I24 it will be dropped
+  at the v1.0 tag (kept through pre-1.0 for adoption window).
+  CHANGELOG will carry the drop notice when v1.0 lands.
+- **Security**: the .NET 10 SDK's NuGetAudit surfaced three
+  CVE advisories on NPOI 2.7.3's transitive deps that the .NET 9
+  SDK didn't flag:
+  - **GHSA-rxmq-m78w-7wmc** (moderate): `SixLabors.ImageSharp`
+    2.1.10 → 2.1.11.
+  - **GHSA-37gx-xxp4-5rgx** + **GHSA-w3x6-4m5h-cxqf** (both high):
+    `System.Security.Cryptography.Xml` 8.0.2 → 8.0.3.
+  Because NPOI itself is pinned at 2.7.3 (I23), the fixes apply via
+  central package management's transitive pinning — explicit
+  `PackageVersion` entries in `Directory.Packages.props`. Servicing
+  releases on the same version lines — API surface unchanged.
+
+Test count: still 433 per TFM (405 unit + 27 golden + 1 public-API).
+Across the three TFMs that's now **1,299 total test runs** per build.
+
 ### Dependency hygiene: MinVer 7, AwesomeAssertions, NPOI 2.7.3 pin (I23)
 Sweep of the four dependabot PRs opened on the initial push.
 Outcomes summarized at the top, details below.

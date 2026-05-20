@@ -610,6 +610,44 @@ pin and the wrapper architecture; the OOXML-from-scratch work
 becomes a v2.0 conversation after v1.0 is in consumer hands and
 the use cases have stabilized.
 
+### 2026-05-20 — net10.0 added; transitive security fixes (I24)
+
+Added `net10.0` to the TFM list per decision **I22** (net10.0 GA reached
+Nov 2025; adding now in the next minor release). New list:
+`net8.0; net9.0; net10.0`. global.json bumped to require the .NET 10
+SDK as minimum (rollForward=latestFeature). CI + release workflows
+install all three runtimes.
+
+The .NET 10 SDK's NuGetAudit caught three CVE advisories that .NET 9
+SDK either didn't flag or wasn't running against (the advisories
+likely post-date the last .NET 9 build). All three are transitive
+through NPOI 2.7.3:
+
+- **GHSA-rxmq-m78w-7wmc** (moderate): `SixLabors.ImageSharp` 2.1.10
+  vulnerable. Fixed in 2.1.11.
+- **GHSA-37gx-xxp4-5rgx** + **GHSA-w3x6-4m5h-cxqf** (both high):
+  `System.Security.Cryptography.Xml` 8.0.0–8.0.2 vulnerable. Fixed
+  in 8.0.3 (and 9.0.15, 10.0.6 on the other release lines).
+
+Because we can't bump NPOI itself past 2.7.3 (decision I23, OSMF),
+the fixes are applied via central package management's transitive
+pinning — explicit `PackageVersion` entries for both packages in
+`Directory.Packages.props` at the patched servicing releases.
+`CentralPackageTransitivePinningEnabled=true` (already set) makes
+NPOI's transitive resolution honor our pins instead of its declared
+versions. API surface is identical on the servicing releases, so no
+behavioral change.
+
+This is exactly the kind of finding that shipping to public OSS
+*should* produce: the broader audit tooling .NET 10 SDK runs surfaced
+real CVE exposure that the internal-only build never caught. Worth
+naming as an unexpected positive of going public earlier rather than
+later.
+
+Decision **I24** records the TFM support window policy: latest LTS +
+previous LTS + current STS. v1.0 cut will drop net9.0 (EOS 2026-05-12)
+per that policy. CHANGELOG carries the drop notice.
+
 ### 2026-05-20 — FluentAssertions → AwesomeAssertions
 
 FluentAssertions 8.0 switched to the Xceed Community License:

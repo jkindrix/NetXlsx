@@ -6,8 +6,27 @@
   </PropertyGroup>
 
   <ItemGroup Label="Runtime">
-    <!-- NPOI is a public dependency (decision #24, I1). Pin exact; bump via PR with golden-file review. -->
+    <!-- NPOI is a public dependency (decision #24, I1). Pin exact; bump via PR with golden-file review.
+         Held at 2.7.3 (last Apache-2.0 release before OSMF) per decision I23. -->
     <PackageVersion Include="NPOI" Version="2.7.3" />
+  </ItemGroup>
+
+  <ItemGroup Label="TransitiveSecurityOverrides">
+    <!-- NPOI 2.7.3's transitive closure pulls in known-vulnerable versions
+         of these packages. Since we can't bump NPOI past 2.7.3 (I23), we
+         override the transitive resolution via CentralPackageTransitivePinningEnabled.
+         Both pins are servicing releases on the same version line NPOI
+         expects — API surface is unchanged. -->
+
+    <!-- GHSA-rxmq-m78w-7wmc (moderate): NPOI -> SixLabors.ImageSharp 2.1.10 vulnerable; 2.1.11 patched. -->
+    <PackageVersion Include="SixLabors.ImageSharp" Version="2.1.11" />
+
+    <!-- GHSA-37gx-xxp4-5rgx + GHSA-w3x6-4m5h-cxqf (both high):
+         NPOI -> System.Security.Cryptography.Xml 8.0.2 vulnerable; 8.0.3 patched.
+         8.0.3 is the 8.x-line patch and remains compatible with all our
+         TFMs (net8.0/net9.0/net10.0) — the package itself multi-targets
+         netstandard2.0 + the framework runtime lines. -->
+    <PackageVersion Include="System.Security.Cryptography.Xml" Version="8.0.3" />
   </ItemGroup>
 
   <ItemGroup Label="BuildAndPackaging">

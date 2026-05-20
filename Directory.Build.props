@@ -1,8 +1,10 @@
 <Project>
 
   <PropertyGroup Label="TargetFrameworks">
-    <!-- Design decision #12: net8.0;net9.0. -->
-    <TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+    <!-- Design decisions #12 + I24: net8.0 (LTS), net9.0 (STS, EOS
+         2026-05-12 — kept through pre-1.0 window, dropped at v1.0
+         tag per I24), net10.0 (LTS, added 2026-05-20 per I22). -->
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
   </PropertyGroup>
 
   <PropertyGroup Label="LanguageAndAnalysis">
