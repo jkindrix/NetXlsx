@@ -9,6 +9,88 @@ changes (decision I19).
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-20
+
+### ⚠️ BREAKING CHANGES
+
+- **`net9.0` target removed.** Per decision **I24** (TFM support
+  window policy), .NET 9 STS reached end-of-support on 2026-05-12
+  and is dropped at this tag. `TargetFrameworks` is now
+  `net8.0;net10.0`. Consumers on net9.0 will install the net8.0
+  build via the standard TFM fallback — no API change, but worth
+  knowing. Migrate to **net8.0** (LTS, supported through Nov 2026)
+  or **net10.0** (LTS, current) at your convenience; both are
+  fully supported.
+
+### v1.0.0 — first stable release
+
+The full pre-1.0 development arc — design discipline, pre-impl
+spikes, decision log, public-API gating, golden-file preservation
+fixtures, headless-no-fonts CI gate, benchmark regression gate —
+all carried forward into this release. The library has been in
+continuous test under three TFMs and across ubuntu + windows
+runners since the public push.
+
+**Highlights** (consolidated from the slice-level entries below):
+
+- Workbook lifecycle, sheets, rows, ranges, columns with 1-indexed
+  `[r, c]` access; fluent setters; `.Underlying` escape hatch on
+  every public type for the 20% NetXlsx doesn't yet wrap.
+- **Style-pool deduplication** (`CellStylePool`) — equal styles
+  share one NPOI `ICellStyle` index. Avoids Excel's 64K-style cap
+  that bites every team writing many-colored reports through raw
+  NPOI. Measured as a correctness fix in spike 1.
+- **Source-generator typed mapping** for `[Worksheet]`-decorated
+  records — `sheet.AddRows<T>()` and `sheet.ReadRows<T>()` are
+  emitted at compile time with no runtime reflection. AOT-safe by
+  construction.
+- **Type-level streaming split** — `Workbook.CreateStreaming()`
+  returns `IStreamingWorkbook`, a separate interface from
+  `IWorkbook`. Random-access members are absent from the
+  streaming surface because they'd lie once a row is flushed past
+  the window. (Decision #7, the "type-honesty" design choice most
+  peer libraries get wrong.)
+- **OPC preservation guarantee** (decision #44 / §7.7) — unmodeled
+  parts (pivot caches, conditional formatting, custom XML,
+  threaded comments) round-trip byte-identical through Open →
+  Modify → Save. Verified by `RoundTripPreservationTests.cs`
+  covering all four part categories.
+- **Build-time AOT/trim guard** — setting `PublishAot=true` or
+  `PublishTrimmed=true` produces MSBuild errors `NXLS0100` /
+  `NXLS0101` rather than letting consumers discover the
+  NPOI-side incompatibility at runtime.
+- **`MissingFontException`** (decision I3) — `IColumn.AutoSize()`
+  fails loud on headless hosts without a font stack rather than
+  producing silently-wrong widths. Failure path verified by a
+  dedicated `headless-no-fonts` CI gate.
+
+**Test totals at tag time:** 434 tests/TFM × 2 TFMs = **868 total
+runs per CI build** (405 unit + 28 golden-file + 1 public-API
+snapshot per TFM). Bench gate active with rolling CI baseline.
+
+**Public surface frozen.** `PublicAPI.Unshipped.txt` (380 entries)
+flipped into `PublicAPI.Shipped.txt`; any post-1.0 addition has to
+go through the normal Unshipped-then-Shipped-at-tag flow.
+
+**Documentation snapshot at tag time:**
+- `docs/design.md` — 52 foundational + 24 implementation decisions
+  with rationale.
+- `docs/roadmap.md` — binary v1.0/v1.1/v2.0/v3.0/Never matrix;
+  per-version DoD; release-PR checklist.
+- `docs/implementation-notes.md` — patterns and lessons from the
+  pre-1.0 implementation phase.
+- `docs/scheduled-spikes.md` — quarterly re-check cadence for
+  NPOI AOT/trim posture (Spike 4-Q) and NPOI OSMF posture
+  (Spike 5-Q).
+- `docs/long-term.md` — post-v1.0 R&D direction; v2 OOXML path
+  ordered by honest EV per the 2026-05-20 external critique.
+- `docs/npoi-3x-migration.md` — concrete playbook for adopting
+  NPOI 3.x once trigger conditions fire.
+- `docs/v2-ooxml-planning.md` — research notes for the
+  from-scratch path (option 4 of 4 in long-term.md's ordering).
+
+Slice-level history follows below.
+
 ### Revise v2 planning docs per external critique (no code change)
 A second external agent pointed out that the v2 planning docs led with
 the from-scratch OOXML implementation as the headline option because
