@@ -83,6 +83,11 @@ jobs:
 
       - name: Compare against CI baseline (rolling cache)
         id: compare
+        # On main pushes we still run compare for visibility (so the run
+        # log shows what changed), but use continue-on-error: regressions
+        # are surfaced as annotations on main but don't block the refresh
+        # step below. PRs (and dispatch without refresh) still fail loud.
+        continue-on-error: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.refresh_baseline == 'true') }}
         run: |
           mkdir -p benchmarks/ci-baseline
           if [ -z "$(ls -A benchmarks/ci-baseline 2>/dev/null)" ]; then
@@ -93,18 +98,18 @@ jobs:
             python3 benchmarks/compare-bench.py benchmarks/current benchmarks/ci-baseline --threshold 15
           fi
 
-      # On main pushes, overwrite the cached baseline with the just-run
-      # results so the next PR is compared against a current snapshot.
-      # Cache writes only happen automatically when the workflow exits;
-      # actions/cache restores in the restore step and writes at end-of-job
-      # if the key didn't already exist. To force-refresh, we'd need to
-      # delete the cache via the GH API; instead, we rely on the hash key
-      # rolling forward when source changes.
+      # On main pushes (and explicit dispatch with refresh_baseline=true)
+      # overwrite the cached baseline with the just-run results so the
+      # next PR is compared against a current snapshot. This step runs
+      # even if the Compare step flagged a regression — the regression
+      # is INFORMATION about what just changed on main, not a blocker
+      # to recording the new state.
       - name: Refresh baseline (main push or explicit dispatch)
-        if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.refresh_baseline == 'true')
+        if: always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.refresh_baseline == 'true'))
         run: |
           rm -rf benchmarks/ci-baseline/*
           cp benchmarks/current/*.json benchmarks/ci-baseline/
+          echo "::notice::Baseline refreshed with current run's numbers. The next PR will be compared against these."
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7
