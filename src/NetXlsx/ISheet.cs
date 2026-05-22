@@ -117,6 +117,27 @@ public interface IWorkbook : IDisposable
     System.Collections.Generic.IReadOnlyList<INamedRange> NamedRanges { get; }
 
     /// <summary>
+    /// Protects this workbook against UI-level structural changes
+    /// (decision I-54). When <paramref name="options"/> is null,
+    /// defaults to <see cref="WorkbookProtection.LockStructure"/>
+    /// (the common use case). NPOI 2.7.3 does not expose workbook
+    /// password support directly; for password protection, reach
+    /// through <see cref="Underlying"/>.
+    /// </summary>
+    void Protect(WorkbookProtection? options = null);
+
+    /// <summary>
+    /// Removes workbook-level protection. No-op if not protected.
+    /// </summary>
+    void Unprotect();
+
+    /// <summary>
+    /// Whether the workbook currently has any structure / windows /
+    /// revision lock applied.
+    /// </summary>
+    bool IsProtected { get; }
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFWorkbook</c>
     /// per decision #32. Direct mutation is supported but is not synchronized
     /// with wrapper state; callers using this hatch own the consequences.

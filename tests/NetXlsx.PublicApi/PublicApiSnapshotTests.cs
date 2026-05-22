@@ -77,6 +77,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.Workbook",
             "NetXlsx.WorkbookException",
             "NetXlsx.WorkbookOptions",
+            "NetXlsx.WorkbookProtection",
             "NetXlsx.WorksheetAttribute",
             "NetXlsx.WorksheetVisibility",
         };

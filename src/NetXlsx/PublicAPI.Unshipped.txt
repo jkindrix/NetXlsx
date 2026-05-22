@@ -101,3 +101,15 @@ static NetXlsx.SheetProtection.LockAll.get -> NetXlsx.SheetProtection!
 NetXlsx.ISheet.Protect(string? password = null, NetXlsx.SheetProtection? options = null) -> void
 NetXlsx.ISheet.Unprotect() -> void
 NetXlsx.ISheet.IsProtected.get -> bool
+NetXlsx.WorkbookProtection
+NetXlsx.WorkbookProtection.Structure.get -> bool
+NetXlsx.WorkbookProtection.Structure.init -> void
+NetXlsx.WorkbookProtection.Windows.get -> bool
+NetXlsx.WorkbookProtection.Windows.init -> void
+NetXlsx.WorkbookProtection.Revision.get -> bool
+NetXlsx.WorkbookProtection.Revision.init -> void
+static NetXlsx.WorkbookProtection.Default.get -> NetXlsx.WorkbookProtection!
+static NetXlsx.WorkbookProtection.LockStructure.get -> NetXlsx.WorkbookProtection!
+NetXlsx.IWorkbook.Protect(NetXlsx.WorkbookProtection? options = null) -> void
+NetXlsx.IWorkbook.Unprotect() -> void
+NetXlsx.IWorkbook.IsProtected.get -> bool

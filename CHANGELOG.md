@@ -9,6 +9,27 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Workbook protection (slice 5/10)
+
+- **`IWorkbook.Protect` / `IWorkbook.Unprotect` / `IWorkbook.IsProtected`**:
+  workbook-level structure / windows / revision locks
+  (decision I-54).
+- New public record `WorkbookProtection` (Structure, Windows,
+  Revision) + `WorkbookProtection.Default` and
+  `WorkbookProtection.LockStructure` static instances. `Protect()`
+  with no args defaults to `LockStructure` (the common use case —
+  "stop accidental sheet add/delete").
+- Same UX-guard-not-security caveat as sheet protection (I-53).
+- **Workbook password support deferred.** NPOI 2.7.3 does not
+  expose workbook-level password APIs directly. v1.1 ships the
+  unprotected-by-default flag flip; password protection requires
+  reaching through `.Underlying` for now.
+- Coverage: 10 new tests
+  (`tests/NetXlsx.Tests/WorkbookProtectionTests.cs`) — record
+  semantics, enable + disable, Protect with default options
+  clears unspecified flags, idempotent Unprotect, file round-trip.
+  Public-API snapshot + disposed-workbook matrix updated.
+
 ### v1.1 — Sheet protection (slice 4/10)
 
 - **`ISheet.Protect` / `ISheet.Unprotect` / `ISheet.IsProtected`**:

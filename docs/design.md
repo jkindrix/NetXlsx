@@ -225,6 +225,30 @@ public interface INamedRange
 }
 ```
 
+### 6.2.1 Workbook protection — I-54
+
+```csharp
+public sealed record WorkbookProtection
+{
+    public bool Structure { get; init; }
+    public bool Windows { get; init; }
+    public bool Revision { get; init; }
+    public static WorkbookProtection Default { get; }         // all false
+    public static WorkbookProtection LockStructure { get; }   // Structure-only
+}
+
+// On IWorkbook:
+void Protect(WorkbookProtection? options = null);
+void Unprotect();
+bool IsProtected { get; }
+```
+
+**I-54 (added 2026-05-22):** Workbook-level protection guards the workbook's structure (sheet add/delete/rename/reorder/hide), windows (Excel 2007-era window chrome — largely defunct in modern Excel), and revisions (legacy shared-workbook tracking).
+
+`Protect()` with no arguments applies `WorkbookProtection.LockStructure` — the common use case is "stop the user from accidentally adding or deleting sheets." Pass an explicit options record to lock additional facets.
+
+Same security caveat as sheet protection (I-53): this is a UX guard, not security. NPOI 2.7.3 does not expose workbook-level password support directly; password protection requires reaching through `.Underlying` and manipulating the `CT_WorkbookProtection` element. v1.1 ships the unprotected-by-default flag flip; password support is deferred.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

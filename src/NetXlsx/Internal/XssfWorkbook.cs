@@ -13,7 +13,7 @@ using NPOI.XSSF.UserModel;
 
 namespace NetXlsx;
 
-internal sealed class XssfWorkbook : IWorkbook
+internal sealed partial class XssfWorkbook : IWorkbook
 {
     private readonly XSSFWorkbook _underlying;
     private readonly Dictionary<string, XssfSheet> _sheetsByName = new(StringComparer.OrdinalIgnoreCase);
