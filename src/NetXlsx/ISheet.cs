@@ -537,6 +537,19 @@ public interface IRange : System.Collections.Generic.IEnumerable<ICell>
     /// float, double, decimal) / DateTime / DateOnly / TimeOnly /
     /// TimeSpan. Null clears the cell. Unsupported types throw
     /// <see cref="System.ArgumentException"/>.
+    /// <para>
+    /// <b>Performance / precision note (decision #5):</b> this overload
+    /// is a convenience wrapper. It boxes value types and dispatches at
+    /// runtime via <c>is</c> checks. For tight loops, large workloads
+    /// (&gt;10k cells), or cases where the value type is known
+    /// statically, prefer the per-type setters
+    /// (<see cref="ICell.SetString"/> / <see cref="ICell.SetNumber(double)"/>
+    /// / etc.) on each cell — they avoid the boxing and dispatch cost,
+    /// and for <c>decimal</c> they document the IEEE-754 precision
+    /// trade-off explicitly (§7.4). The convenience overload is
+    /// intentional and supported; the typed setters are intentional
+    /// and faster.
+    /// </para>
     /// </summary>
     IRange Value(object? value);
 
