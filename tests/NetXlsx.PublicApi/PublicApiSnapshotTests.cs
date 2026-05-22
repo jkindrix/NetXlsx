@@ -74,6 +74,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.StreamingOptions",
             "NetXlsx.StylePoolDiagnostics",
             "NetXlsx.TableStyles",
+            "NetXlsx.TotalsRowFunction",
             "NetXlsx.UnderlineStyle",
             "NetXlsx.UnsupportedImageFormatException",
             "NetXlsx.VAlign",

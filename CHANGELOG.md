@@ -9,6 +9,48 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.2 slice 3 — per-column totals row on `ITable` (I-64)
+
+Closes the second v1.1 deferment. The v1.1 slice-2 surface (decision
+I-51) made `ITable.HasTotalsRow` read-only — totals required per-column
+function selection and didn't fit in slice scope. v1.2 ships the
+full surface.
+
+- New `TotalsRowFunction` enum (None / Sum / Min / Max / Average /
+  Count / CountNumbers / StdDev / Var / Custom).
+- New `ITable.AddTotalsRow()` — extends the table range by one row,
+  flips `HasTotalsRow` to true, trims any AutoFilter range to
+  exclude the totals row (Excel's default behavior).
+- New `ITable.RemoveTotalsRow()` — clears per-column functions /
+  labels, blanks the cells in the table's column range, shrinks
+  the table range back by one row.
+- New `ITable.SetColumnTotal(name, function)` — writes both the
+  OOXML metadata and the SUBTOTAL formula into the cell. Uses
+  the **100-series SUBTOTAL codes** (101..110) which skip
+  AutoFilter-hidden rows. Uses the structured-reference form
+  `TableName[ColumnName]` in the formula so totals auto-update
+  when rows are added.
+- New `ITable.SetColumnTotal(name, customFormula)` for arbitrary
+  formulas. Strips a leading `=` if present.
+- New `ITable.SetColumnTotalLabel(name, label)` — typically used
+  for the leading "Total" cell. Explicitly clears the column's
+  function metadata so the label takes precedence in Excel.
+
+Out-of-scope (deferred): column names containing structured-
+reference special characters (`#`, `[`, `]`, `'`, `@`, whitespace)
+would need quoting in the formula body. v1.2 covers the
+unquoted-name common case; names that need quoting reach through
+`Underlying`.
+
+Coverage: 20 new unit tests in
+`tests/NetXlsx.Tests/TableApiTests.cs`, including a Theory matrix
+verifying all eight built-in SUBTOTAL codes (101 / 102 / 103 /
+104 / 105 / 107 / 109 / 110), validation rejections, label
+override behavior, and a file round-trip preserving totals across
+`Workbook.Open`.
+
+Public-API snapshot + disposed-workbook matrix updated.
+
 ### v1.2 slice 2 — `ISheet.RemoveTable` (I-63)
 
 Closes the first non-refactor item from the v1.2 roadmap. v1.1

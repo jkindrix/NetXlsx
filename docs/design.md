@@ -573,6 +573,36 @@ string? AutoFilterRange { get; }
 
 **NPOI surprise:** `CT_Worksheet` in NPOI 2.7.3 exposes the `autoFilter` element as a direct property, not via `IsSetX` / `UnsetX` accessors. `ClearAutoFilter` therefore assigns `null` to the property to remove the element from the serialized XML. The auxiliary `_FilterDatabase` built-in name (created by NPOI's `SetAutoFilter`) is left in place when clearing — Excel tolerates a stale name pointing at an absent autoFilter, and pruning it would require walking the workbook's name table.
 
+### 6.4.7 Table totals row — I-64 (v1.2)
+
+```csharp
+public enum TotalsRowFunction
+{
+    None, Sum, Min, Max, Average, Count, CountNumbers, StdDev, Var, Custom,
+}
+
+// On ITable:
+void AddTotalsRow();
+void RemoveTotalsRow();
+void SetColumnTotal(string columnName, TotalsRowFunction function);
+void SetColumnTotal(string columnName, string customFormula);
+void SetColumnTotalLabel(string columnName, string label);
+```
+
+**I-64 (added 2026-05-22):** v1.1 slice 2 (decision I-51) made `ITable.HasTotalsRow` read-only because adding totals requires per-column functions and the full surface didn't fit in slice scope. v1.2 closes the gap.
+
+`AddTotalsRow` extends the table's `@ref` by one row downward and sets `CT_Table.totalsRowCount = 1`. When the table has an AutoFilter (auto-applied by NPOI's `SetCellReferences`), the autoFilter range is trimmed back to exclude the totals row — matching Excel's default behavior where filters skip the totals.
+
+`SetColumnTotal` writes both the OOXML metadata (`CT_TableColumn.totalsRowFunction`) **and** the actual cell formula (`SUBTOTAL(code, TableName[ColumnName])`). The dual write means the total renders correctly in any conforming viewer, not just one that auto-populates from the function metadata on open. SUBTOTAL is invoked in its **100-series form** (`101..110`) — the variant that skips AutoFilter-hidden rows, matching Excel's table-totals behavior.
+
+The structured-reference form (`TableName[ColumnName]`) is used in the formula rather than an absolute cell range so the totals auto-update when rows are added to the table.
+
+**Out of scope (deferred to a later slice if needed):** column names containing structured-reference special characters (`#`, `[`, `]`, `'`, `@`, whitespace) would need quoting in the formula body. v1.2 covers the common-case unquoted form; names that need quoting reach through `Underlying`.
+
+`SetColumnTotalLabel` writes a text label to the cell (typically `"Total"` on the leading column) and explicitly clears any function metadata — the label takes precedence in Excel's rendering.
+
+`RemoveTotalsRow` is the inverse: clears per-column functions and labels, blanks the totals-row cells in the table's column range, shrinks the table's `@ref` by one row.
+
 ### 6.4.6 Table removal — I-63 (v1.2)
 
 ```csharp

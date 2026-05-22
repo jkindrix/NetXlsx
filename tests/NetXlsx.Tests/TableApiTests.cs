@@ -303,6 +303,222 @@ public class TableApiTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ---- Totals row (v1.2 / I-64) -------------------------------------
+
+    [Fact]
+    public void AddTotalsRow_Extends_Range_And_Flips_HasTotalsRow()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("Region"); sh["B1"].SetString("Revenue");
+        sh["A2"].SetString("EU"); sh["B2"].SetNumber(100);
+        sh["A3"].SetString("US"); sh["B3"].SetNumber(200);
+        var t = sh.AddTable("A1:B3", "Sales");
+
+        t.HasTotalsRow.Should().BeFalse();
+        t.Address.Should().Be("A1:B3");
+
+        t.AddTotalsRow();
+
+        t.HasTotalsRow.Should().BeTrue();
+        t.Address.Should().Be("A1:B4");
+    }
+
+    [Fact]
+    public void AddTotalsRow_Is_Idempotent()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("H"); sh["A2"].SetString("v");
+        var t = sh.AddTable("A1:A2", "T");
+        t.AddTotalsRow();
+        t.AddTotalsRow();
+        t.HasTotalsRow.Should().BeTrue();
+        t.Address.Should().Be("A1:A3");   // not "A1:A4"
+    }
+
+    [Fact]
+    public void RemoveTotalsRow_Shrinks_Range_And_Flips_HasTotalsRow()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("H"); sh["A2"].SetString("v");
+        var t = sh.AddTable("A1:A2", "T");
+        t.AddTotalsRow();
+        t.SetColumnTotal("H", TotalsRowFunction.Count);
+
+        t.RemoveTotalsRow();
+
+        t.HasTotalsRow.Should().BeFalse();
+        t.Address.Should().Be("A1:A2");
+        // CT-metadata cleared
+        t.Underlying.GetCTTable().tableColumns.tableColumn[0].totalsRowFunction
+            .Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_TotalsRowFunction.none);
+    }
+
+    [Fact]
+    public void RemoveTotalsRow_Is_Safe_On_Table_Without_Totals()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("H"); sh["A2"].SetString("v");
+        var t = sh.AddTable("A1:A2", "T");
+        Action act = () => t.RemoveTotalsRow();
+        act.Should().NotThrow();
+        t.HasTotalsRow.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SetColumnTotal_Writes_SUBTOTAL_Formula_And_Function_Metadata()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("Region"); sh["B1"].SetString("Revenue");
+        sh["A2"].SetString("EU"); sh["B2"].SetNumber(100);
+        sh["A3"].SetString("US"); sh["B3"].SetNumber(200);
+        var t = sh.AddTable("A1:B3", "Sales");
+        t.AddTotalsRow();
+
+        t.SetColumnTotal("Revenue", TotalsRowFunction.Sum);
+
+        // Cell B4 carries the SUBTOTAL formula.
+        sh["B4"].GetFormula().Should().Be("=SUBTOTAL(109,Sales[Revenue])");
+        // CT metadata set to sum.
+        t.Underlying.GetCTTable().tableColumns.tableColumn[1].totalsRowFunction
+            .Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_TotalsRowFunction.sum);
+    }
+
+    [Theory]
+    [InlineData(TotalsRowFunction.Sum, 109)]
+    [InlineData(TotalsRowFunction.Average, 101)]
+    [InlineData(TotalsRowFunction.Min, 105)]
+    [InlineData(TotalsRowFunction.Max, 104)]
+    [InlineData(TotalsRowFunction.Count, 103)]
+    [InlineData(TotalsRowFunction.CountNumbers, 102)]
+    [InlineData(TotalsRowFunction.StdDev, 107)]
+    [InlineData(TotalsRowFunction.Var, 110)]
+    public void SetColumnTotal_Each_Builtin_Function_Emits_Correct_SUBTOTAL_Code(TotalsRowFunction f, int code)
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("V"); sh["A2"].SetNumber(1); sh["A3"].SetNumber(2);
+        var t = sh.AddTable("A1:A3", "Nums");
+        t.AddTotalsRow();
+        t.SetColumnTotal("V", f);
+        sh["A4"].GetFormula().Should().Be($"=SUBTOTAL({code},Nums[V])");
+    }
+
+    [Fact]
+    public void SetColumnTotal_Custom_Writes_Supplied_Formula()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("V"); sh["A2"].SetNumber(1); sh["A3"].SetNumber(2);
+        var t = sh.AddTable("A1:A3", "Nums");
+        t.AddTotalsRow();
+        t.SetColumnTotal("V", "SUMPRODUCT(Nums[V])");
+        sh["A4"].GetFormula().Should().Be("=SUMPRODUCT(Nums[V])");
+    }
+
+    [Fact]
+    public void SetColumnTotal_Custom_Strips_Leading_Equals()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("V"); sh["A2"].SetNumber(1); sh["A3"].SetNumber(2);
+        var t = sh.AddTable("A1:A3", "Nums");
+        t.AddTotalsRow();
+        t.SetColumnTotal("V", "=SUM(Nums[V])*2");
+        sh["A4"].GetFormula().Should().Be("=SUM(Nums[V])*2");
+    }
+
+    [Fact]
+    public void SetColumnTotalLabel_Writes_Plain_Text()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("Region"); sh["B1"].SetString("Revenue");
+        sh["A2"].SetString("EU"); sh["B2"].SetNumber(100);
+        var t = sh.AddTable("A1:B2", "Sales");
+        t.AddTotalsRow();
+
+        t.SetColumnTotalLabel("Region", "Total");
+
+        sh["A3"].GetString().Should().Be("Total");
+        // Label sets function back to none (label takes precedence over function).
+        t.Underlying.GetCTTable().tableColumns.tableColumn[0].totalsRowFunction
+            .Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_TotalsRowFunction.none);
+    }
+
+    [Fact]
+    public void SetColumnTotal_Requires_HasTotalsRow()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("V"); sh["A2"].SetNumber(1);
+        var t = sh.AddTable("A1:A2", "T");
+
+        Action act = () => t.SetColumnTotal("V", TotalsRowFunction.Sum);
+        act.Should().Throw<InvalidOperationException>().WithMessage("*AddTotalsRow*");
+    }
+
+    [Fact]
+    public void SetColumnTotal_Rejects_Unknown_Column()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("V"); sh["A2"].SetNumber(1);
+        var t = sh.AddTable("A1:A2", "T");
+        t.AddTotalsRow();
+
+        Action act = () => t.SetColumnTotal("DoesNotExist", TotalsRowFunction.Sum);
+        act.Should().Throw<ArgumentException>().WithMessage("*not part of*");
+    }
+
+    [Fact]
+    public void SetColumnTotal_Rejects_Custom_Via_Enum_Overload()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("V"); sh["A2"].SetNumber(1);
+        var t = sh.AddTable("A1:A2", "T");
+        t.AddTotalsRow();
+
+        Action act = () => t.SetColumnTotal("V", TotalsRowFunction.Custom);
+        act.Should().Throw<ArgumentException>().WithMessage("*customFormula*");
+    }
+
+    [Fact]
+    public void TotalsRow_Survives_File_Roundtrip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"totals-rt-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.Create())
+            {
+                var sh = wb.AddSheet("S");
+                sh["A1"].SetString("Region"); sh["B1"].SetString("Revenue");
+                sh["A2"].SetString("EU"); sh["B2"].SetNumber(100);
+                sh["A3"].SetString("US"); sh["B3"].SetNumber(200);
+                var t = sh.AddTable("A1:B3", "Sales");
+                t.AddTotalsRow();
+                t.SetColumnTotalLabel("Region", "Total");
+                t.SetColumnTotal("Revenue", TotalsRowFunction.Sum);
+                wb.Save(path);
+            }
+            using (var wb = Workbook.Open(path))
+            {
+                var sh = wb["S"];
+                var t = sh.Tables[0];
+                t.HasTotalsRow.Should().BeTrue();
+                t.Address.Should().Be("A1:B4");
+                sh["A4"].GetString().Should().Be("Total");
+                sh["B4"].GetFormula().Should().Be("=SUBTOTAL(109,Sales[Revenue])");
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     // ---- File round-trip ----------------------------------------------
 
     [Fact]

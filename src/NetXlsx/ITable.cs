@@ -49,12 +49,67 @@ public interface ITable
     System.Collections.Generic.IReadOnlyList<string> ColumnNames { get; }
 
     /// <summary>
-    /// Whether the table carries a totals row. Read-only in v1.1 —
-    /// adding totals requires per-column totals-row functions, which
-    /// is a v1.2 surface. Reach through <see cref="Underlying"/> for
-    /// the full NPOI surface.
+    /// Whether the table carries a totals row. Toggled via
+    /// <see cref="AddTotalsRow"/> / <see cref="RemoveTotalsRow"/>
+    /// (decision I-64).
     /// </summary>
     bool HasTotalsRow { get; }
+
+    /// <summary>
+    /// Adds a totals row beneath the table's data range (decision I-64).
+    /// Extends the table's <see cref="Address"/> by one row down and
+    /// sets <see cref="HasTotalsRow"/> to <c>true</c>. The totals row
+    /// is initially blank; per-column aggregations are configured via
+    /// <see cref="SetColumnTotal(string, TotalsRowFunction)"/>. No-op
+    /// if a totals row is already present.
+    /// </summary>
+    void AddTotalsRow();
+
+    /// <summary>
+    /// Removes the totals row (decision I-64). Clears all per-column
+    /// totals-row functions, shrinks the table range by one row, and
+    /// sets <see cref="HasTotalsRow"/> to <c>false</c>. No-op if no
+    /// totals row is present.
+    /// </summary>
+    void RemoveTotalsRow();
+
+    /// <summary>
+    /// Configures the totals-row cell for <paramref name="columnName"/>
+    /// to compute <paramref name="function"/>. Writes the matching
+    /// <c>SUBTOTAL</c> formula into the cell so the totals render in
+    /// any conforming viewer (decision I-64).
+    /// <para>
+    /// For <see cref="TotalsRowFunction.Custom"/>, use the
+    /// <see cref="SetColumnTotal(string, string)"/> overload.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="columnName"/> is null.</exception>
+    /// <exception cref="ArgumentException">The column is not part of this table, or <paramref name="function"/> is <see cref="TotalsRowFunction.Custom"/> (use the other overload).</exception>
+    /// <exception cref="InvalidOperationException"><see cref="HasTotalsRow"/> is false — call <see cref="AddTotalsRow"/> first.</exception>
+    void SetColumnTotal(string columnName, TotalsRowFunction function);
+
+    /// <summary>
+    /// Configures the totals-row cell for <paramref name="columnName"/>
+    /// to evaluate <paramref name="customFormula"/>. Sets the table-
+    /// metadata function to <see cref="TotalsRowFunction.Custom"/> and
+    /// writes the formula into the cell as-is. A leading <c>=</c> is
+    /// optional and stripped.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <exception cref="ArgumentException">The column is not part of this table, or the formula body is empty.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="HasTotalsRow"/> is false.</exception>
+    void SetColumnTotal(string columnName, string customFormula);
+
+    /// <summary>
+    /// Sets the totals-row cell text for <paramref name="columnName"/>
+    /// (decision I-64) — typically used for the leading "Total" label
+    /// on the first column. The label takes precedence over any
+    /// function configured on the same column.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+    /// <exception cref="ArgumentException">The column is not part of this table.</exception>
+    /// <exception cref="InvalidOperationException"><see cref="HasTotalsRow"/> is false.</exception>
+    void SetColumnTotalLabel(string columnName, string label);
 
     /// <summary>
     /// The table-style name (e.g. <c>"TableStyleMedium2"</c>), or

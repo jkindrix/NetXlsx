@@ -266,7 +266,7 @@ the one substantive open item from the v1.1 external review pass
       user demand, and the three-step dance is fragile against NPOI
       internals. v1.2 either implements it carefully against 2.7.3
       or skips to NPOI 3.x (if the August re-checks unblock the bump).
-- [ ] **Per-column totals row on `ITable`**. `ITable.HasTotalsRow` is
+- [x] **Per-column totals row on `ITable`** — landed (I-64). `ITable.HasTotalsRow` was
       read-only in v1.1 because adding a totals row requires per-column
       `SubTotalFunction` selection (Sum / Avg / Count / Min / Max /
       StdDev / Var / Custom). A reasonable v1.2 surface: extend the

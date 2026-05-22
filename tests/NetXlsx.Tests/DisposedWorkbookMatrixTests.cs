@@ -308,5 +308,10 @@ public class DisposedWorkbookMatrixTests
         public bool HasTotalsRow => false;
         public string? StyleName { get => null; set { } }
         public NPOI.XSSF.UserModel.XSSFTable Underlying => null!;
+        public void AddTotalsRow() { }
+        public void RemoveTotalsRow() { }
+        public void SetColumnTotal(string columnName, TotalsRowFunction function) { }
+        public void SetColumnTotal(string columnName, string customFormula) { }
+        public void SetColumnTotalLabel(string columnName, string label) { }
     }
 }
