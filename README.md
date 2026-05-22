@@ -188,7 +188,7 @@ XSSFCell     rawC   = cell.Underlying;
 
 This is by design (#1, #32) — the facade is *additive over NPOI*, not a sandbox around it.
 
-See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 13 worked recipes covering every public-surface area; each recipe doubles as a golden-file test.
+See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes (13 v1.0 + 7 v1.1) covering every public-surface area; each recipe doubles as a golden-file test.
 
 ## Documentation
 
@@ -206,7 +206,7 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 13 worked recipes
 src/         NetXlsx, NetXlsx.SourceGen
 tests/       NetXlsx.Tests, NetXlsx.GoldenFiles, NetXlsx.PublicApi
 benchmarks/  NetXlsx.Benchmarks (BenchmarkDotNet)
-samples/     NetXlsx.Cookbook (13 worked recipes)
+samples/     NetXlsx.Cookbook (20 worked recipes — 13 v1.0 + 7 v1.1)
 spikes/      NetXlsx.AotSpike + Spike{1,2,3} harnesses + results/
 build/       build.sh / build.ps1 (local + CI entry points)
 docs/        design, roadmap, implementation-notes, scheduled-spikes, npoi-workarounds
