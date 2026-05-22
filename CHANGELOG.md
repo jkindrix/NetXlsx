@@ -9,6 +9,31 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Image embedding / PNG + JPEG (slice 3/10)
+
+- **`ISheet.AddPicture(a1Cell, data, format)` / `ISheet.AddPicture(a1Cell, data)`**:
+  embed PNG and JPEG images anchored to a single cell at natural
+  pixel size (decision I-52).
+- New public types: `IPicture` (Sheet, Format, Underlying),
+  `ImageFormat` enum (Png, Jpeg), `UnsupportedImageFormatException`
+  (extends `WorkbookException`).
+- Auto-detection from magic bytes — 2-arg overload reads the
+  leading bytes (`89 50 4E 47 ...` PNG, `FF D8 FF ...` JPEG) and
+  dispatches; unknown formats throw
+  `UnsupportedImageFormatException`. 3-arg overload skips detection.
+- Pictures rendered at natural pixel size via NPOI's
+  `XSSFPicture.Resize()` — without it, NPOI anchors to a
+  single-cell extent and visibly stretches the image.
+- **Other formats (GIF/BMP/TIFF/EMF/WMF) and advanced anchoring
+  (multi-cell, pixel offsets, alt-text, rotation) deferred** —
+  reach through `IPicture.Underlying`. v1.1 covers the
+  two-formats-and-natural-size 90% case.
+- Coverage: 10 new tests (`tests/NetXlsx.Tests/PictureApiTests.cs`)
+  — explicit format, PNG/JPEG auto-detection, null + invalid-cell
+  rejection, unknown-format detection error, file round-trip via
+  `Workbook.Open`, multi-picture coexistence. Public-API snapshot
+  + disposed-workbook matrix updated.
+
 ### v1.1 — Excel Tables / ListObject (slice 2/10)
 
 - **`ISheet.AddTable` / `ISheet.Tables` / `ISheet.TryGetTable`**:

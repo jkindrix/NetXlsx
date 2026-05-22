@@ -300,6 +300,27 @@ public interface ISheet
 
 
     /// <summary>
+    /// Embeds <paramref name="data"/> as an image anchored at
+    /// <paramref name="a1Cell"/> (its top-left corner). The image is
+    /// rendered at its natural pixel size; resize through
+    /// <see cref="IPicture.Underlying"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Cell"/> or <paramref name="data"/> is null.</exception>
+    /// <exception cref="InvalidCellAddressException"><paramref name="a1Cell"/> is not a valid A1 reference.</exception>
+    IPicture AddPicture(string a1Cell, byte[] data, ImageFormat format);
+
+    /// <summary>
+    /// Embeds <paramref name="data"/> as an image, auto-detecting the
+    /// format from the leading magic bytes (PNG or JPEG; anything else
+    /// throws <see cref="UnsupportedImageFormatException"/>). Anchored
+    /// as in <see cref="AddPicture(string, byte[], ImageFormat)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Cell"/> or <paramref name="data"/> is null.</exception>
+    /// <exception cref="InvalidCellAddressException"><paramref name="a1Cell"/> is not a valid A1 reference.</exception>
+    /// <exception cref="UnsupportedImageFormatException">The byte buffer is not a recognized PNG or JPEG.</exception>
+    IPicture AddPicture(string a1Cell, byte[] data);
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFSheet</c>.
     /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>

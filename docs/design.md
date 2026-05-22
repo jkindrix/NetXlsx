@@ -376,6 +376,33 @@ Style is a `string?` keyed against Excel's built-in style names (e.g., `TableSty
 
 The implementation populates `CT_Table.tableColumns` directly rather than calling `XSSFTable.CreateColumn`, because NPOI 2.7.3's `CreateColumn` throws when the underlying `tableColumn` list is uninitialized (NPOI surprise; captured in `implementation-notes.md`).
 
+### 6.4.2 Image embedding — I-52
+
+```csharp
+public enum ImageFormat { Png, Jpeg }
+
+public interface IPicture
+{
+    ISheet Sheet { get; }
+    ImageFormat Format { get; }
+    NPOI.XSSF.UserModel.XSSFPicture Underlying { get; }
+}
+
+// On ISheet:
+IPicture AddPicture(string a1Cell, byte[] data, ImageFormat format);
+IPicture AddPicture(string a1Cell, byte[] data);   // magic-byte detect
+
+public sealed class UnsupportedImageFormatException : WorkbookException { ... }
+```
+
+**I-52 (added 2026-05-22):** v1.1 image embedding is deliberately narrow:
+
+- **Two formats: PNG and JPEG.** The two formats Excel reads on every platform without theme-color quirks. Other formats (GIF, BMP, TIFF, EMF, WMF) reach through `IWorkbook.Underlying.AddPicture` + `ISheet.Underlying.CreateDrawingPatriarch`.
+- **Single-cell anchor.** The image's top-left corner sits at the supplied A1 cell; the picture is rendered at its **natural pixel size** via NPOI's `XSSFPicture.Resize()`. Multi-cell anchoring, pixel offsets, alt-text, and rotation reach through `IPicture.Underlying`.
+- **Auto-detect from magic bytes.** The 2-arg overload reads the first bytes (`89 50 4E 47 ...` for PNG, `FF D8 FF ...` for JPEG) and dispatches. Unknown formats throw `UnsupportedImageFormatException`. The 3-arg overload accepts an explicit `ImageFormat` and skips detection.
+
+`Resize()` is essential — without it, NPOI anchors the picture to a single-cell extent, stretching/shrinking the image to fit the (typically small) cell. Calling `Resize()` makes the picture's to-cell match the image's pixel dimensions, producing the expected display.
+
 ### 6.5 Cell (fluent)
 
 ```csharp

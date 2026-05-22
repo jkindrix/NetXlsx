@@ -71,6 +71,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "AddTable", (Action<ISheet>)(s => s.AddTable("A1:B2", "T")) };
         yield return new object[] { "Tables", (Action<ISheet>)(s => { var _ = s.Tables; }) };
         yield return new object[] { "TryGetTable", (Action<ISheet>)(s => s.TryGetTable("T", out _)) };
+        yield return new object[] { "AddPicture(3-arg)", (Action<ISheet>)(s => s.AddPicture("A1", new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, ImageFormat.Png)) };
+        yield return new object[] { "AddPicture(2-arg)", (Action<ISheet>)(s => s.AddPicture("A1", new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })) };
     }
 
     [Theory]

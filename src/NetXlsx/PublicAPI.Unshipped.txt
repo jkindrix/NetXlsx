@@ -52,3 +52,16 @@ const NetXlsx.TableStyles.Medium9 = "TableStyleMedium9" -> string!
 const NetXlsx.TableStyles.Medium16 = "TableStyleMedium16" -> string!
 const NetXlsx.TableStyles.Dark1 = "TableStyleDark1" -> string!
 const NetXlsx.TableStyles.Dark9 = "TableStyleDark9" -> string!
+NetXlsx.ImageFormat
+NetXlsx.ImageFormat.Png = 0 -> NetXlsx.ImageFormat
+NetXlsx.ImageFormat.Jpeg = 1 -> NetXlsx.ImageFormat
+NetXlsx.IPicture
+NetXlsx.IPicture.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IPicture.Format.get -> NetXlsx.ImageFormat
+NetXlsx.IPicture.Underlying.get -> NPOI.XSSF.UserModel.XSSFPicture!
+NetXlsx.ISheet.AddPicture(string! a1Cell, byte[]! data, NetXlsx.ImageFormat format) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddPicture(string! a1Cell, byte[]! data) -> NetXlsx.IPicture!
+NetXlsx.UnsupportedImageFormatException
+NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException() -> void
+NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException(string! message) -> void
+NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException(string! message, System.Exception! innerException) -> void

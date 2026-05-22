@@ -872,6 +872,56 @@ v0.7.
 
 ---
 
+## 2026-05-22 — v1.1 slice 3: image embedding (I-52)
+
+### `XSSFPicture.Resize()` is the difference between visible and invisible
+
+NPOI's `XSSFDrawing.CreatePicture(anchor, idx)` accepts an anchor
+specifying the from-cell. If from-cell equals to-cell (single-cell
+anchor), the picture is rendered at the cell's display size — for a
+typical narrow Excel column, that's a barely-visible smear.
+
+The fix is `XSSFPicture.Resize()` (no args), which sets the to-cell
+based on the image's pixel dimensions. Excel then renders at the
+image's natural size.
+
+Without `Resize()`, AddPicture produces a technically-correct file
+with a visibly-broken picture. Caught during initial test runs;
+documented because it's not obvious from NPOI's surface (Resize()
+sounds like an optional convenience, not a near-mandatory step).
+
+### `picture.Resize()` requires a real image, not a hand-crafted byte buffer
+
+First-attempt PNG fixture was hand-crafted (manually computed CRC
+fields). NPOI's `Resize()` calls `SixLabors.ImageSharp` to decode
+the image and read dimensions; ImageSharp validated the CRCs and
+threw `InvalidImageContentException`. Lesson:
+
+- For tests that exercise `AddPicture`, the byte buffer must be a
+  *real* image that survives a proper PNG/JPEG decoder, not just
+  one with the right magic bytes for our auto-detect.
+
+Fix: embed the canonical 67-byte "tiny transparent PNG" via
+`Convert.FromBase64String("iVBORw0KGgo...")`. Known to load in
+every PNG decoder. Same approach for the JPEG fixture (smallest
+valid 1×1 JPEG — about 125 bytes, hand-assembled from the
+SOI/DQT/SOF0/DHT/SOS/EOI markers).
+
+### Format detection: magic bytes, not file extension
+
+The 2-arg `AddPicture(a1Cell, data)` could have looked up format
+by file extension if we accepted a path. We took bytes-only, so
+magic-byte detection is the right move:
+
+- PNG: `89 50 4E 47 0D 0A 1A 0A` (8-byte signature)
+- JPEG: `FF D8 FF` (3-byte SOI + first APP marker)
+
+Anything else throws `UnsupportedImageFormatException` with a
+message naming both supported formats. Avoids the silent
+mis-classification that file-extension sniffing would invite.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After
