@@ -9,6 +9,33 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.2 slice 4 — workbook password protection (I-65)
+
+Closes the v1.1 slice-5 deferment. NPOI 2.7.3 did not expose a
+workbook-level password helper; v1.2 writes the 16-bit XOR
+verifier directly into `CT_WorkbookProtection.workbookPassword`.
+
+- New `IWorkbook.ProtectWithPassword(password, options = null)`.
+  Computes the verifier via NPOI's public
+  `CryptoFunctions.CreateXorVerifier1`, encodes as 2-byte
+  big-endian, writes to the CT_WorkbookProtection element.
+- Same UX-guard-not-security caveat as I-54: the XOR-verifier
+  algorithm is widely known to be brute-forceable.
+- **Method-naming decision** (separate name vs overload of
+  `Protect`): a same-named overload would create the call-site
+  ambiguity `wb.Protect()` can't resolve, and an overload
+  without defaults would violate Roslyn analyzer `RS0027`.
+  Separate naming is also more self-documenting at the call
+  site.
+
+Coverage: 6 new tests in
+`tests/NetXlsx.Tests/WorkbookProtectionTests.cs` — verifier-bytes
+shape (`hunter2` → `C2 58`), default options, explicit options,
+null-password rejection, Unprotect interaction with the password
+byte array, and file round-trip.
+
+Public-API snapshot + disposed-workbook matrix updated.
+
 ### v1.2 slice 3 — per-column totals row on `ITable` (I-64)
 
 Closes the second v1.1 deferment. The v1.1 slice-2 surface (decision

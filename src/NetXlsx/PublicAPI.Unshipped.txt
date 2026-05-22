@@ -16,3 +16,4 @@ NetXlsx.TotalsRowFunction.CountNumbers = 6 -> NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.StdDev = 7 -> NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.Var = 8 -> NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.Custom = 9 -> NetXlsx.TotalsRowFunction
+NetXlsx.IWorkbook.ProtectWithPassword(string! password, NetXlsx.WorkbookProtection? options = null) -> void

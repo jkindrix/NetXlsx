@@ -271,7 +271,7 @@ the one substantive open item from the v1.1 external review pass
       `SubTotalFunction` selection (Sum / Avg / Count / Min / Max /
       StdDev / Var / Custom). A reasonable v1.2 surface: extend the
       table-column model with a small enum + per-column setter.
-- [ ] **`IWorkbook.Protect(password: ...)` — workbook-level password**.
+- [x] **`IWorkbook.ProtectWithPassword(...)` — workbook-level password** — landed (I-65). Originally proposed as a `password:` argument on existing `Protect`; landed as a separate method to avoid call-site ambiguity + `RS0027`.
       NPOI 2.7.3 does not expose workbook-password APIs directly; v1.1
       shipped flag-only structure/windows/revision locks. v1.2
       manipulates `CT_WorkbookProtection` directly to attach the

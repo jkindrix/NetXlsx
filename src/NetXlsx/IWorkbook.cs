@@ -105,12 +105,28 @@ public interface IWorkbook : IDisposable
     /// <summary>
     /// Protects this workbook against UI-level structural changes
     /// (decision I-54). When <paramref name="options"/> is null,
-    /// defaults to <see cref="WorkbookProtection.LockStructure"/>
-    /// (the common use case). NPOI 2.7.3 does not expose workbook
-    /// password support directly; for password protection, reach
-    /// through <see cref="Underlying"/>.
+    /// defaults to <see cref="WorkbookProtection.LockStructure"/>.
+    /// For password protection, use <see cref="ProtectWithPassword"/>
+    /// (decision I-65).
     /// </summary>
     void Protect(WorkbookProtection? options = null);
+
+    /// <summary>
+    /// Protects this workbook with a password (decision I-65). Excel
+    /// requires <paramref name="password"/> before allowing
+    /// unprotection through the UI — but the underlying hash is the
+    /// legacy 16-bit XOR-verifier algorithm, widely known to be
+    /// brute-forceable. This is a UX guard, not security.
+    /// <para>
+    /// A separate method (rather than an overload of
+    /// <see cref="Protect(WorkbookProtection?)"/>) avoids the
+    /// call-site ambiguity that two same-named methods with all-
+    /// optional parameters would create. Method naming is also more
+    /// self-documenting at the call site.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="password"/> is null. Use <see cref="Protect(WorkbookProtection?)"/> for the no-password case.</exception>
+    void ProtectWithPassword(string password, WorkbookProtection? options = null);
 
     /// <summary>
     /// Removes workbook-level protection. No-op if not protected.

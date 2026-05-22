@@ -144,6 +144,7 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
     public IReadOnlyList<INamedRange> NamedRanges => throw new NotImplementedException();
 
     public void Protect(WorkbookProtection? options = null) => throw new NotImplementedException();
+    public void ProtectWithPassword(string password, WorkbookProtection? options = null) => throw new NotImplementedException();
     public void Unprotect() => throw new NotImplementedException();
     public bool IsProtected => false;
 

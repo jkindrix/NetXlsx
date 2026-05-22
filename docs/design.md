@@ -312,6 +312,30 @@ The counters track every call site that goes through `CellStylePool.GetOrCreate`
 
 The returned struct is a **snapshot** by value. Calling `GetStylePoolDiagnostics` does not allocate, and the snapshot does not update after capture. A subsequent mutation requires a new call.
 
+### 6.2.5 Workbook password protection — I-65 (v1.2)
+
+```csharp
+// On IWorkbook:
+void Protect(WorkbookProtection? options = null);                          // v1.1 (I-54)
+void ProtectWithPassword(string password, WorkbookProtection? options = null);  // v1.2 (I-65)
+```
+
+**I-65 (added 2026-05-22):** v1.1 slice 5 (decision I-54) shipped workbook-level structure / windows / revision locks without password support — NPOI 2.7.3 did not expose a workbook-level password helper. v1.2 closes the gap by writing the 16-bit XOR verifier directly into `CT_WorkbookProtection.workbookPassword`.
+
+The verifier is computed via NPOI's `CryptoFunctions.CreateXorVerifier1(password)` (the public legacy-hash helper) and encoded as a 2-byte big-endian array. The OOXML `byte[]` field serializes via `XmlHelper.WriteAttribute(byte[])` as a hex string — matching Excel's expected format.
+
+**Method-naming decision:** v1.2 uses a separate method (`ProtectWithPassword`) rather than an overload of `Protect`. Adding a second optional parameter to `Protect(WorkbookProtection? options = null)` would create a call-site ambiguity that the C# compiler refuses to resolve (both overloads would match `wb.Protect()`), and adding an overload without defaults would violate `RS0027` (the Roslyn "API with optional parameter(s) should have the most parameters amongst its public overloads" rule). A separately-named method is also more self-documenting at the call site:
+
+```csharp
+wb.Protect();                                  // structure-only lock, no password
+wb.ProtectWithPassword("hunter2");             // structure + password
+wb.ProtectWithPassword("hunter2", LockAll);    // explicit options + password
+```
+
+**Security caveat repeated from I-54:** the XOR-verifier algorithm is widely known to be brute-forceable. This is a UX guard ("Excel rejects the unprotect attempt if the password doesn't hash to the same verifier"), not real security.
+
+`Unprotect` clears the structure / windows / revision flags but does **not** clear the `workbookPassword` byte array — once cleared of lock flags, the password is effectively dormant since no protected state references it. A subsequent `Protect` or `ProtectWithPassword` overwrites it.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

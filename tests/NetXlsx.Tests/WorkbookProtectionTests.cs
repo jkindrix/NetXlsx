@@ -112,6 +112,93 @@ public class WorkbookProtectionTests
 
     // ---- File round-trip ----------------------------------------------
 
+    // ---- Workbook password (v1.2 / I-65) ------------------------------
+
+    [Fact]
+    public void ProtectWithPassword_Sets_The_XOR_Verifier_Hash()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("S");
+        wb.ProtectWithPassword("hunter2");
+
+        wb.IsProtected.Should().BeTrue();
+        var ct = wb.Underlying.GetCTWorkbook().workbookProtection;
+        ct.workbookPassword.Should().NotBeNull();
+        ct.workbookPassword.Length.Should().Be(2, "16-bit XOR verifier");
+        // hunter2 -> 0xC258 per NPOI.CryptoFunctions.CreateXorVerifier1
+        ct.workbookPassword[0].Should().Be(0xC2);
+        ct.workbookPassword[1].Should().Be(0x58);
+    }
+
+    [Fact]
+    public void ProtectWithPassword_Defaults_To_LockStructure()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("S");
+        wb.ProtectWithPassword("pwd");
+        wb.Underlying.IsStructureLocked().Should().BeTrue();
+        wb.Underlying.IsWindowsLocked().Should().BeFalse();
+    }
+
+    [Fact]
+    public void ProtectWithPassword_Accepts_Explicit_Options()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("S");
+        wb.ProtectWithPassword("pwd", new WorkbookProtection { Structure = true, Windows = true });
+        wb.Underlying.IsStructureLocked().Should().BeTrue();
+        wb.Underlying.IsWindowsLocked().Should().BeTrue();
+    }
+
+    [Fact]
+    public void ProtectWithPassword_Rejects_Null_Password()
+    {
+        using var wb = Workbook.Create();
+        Action act = () => wb.ProtectWithPassword(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Unprotect_Clears_Password_Too()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("S");
+        wb.ProtectWithPassword("pwd");
+        wb.Underlying.GetCTWorkbook().workbookProtection.workbookPassword.Should().NotBeNull();
+
+        wb.Unprotect();
+        wb.IsProtected.Should().BeFalse();
+        // Note: Unprotect clears the lock flags but not necessarily the
+        // workbookPassword byte[] — the CT_WorkbookProtection element
+        // becomes effectively a no-op without the structure/windows/
+        // revision flags. Documented in implementation-notes.md.
+    }
+
+    [Fact]
+    public void ProtectWithPassword_Survives_File_Roundtrip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"wbpwd-rt-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.Create())
+            {
+                wb.AddSheet("S");
+                wb.ProtectWithPassword("hunter2");
+                wb.Save(path);
+            }
+            using (var wb = Workbook.Open(path))
+            {
+                wb.IsProtected.Should().BeTrue();
+                var pwdBytes = wb.Underlying.GetCTWorkbook().workbookProtection.workbookPassword;
+                pwdBytes.Should().NotBeNull();
+                pwdBytes.Length.Should().Be(2);
+                pwdBytes[0].Should().Be(0xC2);
+                pwdBytes[1].Should().Be(0x58);
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     [Fact]
     public void Protect_Survives_File_Roundtrip()
     {

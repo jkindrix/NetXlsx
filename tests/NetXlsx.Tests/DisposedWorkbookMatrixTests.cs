@@ -29,6 +29,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "AddNamedRange", (Action<IWorkbook>)(wb => wb.AddNamedRange("X", "S!$A$1")) };
         yield return new object[] { "NamedRanges", (Action<IWorkbook>)(wb => { var _ = wb.NamedRanges; }) };
         yield return new object[] { "Protect", (Action<IWorkbook>)(wb => wb.Protect()) };
+        yield return new object[] { "ProtectWithPassword", (Action<IWorkbook>)(wb => wb.ProtectWithPassword("p")) };
         yield return new object[] { "Unprotect", (Action<IWorkbook>)(wb => wb.Unprotect()) };
         yield return new object[] { "IsProtected", (Action<IWorkbook>)(wb => { var _ = wb.IsProtected; }) };
         yield return new object[] { "RegisterStyle", (Action<IWorkbook>)(wb => wb.RegisterStyle("H", CellStyle.Default)) };
