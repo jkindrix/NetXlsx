@@ -9,6 +9,33 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 cookbook recipes (release-PR prep)
+
+Seven new cookbook recipes covering the v1.1 feature surface,
+plus matching golden-file smoke tests:
+
+- `rich-text-cells` — multi-run RichText in a release-announcement
+  sheet (decision I-50).
+- `excel-tables` — structured table with `TableStyleMedium2` +
+  standalone AutoFilter on a sibling sheet (decisions I-51, I-56).
+- `embedded-images` — PNG via magic-byte auto-detect, JPEG via
+  explicit `ImageFormat` (decision I-52).
+- `protected-template` — fully-locked reference sheet + partially-
+  locked inputs sheet + workbook structure lock (decisions I-53, I-54).
+- `validated-input-form` — list / integer / date / text-length /
+  custom-formula validations (decision I-55).
+- `branded-styles` — three named styles (header/body/footer)
+  applied across cells and ranges (decision I-57).
+- `custom-list-converter` — `List<string>` round-trip through a
+  user-defined `ICellConverter<List<string>>` (decision I-58).
+
+Each recipe was smoke-tested end-to-end via
+`dotnet run --project samples/NetXlsx.Cookbook --no-build -c Release -f net10.0 -- <name> /tmp/x.xlsx`
+and the produced files re-opened cleanly via `Workbook.Open`.
+
+Cookbook total now **20 recipes** (13 v1.0 + 7 v1.1) discoverable
+via the BenchmarkSwitcher-style entry-point list in `Program.cs`.
+
 ### Extended benchmark coverage (post-v1.1-features; external-review item #2)
 
 - **New `benchmarks/NetXlsx.Benchmarks/BenchmarksExtended.cs`** with

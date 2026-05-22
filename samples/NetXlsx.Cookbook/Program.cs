@@ -27,6 +27,14 @@ public static class Program
         ("npoi-escape-hatch", NPOIEscapeHatch.Run),
         ("open-edit-save", OpenEditSave.Run),
         ("streaming-million-rows", StreamingMillionRows.Run),
+        // ---- v1.1 recipes (decisions I-50 through I-58) ----
+        ("rich-text-cells", RichTextCells.Run),
+        ("excel-tables", ExcelTables.Run),
+        ("embedded-images", EmbeddedImages.Run),
+        ("protected-template", ProtectedTemplate.Run),
+        ("validated-input-form", ValidatedInputForm.Run),
+        ("branded-styles", BrandedStyles.Run),
+        ("custom-list-converter", CustomListConverter.Run),
     };
 
     public static async Task<int> Main(string[] args)
