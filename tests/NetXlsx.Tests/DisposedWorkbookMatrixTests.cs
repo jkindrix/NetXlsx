@@ -31,6 +31,9 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Protect", (Action<IWorkbook>)(wb => wb.Protect()) };
         yield return new object[] { "Unprotect", (Action<IWorkbook>)(wb => wb.Unprotect()) };
         yield return new object[] { "IsProtected", (Action<IWorkbook>)(wb => { var _ = wb.IsProtected; }) };
+        yield return new object[] { "RegisterStyle", (Action<IWorkbook>)(wb => wb.RegisterStyle("H", CellStyle.Default)) };
+        yield return new object[] { "GetRegisteredStyle", (Action<IWorkbook>)(wb => wb.GetRegisteredStyle("H")) };
+        yield return new object[] { "RegisteredStyleNames", (Action<IWorkbook>)(wb => { var _ = wb.RegisteredStyleNames; }) };
     }
 
     [Theory]
@@ -180,6 +183,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Style", (Action<ICell>)(c => c.Style(CellStyle.Default)) };
         yield return new object[] { "NumberFormat", (Action<ICell>)(c => c.NumberFormat("0.00")) };
         yield return new object[] { "GetStyle", (Action<ICell>)(c => c.GetStyle()) };
+        yield return new object[] { "ApplyNamedStyle", (Action<ICell>)(c => c.ApplyNamedStyle("H")) };
     }
 
     [Theory]
@@ -219,6 +223,7 @@ public class DisposedWorkbookMatrixTests
         }) };
         yield return new object[] { "Value", (Action<IRange>)(r => r.Value("x")) };
         yield return new object[] { "Apply", (Action<IRange>)(r => r.Apply(CellStyle.Default)) };
+        yield return new object[] { "ApplyNamedStyle", (Action<IRange>)(r => r.ApplyNamedStyle("H")) };
         yield return new object[] { "ClearContents", (Action<IRange>)(r => r.ClearContents()) };
         // Note: Merge() not in this matrix — Merge throws InvalidOperation
         // on overlap and a 1x1 is a no-op; the throw-after-dispose path

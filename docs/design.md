@@ -249,6 +249,27 @@ bool IsProtected { get; }
 
 Same security caveat as sheet protection (I-53): this is a UX guard, not security. NPOI 2.7.3 does not expose workbook-level password support directly; password protection requires reaching through `.Underlying` and manipulating the `CT_WorkbookProtection` element. v1.1 ships the unprotected-by-default flag flip; password support is deferred.
 
+### 6.2.2 Named / reusable styles — I-57
+
+```csharp
+// On IWorkbook:
+void RegisterStyle(string name, CellStyle style);
+CellStyle? GetRegisteredStyle(string name);   // null if unknown
+IReadOnlyCollection<string> RegisteredStyleNames { get; }
+
+// On ICell:
+ICell ApplyNamedStyle(string name);
+
+// On IRange:
+IRange ApplyNamedStyle(string name);
+```
+
+**I-57 (added 2026-05-22):** A workbook-scoped name registry for `CellStyle` values. Register once with a name; apply by name on cells or ranges. Backed by the existing style-pool dedup (decision #4) — equal `CellStyle` instances still share one underlying NPOI `ICellStyle`, so naming is purely a caller-side convenience.
+
+**v1.1 named styles are an in-process convenience, not OOXML named-style table entries.** When a workbook is saved and reopened via `Workbook.Open`, the per-cell style is preserved (via style-pool dedup), but the name → style map is not rehydrated — Excel itself never saw the names. Real OOXML named-style table integration (so styles persist by name across open/save) is deferred to v1.2.
+
+Names are case-insensitive. Re-registering an existing name replaces the definition.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

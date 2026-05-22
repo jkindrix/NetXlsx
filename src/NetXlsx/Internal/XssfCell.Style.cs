@@ -31,6 +31,13 @@ internal sealed partial class XssfCell
         return Style(new CellStyle { NumberFormat = format });
     }
 
+    public ICell ApplyNamedStyle(string name)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        return Style(_workbook.ResolveNamedStyleOrThrow(name));
+    }
+
     public CellStyle GetStyle()
     {
         _workbook.ThrowIfDisposed();

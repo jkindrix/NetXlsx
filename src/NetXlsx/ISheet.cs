@@ -117,6 +117,33 @@ public interface IWorkbook : IDisposable
     System.Collections.Generic.IReadOnlyList<INamedRange> NamedRanges { get; }
 
     /// <summary>
+    /// Registers <paramref name="style"/> under <paramref name="name"/> for
+    /// reuse via <see cref="ICell.ApplyNamedStyle"/> and
+    /// <see cref="IRange.ApplyNamedStyle"/> (decision I-57). Names are
+    /// case-insensitive. Re-registering an existing name replaces the
+    /// definition.
+    /// <para>
+    /// v1.1 named styles are an <b>in-process convenience</b> — they do
+    /// not produce entries in OOXML's named-style table. Reading a
+    /// saved workbook with <see cref="Workbook.Open"/> does not rehydrate
+    /// the name map; only the per-cell style is preserved (via the
+    /// style-pool dedup, decision #4).
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> or <paramref name="style"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is empty.</exception>
+    void RegisterStyle(string name, CellStyle style);
+
+    /// <summary>
+    /// Returns the style registered under <paramref name="name"/>, or
+    /// <c>null</c> when no such name is registered. Case-insensitive.
+    /// </summary>
+    CellStyle? GetRegisteredStyle(string name);
+
+    /// <summary>The names currently registered via <see cref="RegisterStyle"/>.</summary>
+    System.Collections.Generic.IReadOnlyCollection<string> RegisteredStyleNames { get; }
+
+    /// <summary>
     /// Protects this workbook against UI-level structural changes
     /// (decision I-54). When <paramref name="options"/> is null,
     /// defaults to <see cref="WorkbookProtection.LockStructure"/>
@@ -508,6 +535,15 @@ public interface IRange : System.Collections.Generic.IEnumerable<ICell>
     IRange Apply(CellStyle style);
 
     /// <summary>
+    /// Applies the style registered under <paramref name="name"/> to every
+    /// cell in the rectangle (decision I-57). See
+    /// <see cref="IWorkbook.RegisterStyle"/> for the name registry.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is null.</exception>
+    /// <exception cref="ArgumentException">No style is registered under <paramref name="name"/>.</exception>
+    IRange ApplyNamedStyle(string name);
+
+    /// <summary>
     /// Merges this range. Shorthand for
     /// <c>sheet.MergeCells(range.Address)</c>; same semantics
     /// (decision §6.4): 1×1 is a no-op; overlap with an existing merge
@@ -746,6 +782,17 @@ public interface ICell
     /// elapsed days (§7.9).
     /// </summary>
     TimeSpan? GetDuration();
+
+    /// <summary>
+    /// Applies the style previously registered via
+    /// <see cref="IWorkbook.RegisterStyle"/> under <paramref name="name"/>
+    /// (decision I-57). Equivalent to
+    /// <c>cell.Style(workbook.GetRegisteredStyle(name)!)</c> but throws
+    /// a friendlier error when the name is unknown.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is null.</exception>
+    /// <exception cref="ArgumentException">No style is registered under <paramref name="name"/>.</exception>
+    ICell ApplyNamedStyle(string name);
 
     /// <summary>
     /// Applies <paramref name="style"/> to the cell as a <b>merge</b>, not

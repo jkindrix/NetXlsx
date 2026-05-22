@@ -9,6 +9,27 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Named / reusable styles (slice 8/10)
+
+- **`IWorkbook.RegisterStyle` / `GetRegisteredStyle` /
+  `RegisteredStyleNames`** + **`ICell.ApplyNamedStyle`** /
+  **`IRange.ApplyNamedStyle`**: register a CellStyle by name on
+  the workbook, apply by name on cells/ranges (decision I-57).
+- Names are case-insensitive. Re-registering an existing name
+  replaces the definition.
+- **In-process convenience only.** v1.1 named styles do not
+  produce OOXML named-style table entries; `Workbook.Open` does
+  not rehydrate the name map. Per-cell visual style is still
+  preserved through the existing style-pool dedup (decision #4) —
+  naming is purely a caller-side ergonomic. Real OOXML named-
+  style table integration deferred to v1.2.
+- Coverage: 13 new tests
+  (`tests/NetXlsx.Tests/NamedStyleTests.cs`) — empty default,
+  register + get, case-insensitive lookup, get returns null for
+  unknown, replace existing, enumerate names, null/empty name
+  rejection, null style rejection, cell + range apply, unknown
+  name throws. Disposed-workbook matrix updated.
+
 ### v1.1 — AutoFilter (slice 7/10)
 
 - **`ISheet.SetAutoFilter(a1Range)` / `ClearAutoFilter` /

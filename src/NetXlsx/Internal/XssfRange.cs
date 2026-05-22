@@ -151,6 +151,13 @@ internal sealed class XssfRange : IRange
         return this;
     }
 
+    public IRange ApplyNamedStyle(string name)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        return Apply(_workbook.ResolveNamedStyleOrThrow(name));
+    }
+
     public IRange Merge()
     {
         _workbook.ThrowIfDisposed();

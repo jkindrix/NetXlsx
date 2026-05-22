@@ -113,6 +113,11 @@ static NetXlsx.WorkbookProtection.LockStructure.get -> NetXlsx.WorkbookProtectio
 NetXlsx.IWorkbook.Protect(NetXlsx.WorkbookProtection? options = null) -> void
 NetXlsx.IWorkbook.Unprotect() -> void
 NetXlsx.IWorkbook.IsProtected.get -> bool
+NetXlsx.IWorkbook.RegisterStyle(string! name, NetXlsx.CellStyle! style) -> void
+NetXlsx.IWorkbook.GetRegisteredStyle(string! name) -> NetXlsx.CellStyle?
+NetXlsx.IWorkbook.RegisteredStyleNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+NetXlsx.ICell.ApplyNamedStyle(string! name) -> NetXlsx.ICell!
+NetXlsx.IRange.ApplyNamedStyle(string! name) -> NetXlsx.IRange!
 NetXlsx.DataValidation
 NetXlsx.ISheet.AddValidation(string! a1Range, NetXlsx.DataValidation! validation) -> void
 static NetXlsx.DataValidation.List(params string![]! values) -> NetXlsx.DataValidation!
