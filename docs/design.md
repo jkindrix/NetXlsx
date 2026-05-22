@@ -537,6 +537,48 @@ public sealed record CellBorders(
 
 `CellStyle` is a value record. Equal styles produce the same NPOI `ICellStyle` via the workbook's internal style cache.
 
+### 6.8.1 Rich text (multi-run formatted strings) — I-50
+
+```csharp
+public sealed record RichTextStyle
+{
+    public bool? Bold { get; init; }
+    public bool? Italic { get; init; }
+    public UnderlineStyle? Underline { get; init; }
+    public string? FontName { get; init; }
+    public double? FontSize { get; init; }
+    public Color? Color { get; init; }
+    public static RichTextStyle Default { get; }
+}
+
+public sealed record RichTextRun(string Text, RichTextStyle Style)
+{
+    public RichTextRun(string text);  // RichTextStyle.Default
+}
+
+public sealed record RichText
+{
+    public RichText(IReadOnlyList<RichTextRun> runs);
+    public RichText(params RichTextRun[] runs);
+    public IReadOnlyList<RichTextRun> Runs { get; }
+    public string PlainText { get; }   // string.Concat(Runs.Select(r => r.Text))
+}
+
+// On ICell:
+void SetRichText(RichText value);
+RichText? GetRichText();              // null for plain SetString cells
+```
+
+**I-50 (added 2026-05-22):** Rich text is modeled as immutable value records mirroring `CellStyle`'s shape, with the per-run style restricted to **font-only** axes. Excel's OOXML run model has no per-run fills, borders, alignment, or number format — exposing the full `CellStyle` on a run would silently drop those axes. Cell-level visual style remains routed through `ICell.Style(CellStyle)`; per-run typography is layered via `SetRichText`.
+
+`GetRichText()` returns non-null only when the cell carries explicit formatting runs (`NumFormattingRuns > 0` in OOXML terms). A cell set via `SetString` returns `null` from `GetRichText()` even though OOXML stores every string cell as an `XSSFRichTextString` internally — the distinction surfaces "this string has run-level formatting" vs "this is a plain string".
+
+`CellKind` stays `String` for rich-text cells (no new enum value). `GetString()` continues to return the concatenated plain text.
+
+**Streaming write is intentionally absent.** `IStreamingCell` does **not** carry `SetRichText`. NPOI's SXSSF `SheetDataWriter` (NPOI 2.7.x) constructs a fresh `XSSFRichTextString` from `cell.StringCellValue` at flush time — dropping any in-memory formatting runs. Per decision #7 (type-honesty for streaming), the absence of the method on `IStreamingCell` mirrors the absence of the capability, rather than silently degrading or throwing at runtime. A future NPOI 3.x evaluation may revisit this.
+
+The font pool used for cell-level styles (decision #4) is reused for run fonts — runs with identical font properties share one `IFont` across the workbook.
+
 ### 6.9 Typed mapping (source-generated extension methods)
 
 ```csharp

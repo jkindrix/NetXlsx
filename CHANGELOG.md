@@ -9,6 +9,34 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — rich text in cells (slice 1/10)
+
+- **`ICell.SetRichText(RichText)` / `ICell.GetRichText()`**: multi-run
+  formatted strings (decision I-50). Per-run typography is restricted
+  to font axes (Bold, Italic, Underline, FontName, FontSize, Color) —
+  Excel's OOXML run model has no per-run fills/borders/alignment, so
+  exposing the full `CellStyle` on a run would silently drop those
+  axes. Cell-level style continues to route through `ICell.Style`.
+- New public value records: `RichText`, `RichTextRun`, `RichTextStyle`
+  (font-only subset of `CellStyle`; same nullable-axis convention).
+- Run fonts are pooled through the existing `CellStylePool` font cache
+  (decision #4) — runs with identical font properties share one
+  `IFont` across the workbook.
+- **`IStreamingCell.SetRichText` is intentionally absent.** NPOI's
+  SXSSF `SheetDataWriter` (NPOI 2.7.x) reconstructs a fresh
+  `XSSFRichTextString` from `cell.StringCellValue` at flush time,
+  dropping all in-memory formatting runs. Per decision #7
+  (streaming type-honesty), the absence of the method mirrors the
+  absence of the capability rather than silently degrading.
+  Caught during the v1.1 slice via a streaming round-trip test that
+  surfaced the loss; documented in `docs/implementation-notes.md`.
+- Coverage: 14 new tests (`tests/NetXlsx.Tests/RichTextApiTests.cs`)
+  — value-type semantics, validation, in-memory round-trip, file
+  round-trip via `Workbook.Open`, `MaxCellTextLength` enforcement,
+  zero-length run skip, and the streaming-cell type-honesty
+  reflection assertion. Public-API snapshot + disposed-workbook
+  matrix updated.
+
 ## [1.0.0] — 2026-05-20
 
 ### ⚠️ BREAKING CHANGES

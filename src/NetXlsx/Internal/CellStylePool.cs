@@ -129,6 +129,39 @@ internal sealed class CellStylePool
         return s;
     }
 
+    /// <summary>
+    /// Returns the pooled NPOI <see cref="IFont"/> matching the given
+    /// rich-text run style. Reuses the same font pool as the cell-style
+    /// allocator (decision I-50) — runs with identical font properties
+    /// share one <c>IFont</c> across the workbook.
+    /// </summary>
+    internal IFont GetOrCreateRunFont(RichTextStyle style)
+    {
+        var key = new FontKey(
+            style.FontName,
+            style.FontSize,
+            style.Bold ?? false,
+            style.Italic ?? false,
+            style.Underline ?? UnderlineStyle.None,
+            style.Color);
+        return GetOrCreateFont(key);
+    }
+
+    /// <summary>
+    /// Reads an NPOI <see cref="IFont"/> back to a <see cref="RichTextStyle"/>.
+    /// Mirrors <see cref="ReadFromNpoi"/>'s font axes; lossy for properties
+    /// the run model does not cover.
+    /// </summary>
+    internal static RichTextStyle ReadRunStyleFromFont(IFont font) => new()
+    {
+        Bold = font.IsBold ? true : null,
+        Italic = font.IsItalic ? true : null,
+        Underline = MapUnderlineFromNpoi(font.Underline),
+        FontName = font.FontName,
+        FontSize = font.FontHeightInPoints > 0 ? font.FontHeightInPoints : null,
+        Color = MapXssfColorToColor((font as XSSFFont)?.GetXSSFColor()),
+    };
+
     private static bool NeedsFont(CellStyle s) =>
         s.Bold is not null || s.Italic is not null || s.Underline is not null
         || s.FontName is not null || s.FontSize is not null || s.FontColor is not null;

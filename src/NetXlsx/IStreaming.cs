@@ -153,7 +153,13 @@ public interface IStreamingCell
     /// <summary>The cell's kind.</summary>
     CellKind Kind { get; }
 
-    /// <summary>Writes a string value.</summary>
+    /// <summary>
+    /// Writes a string value. Streaming cells store plain strings only —
+    /// the rich-text surface from <see cref="ICell.SetRichText"/> is
+    /// deliberately absent here because NPOI's SXSSF writer (NPOI 2.7.x)
+    /// emits formatting runs as plain text, dropping per-run fonts at
+    /// flush time. Decision I-50 / decision #7 (streaming type-honesty).
+    /// </summary>
     void SetString(string value);
     /// <summary>Writes a double value.</summary>
     void SetNumber(double value);

@@ -1,1 +1,31 @@
 #nullable enable
+NetXlsx.ICell.SetRichText(NetXlsx.RichText! value) -> void
+NetXlsx.ICell.GetRichText() -> NetXlsx.RichText?
+NetXlsx.RichText
+NetXlsx.RichText.RichText(System.Collections.Generic.IReadOnlyList<NetXlsx.RichTextRun!>! runs) -> void
+NetXlsx.RichText.RichText(params NetXlsx.RichTextRun![]! runs) -> void
+NetXlsx.RichText.Runs.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.RichTextRun!>!
+NetXlsx.RichText.PlainText.get -> string!
+NetXlsx.RichText.Equals(NetXlsx.RichText? other) -> bool
+override NetXlsx.RichText.GetHashCode() -> int
+NetXlsx.RichTextRun
+NetXlsx.RichTextRun.RichTextRun(string! Text, NetXlsx.RichTextStyle! Style) -> void
+NetXlsx.RichTextRun.RichTextRun(string! text) -> void
+NetXlsx.RichTextRun.Text.get -> string!
+NetXlsx.RichTextRun.Text.init -> void
+NetXlsx.RichTextRun.Style.get -> NetXlsx.RichTextStyle!
+NetXlsx.RichTextRun.Style.init -> void
+NetXlsx.RichTextStyle
+NetXlsx.RichTextStyle.Bold.get -> bool?
+NetXlsx.RichTextStyle.Bold.init -> void
+NetXlsx.RichTextStyle.Italic.get -> bool?
+NetXlsx.RichTextStyle.Italic.init -> void
+NetXlsx.RichTextStyle.Underline.get -> NetXlsx.UnderlineStyle?
+NetXlsx.RichTextStyle.Underline.init -> void
+NetXlsx.RichTextStyle.FontName.get -> string?
+NetXlsx.RichTextStyle.FontName.init -> void
+NetXlsx.RichTextStyle.FontSize.get -> double?
+NetXlsx.RichTextStyle.FontSize.init -> void
+NetXlsx.RichTextStyle.Color.get -> NetXlsx.Color?
+NetXlsx.RichTextStyle.Color.init -> void
+static NetXlsx.RichTextStyle.Default.get -> NetXlsx.RichTextStyle!

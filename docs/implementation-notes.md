@@ -671,6 +671,115 @@ the 6.x → 8.x PR doesn't keep cycling.
 
 ---
 
+## 2026-05-22 — v1.1 slice 1: rich text in cells (I-50)
+
+### NPOI SXSSF drops rich-text formatting at the serializer level
+
+The streaming round-trip test for `SetRichText` is what forced the
+final shape of the surface. Set up:
+
+1. Add `SetRichText` to both `ICell` (random-access) and
+   `IStreamingCell` (streaming).
+2. Implement on both `XssfCell` and `SxssfCell` via NPOI's
+   `XSSFRichTextString.ApplyFont(start, end, IFont)`.
+3. Write a streaming round-trip test: create → set rich text →
+   save → open → assert.
+
+The streaming round-trip test failed with `GetRichText() == null`
+on read-back. Inspecting NPOI's `SheetDataWriter.cs:307-336`
+revealed the cause:
+
+```csharp
+case CellType.String:
+{
+    if (_sharedStringSource != null)
+    {
+        XSSFRichTextString rt = new XSSFRichTextString(cell.StringCellValue);
+        //                                              ^^^^^^^^^^^^^^^^^^^^
+        // Plain string only — no formatting runs from the original cell value!
+        int sRef = _sharedStringSource.AddEntry(rt.GetCTRst());
+        ...
+```
+
+SXSSF's serializer reconstructs the rich-text string from the
+plain string at flush time, **dropping all formatting runs**. So
+`SxssfCell.SetCellValue(IRichTextString)` stores the runs in
+memory, but the on-disk OOXML has none.
+
+This isn't NetXlsx's bug — it's a known SXSSF limitation in NPOI
+2.7.x. We had three options:
+
+1. **Throw `NotSupportedException`** on
+   `IStreamingCell.SetRichText` — honest, but creates an awkward
+   throw-on-call surface.
+2. **Silently degrade** to plain string write — quiet data loss,
+   violates the spirit of the type-honest streaming split
+   (decision #7).
+3. **Omit the method from `IStreamingCell`** — absence of the
+   method mirrors absence of the capability.
+
+Picked (3). Decision #7 was the load-bearing precedent — random-access
+`Workbook` and streaming `IStreamingWorkbook` are separate interfaces
+specifically so streaming doesn't expose capabilities it can't honor.
+This is the same principle applied one level down.
+
+The reflection assertion in `RichTextApiTests` (`IStreamingCell_Does_Not_Expose_SetRichText`)
+documents the absence and pins the decision into the test surface
+so a future addition (e.g., NPOI 3.x reopening SXSSF rich-text
+support) is a deliberate change, not a silent re-introduction.
+
+### Font-only run style: rejecting the obvious choice
+
+The first surface shape proposed `RichTextRun(string Text, CellStyle? Style)`
+— reuse the existing `CellStyle` type for runs. Tempting, but wrong:
+
+- Excel's OOXML `<r><rPr>` element has no fills, borders, alignment,
+  number format, or wrap-text axes. Per-run, only font properties
+  apply.
+- Passing `CellStyle { Background = Color.Red }` on a run would
+  silently no-op the background. Callers wouldn't see the drop.
+- The type signature lies — accepts what looks like a complete
+  style; honors a subset.
+
+A purpose-built `RichTextStyle` with only the font axes (Bold,
+Italic, Underline, FontName, FontSize, Color) makes the surface
+honest. Cell-level style continues through `ICell.Style(CellStyle)`
+unchanged.
+
+This is one of those "the easy option is the wrong option" moments
+the design discipline keeps catching. A function-only type
+duplicates six properties from `CellStyle`, but the duplication
+is load-bearing: it documents what the run model actually
+supports.
+
+### Read-back: distinguishing "rich" from "plain"
+
+NPOI stores every string cell as `XSSFRichTextString` internally,
+including cells set via plain `SetCellValue(string)`. `GetRichText()`
+needs to distinguish:
+
+- A cell set via `SetString("hello")` → return `null`.
+- A cell set via `SetRichText(...)` → return the runs.
+- A cell loaded from a file with explicit formatting → return runs.
+
+The discriminator is `XSSFRichTextString.NumFormattingRuns`. Plain
+strings have 0; explicit formatting has ≥ 1. Captured in the unit
+tests so the distinction stays load-bearing.
+
+### Font pool reuse
+
+The existing `CellStylePool._fontPool` (keyed by `FontKey`)
+already supports rich-text's needs perfectly — same fields
+(name/size/bold/italic/underline/color). Added one internal method
+`GetOrCreateRunFont(RichTextStyle)` that maps to `FontKey` and
+delegates. No new pool, no new key type, no duplication.
+
+Lesson: when a new surface needs structural infrastructure the
+existing surface already has, look for an internal-method
+extension before assuming a new pool/cache is needed.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After

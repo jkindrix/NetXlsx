@@ -133,6 +133,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Underlying", (Action<ICell>)(c => { var _ = c.Underlying; }) };
         // Setters
         yield return new object[] { "SetString", (Action<ICell>)(c => c.SetString("x")) };
+        yield return new object[] { "SetRichText", (Action<ICell>)(c => c.SetRichText(new RichText(new RichTextRun("x")))) };
+        yield return new object[] { "GetRichText", (Action<ICell>)(c => c.GetRichText()) };
         yield return new object[] { "SetNumber(double)", (Action<ICell>)(c => c.SetNumber(1.0)) };
         yield return new object[] { "SetNumber(decimal)", (Action<ICell>)(c => c.SetNumber(1.0m)) };
         yield return new object[] { "SetNumber(int)", (Action<ICell>)(c => c.SetNumber(1)) };

@@ -475,6 +475,30 @@ public interface ICell
     /// <summary>Writes a string value to the cell.</summary>
     void SetString(string value);
 
+    /// <summary>
+    /// Writes a multi-run rich-text value to the cell (decision I-50).
+    /// The cell's <see cref="Kind"/> becomes <see cref="CellKind.String"/>;
+    /// <see cref="GetString"/> returns the concatenated plain text.
+    /// <see cref="GetRichText"/> returns the supplied value back.
+    /// Per-run <see cref="RichTextStyle"/> axes that are null inherit the
+    /// cell's current font; cell-level fills, borders, and alignment
+    /// remain governed by <see cref="Style(CellStyle)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is null.</exception>
+    /// <exception cref="ResourceLimitExceededException">
+    /// The concatenated plain text exceeds <c>WorkbookOptions.MaxCellTextLength</c>.
+    /// </exception>
+    void SetRichText(RichText value);
+
+    /// <summary>
+    /// Returns the cell's rich-text value when it carries explicit
+    /// per-run formatting, or <c>null</c> when the cell holds a plain
+    /// string (or any non-string value). A cell set via
+    /// <see cref="SetString"/> always returns <c>null</c> here even
+    /// though OOXML stores all string cells as rich-text internally.
+    /// </summary>
+    RichText? GetRichText();
+
     /// <summary>Writes a numeric value to the cell.</summary>
     void SetNumber(double value);
 
