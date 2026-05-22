@@ -319,13 +319,12 @@ v1.1 carries forward.
 v1.2 deferred two items after in-flight scope assessment. v1.3 is
 the natural home for both.
 
-- [ ] **OOXML named-style table integration.** v1.1 named styles
-      (I-57) are in-process — the name → style map is not rehydrated
-      by `Workbook.Open`. v1.3 adds write-side serialization
-      (`CT_Xf` in `cellStyleXfs` + `CT_CellStyle` in `cellStyles`)
-      and the read-side `CT_Xf → CellStyle` parser. Substantial
-      single slice — paired write + read or the API contract is
-      inconsistent.
+- [x] **OOXML named-style table integration** — landed (I-67).
+      Both write side (CT_Xf in cellStyleXfs, CT_CellStyle in
+      cellStyles) and lazy-rehydrate read side. Reaches across
+      NPOI's internal `PutCellStyleXf` / `GetCellStyleXfAt` /
+      `PutCellXf` via the centralized reflection in
+      `Internal/NpoiInternals.cs`.
 - [ ] **`FilterCriteria.In(...)` explicit-value list filter.** v1.2
       (I-66) covers custom-filter operators only because NPOI 2.7.3's
       `CT_FilterColumn` doesn't surface the `filters` property. v1.3

@@ -336,6 +336,32 @@ wb.ProtectWithPassword("hunter2", LockAll);    // explicit options + password
 
 `Unprotect` clears the structure / windows / revision flags but does **not** clear the `workbookPassword` byte array — once cleared of lock flags, the password is effectively dormant since no protected state references it. A subsequent `Protect` or `ProtectWithPassword` overwrites it.
 
+### 6.2.6 OOXML named-style table integration — I-67 (v1.3)
+
+**I-67 (added 2026-05-22):** v1.1 named styles (decision I-57) were an in-process convenience — `RegisterStyle` populated a `Dictionary<string, CellStyle>` but did not produce entries in OOXML's `cellStyleXfs` + `cellStyles` tables, so the name map was lost on `Workbook.Open`. v1.3 closes the loop.
+
+**Write side (`RegisterStyle`):**
+
+1. Allocate the visual style via the existing `CellStylePool.GetOrCreate` — gives a regular `cellXfs` entry whose font / fill / border indices we then mirror.
+2. Build a fresh `CT_Xf` for `cellStyleXfs` referencing the same indices. `applyFont` / `applyFill` / `applyBorder` are set when the corresponding index is non-zero.
+3. Append the `CT_Xf` to NPOI's internal `styleXfs` list via reflection (`StylesTable.PutCellStyleXf` is `internal` upstream — centralized in `NpoiInternals`). Direct manipulation of `CT_Stylesheet.cellStyleXfs.xf` fails because NPOI's save path overwrites that list with its internal copy at line 887 of `StylesTable.cs`.
+4. Add (or update) a `CT_CellStyle` entry to `CT_Stylesheet.cellStyles.cellStyle` with `name` + `xfId` pointing at the new cellStyleXfs index.
+
+**Read side (lazy on first access of `NamedStyles`):**
+
+1. Walk `CT_Stylesheet.cellStyles.cellStyle`.
+2. Skip the built-in `"Normal"` entry (Excel always creates one; surfacing it as a registered name would be noisy) and any entry with null/empty name.
+3. For each entry, get the corresponding `CT_Xf` via `NpoiInternals.GetCellStyleXfAt`.
+4. Materialize the CT_Xf as a regular `cellXfs` entry via `StylesTable.PutCellXf` (also `internal`; centralized in NpoiInternals). Wrap with `XSSFCellStyle`. Pass to the existing `CellStylePool.ReadFromNpoi(ICellStyle)` to produce a `CellStyle` value.
+5. Populate the in-process `_namedStyles` dictionary directly (no re-write of the OOXML entry — it's already there).
+
+Rehydration is triggered lazily from the `NamedStyles` property getter, which `GetRegisteredStyle` / `RegisteredStyleNames` / `RegisterStyle` all flow through.
+
+**Limitations carried forward:**
+
+- Excel's "Cell Styles" panel will show the named styles after open. Cells styled via `ApplyNamedStyle` do **not** carry a `xfId` reference to the named-style XF — they get an explicit cellXfs entry instead. The visual outcome is identical; the UI distinction (whether the cell shows as "Header" in the Cell Styles ribbon group) is not preserved across round-trip. Closing that gap fully would require the cellXfs entry to carry an `xfId` attribute pointing at the cellStyleXfs entry — deferred to a future slice if a user surfaces it as a need.
+- Materializing the cellStyleXfs entry as a cellXfs entry at read time produces one duplicate cellXfs row per named style. Cost is bounded (one per named style, not one per styled cell); acceptable.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

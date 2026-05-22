@@ -9,6 +9,53 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.3 slice 1 — OOXML named-style table integration (I-67)
+
+Closes the slice deferred from v1.2 (originally roadmap line item
+under v1.2 §"OOXML named-style table integration", reassigned to
+v1.3 after in-flight scope assessment).
+
+- **`IWorkbook.RegisterStyle(name, style)` now writes to OOXML.**
+  Each call adds a CT_Xf to the `cellStyleXfs` table and a
+  CT_CellStyle entry (name + xfId) to `cellStyles`. The
+  in-process name → CellStyle map remains the runtime source of
+  truth; OOXML serialization is a side effect.
+- **`IWorkbook.RegisteredStyleNames` and `GetRegisteredStyle` now
+  rehydrate from OOXML on first access** after a workbook is
+  opened. A freshly-opened workbook surfaces all named styles
+  that the saving tool wrote to `cellStyles`, except the built-in
+  "Normal" entry (Excel always creates one; we suppress it to
+  keep `RegisteredStyleNames` user-meaningful).
+- Both write and read sides use `Internal/NpoiInternals.cs` for
+  the reflection-bounded NPOI 2.7.3 internals access
+  (`StylesTable.PutCellStyleXf`, `GetCellStyleXfAt`, `PutCellXf`).
+  Each access is one cached `MethodInfo` at class-init; an NPOI
+  version that moves any of these throws a clear "internal
+  change" diagnostic at first-use.
+- **Named-style replacement** (`RegisterStyle("X", ...)` twice)
+  updates both the in-process map and the OOXML entry in place
+  — does not append a duplicate `<cellStyle>` row.
+- **Visual style preservation across round-trip:** the read path
+  materializes each named-style XF as a regular cellXfs entry and
+  pipes through `CellStylePool.ReadFromNpoi(ICellStyle)` to
+  produce a `CellStyle` value. One duplicate cellXfs entry per
+  named style at read time; cost is bounded.
+- **Carried-forward limitation:** cells styled via
+  `ApplyNamedStyle` do not carry a `xfId` reference to the
+  named-style XF after round-trip; they get an explicit cellXfs
+  entry. Visual outcome is identical; Excel's Cell Styles ribbon
+  group won't highlight the cell's style by name. Closing that
+  gap is a future slice.
+
+Coverage: 4 new tests in
+`tests/NetXlsx.Tests/NamedStyleTests.cs` — names + properties
+survive file round-trip, case-insensitive lookup preserved,
+workbook without named styles reads back empty (Excel's built-in
+"Normal" filtered out), RegisterStyle replacement updates the
+OOXML entry in place.
+
+Test totals: 605 unit (was 601 at v1.2.0); other suites unchanged.
+
 ## [1.2.0] — 2026-05-22
 
 v1.2 closes five of the six deferments from v1.1 and lands one
