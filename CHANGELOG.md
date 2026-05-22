@@ -9,6 +9,31 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.3 slice 2 — `FilterCriteria.In(...)` (partial, I-68)
+
+Adds the explicit-value-list filter factory deferred from v1.2.
+NPOI 2.7.3's `CT_FilterColumn` proxy models only `customFilters`,
+not the OOXML `<filters>` element — so v1.3 ships **two-value
+support via the customFilters route** (the same path Excel uses
+internally for short value lists) and throws
+`NotSupportedException` for 3+ values.
+
+- New `FilterCriteria.In(params string[] values)`.
+- New `FilterCriteria.In(IEnumerable<string> values)`.
+- 0 values → `ArgumentException`.
+- 1 value → reduces to `EqualTo(v[0])`.
+- 2 values → composes `EqualTo(a).Or(EqualTo(b))`.
+- 3+ values → `NotSupportedException` with a message naming NPOI
+  2.7.3 and the `<filters>` element. Lifts cleanly when an NPOI
+  3.x bump or a future XML-emission workaround removes the limit
+  — no caller-code change required.
+
+Coverage: 7 new tests in
+`tests/NetXlsx.Tests/AutoFilterTests.cs` — single-value reduces,
+two-value OR-joined, three-or-more throws, empty rejected, null
+entries rejected, null argument rejected, IEnumerable overload
+exercised.
+
 ### v1.3 slice 1 — OOXML named-style table integration (I-67)
 
 Closes the slice deferred from v1.2 (originally roadmap line item

@@ -105,6 +105,60 @@ public sealed class FilterCriteria
         return GreaterThanOrEqual(min).And(LessThanOrEqual(max));
     }
 
+    // ---- Explicit value list ----------------------------------------
+
+    /// <summary>
+    /// Matches cells whose value equals any of <paramref name="values"/>.
+    /// <para>
+    /// <b>NPOI 2.7.3 limit:</b> Excel models this as the <c>&lt;filters&gt;</c>
+    /// element on <c>filterColumn</c>, but NPOI 2.7.3's
+    /// <c>CT_FilterColumn</c> proxy does not surface that element —
+    /// it only models <c>customFilters</c>. v1.3 implements the
+    /// 1–2-value case by falling back to <c>customFilters</c> with
+    /// OR-joined equality conditions (which is exactly what Excel
+    /// itself does for short lists). <b>For 3+ values, this method
+    /// throws <see cref="NotSupportedException"/></b> — full support
+    /// awaits an NPOI 3.x bump or a future XML-emission workaround.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="values"/> is empty, or contains a null entry.</exception>
+    /// <exception cref="NotSupportedException">More than two values supplied. Tracked as a v1.4 candidate; reach through <see cref="ISheet.Underlying"/> for now.</exception>
+    public static FilterCriteria In(params string[] values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        return In((IEnumerable<string>)values);
+    }
+
+    /// <summary>Same as <see cref="In(string[])"/> but accepts any enumerable.</summary>
+    public static FilterCriteria In(IEnumerable<string> values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        var list = new List<string>();
+        foreach (var v in values)
+        {
+            if (v is null)
+                throw new ArgumentException("FilterCriteria.In does not accept null entries.", nameof(values));
+            list.Add(v);
+        }
+        switch (list.Count)
+        {
+            case 0:
+                throw new ArgumentException("FilterCriteria.In requires at least one value.", nameof(values));
+            case 1:
+                return EqualTo(list[0]);
+            case 2:
+                return EqualTo(list[0]).Or(EqualTo(list[1]));
+            default:
+                throw new NotSupportedException(
+                    "FilterCriteria.In supports only 1 or 2 values on NPOI 2.7.3 — Excel's " +
+                    "<filters> element (the value-list filter) is not exposed by " +
+                    "CT_FilterColumn in this NPOI version. For 3+ values, reach through " +
+                    "ISheet.Underlying.GetCTWorksheet().autoFilter directly, or wait for " +
+                    "the NPOI 3.x bump that will lift this limit.");
+        }
+    }
+
     // ---- String-pattern (encoded as equal with wildcards) ------------
 
     /// <summary>

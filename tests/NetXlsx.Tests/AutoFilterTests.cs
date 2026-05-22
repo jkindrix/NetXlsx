@@ -271,6 +271,88 @@ public class AutoFilterTests
         val.Should().Be("*a~*b~?c*");
     }
 
+    // ---- FilterCriteria.In(...) (v1.3 / I-68) -------------------------
+
+    [Fact]
+    public void FilterCriteria_In_Single_Value_Reduces_To_EqualTo()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        sh.SetAutoFilterColumn(0, FilterCriteria.In("EU"));
+
+        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
+        cf.customFilter.Should().HaveCount(1);
+        cf.customFilter[0].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.equal);
+        cf.customFilter[0].val.Should().Be("EU");
+    }
+
+    [Fact]
+    public void FilterCriteria_In_Two_Values_Builds_OR_Joined_Equality()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        sh.SetAutoFilterColumn(0, FilterCriteria.In("EU", "US"));
+
+        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
+        cf.customFilter.Should().HaveCount(2);
+        cf.and.Should().BeFalse("In() is an OR-of-equality");
+        cf.customFilter[0].val.Should().Be("EU");
+        cf.customFilter[1].val.Should().Be("US");
+    }
+
+    [Fact]
+    public void FilterCriteria_In_Three_Or_More_Values_Throws_NotSupported()
+    {
+        Action act = () => FilterCriteria.In("a", "b", "c");
+        act.Should().Throw<NotSupportedException>()
+            .WithMessage("*NPOI 2.7.3*")
+            .WithMessage("*<filters>*");
+    }
+
+    [Fact]
+    public void FilterCriteria_In_Rejects_Empty_List()
+    {
+        Action a = () => FilterCriteria.In();
+        a.Should().Throw<ArgumentException>().WithMessage("*at least one value*");
+        Action b = () => FilterCriteria.In(System.Linq.Enumerable.Empty<string>());
+        b.Should().Throw<ArgumentException>().WithMessage("*at least one value*");
+    }
+
+    [Fact]
+    public void FilterCriteria_In_Rejects_Null_Entries()
+    {
+        Action act = () => FilterCriteria.In("EU", null!);
+        act.Should().Throw<ArgumentException>().WithMessage("*null entries*");
+    }
+
+    [Fact]
+    public void FilterCriteria_In_Rejects_Null_Argument()
+    {
+        Action a = () => FilterCriteria.In((string[])null!);
+        a.Should().Throw<ArgumentNullException>();
+        Action b = () => FilterCriteria.In((System.Collections.Generic.IEnumerable<string>)null!);
+        b.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void FilterCriteria_In_Accepts_IEnumerable_Overload()
+    {
+        // Verifies the IEnumerable overload — common call shape is
+        // `In(myList)` where myList is a List<string> or similar.
+        var values = new System.Collections.Generic.List<string> { "A", "B" };
+        var criteria = FilterCriteria.In(values);
+
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        sh.SetAutoFilterColumn(0, criteria);
+
+        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
+        cf.customFilter.Should().HaveCount(2);
+    }
+
     [Fact]
     public void AutoFilterColumn_Criteria_Survives_File_Roundtrip()
     {

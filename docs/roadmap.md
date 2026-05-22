@@ -325,11 +325,13 @@ the natural home for both.
       NPOI's internal `PutCellStyleXf` / `GetCellStyleXfAt` /
       `PutCellXf` via the centralized reflection in
       `Internal/NpoiInternals.cs`.
-- [ ] **`FilterCriteria.In(...)` explicit-value list filter.** v1.2
-      (I-66) covers custom-filter operators only because NPOI 2.7.3's
-      `CT_FilterColumn` doesn't surface the `filters` property. v1.3
-      either reaches across via XML-node-level workaround, or waits
-      for an NPOI 3.x bump that surfaces the property.
+- [x] **`FilterCriteria.In(...)` explicit-value list filter** —
+      partial landing (I-68). v1.3 ships 1–2-value support via the
+      existing customFilters infrastructure (the same OR-joined-
+      equality path Excel uses for short lists). 3+ values throw
+      `NotSupportedException` until NPOI 3.x or a custom XML-
+      emission workaround lifts the gap. API surface lifts
+      cleanly when that happens — no caller-code change.
 - [ ] **`FilterCriteria.Top(n)` / `BottomPercent(...)` Top-N filter.**
       Same NPOI 2.7.3 surfacing gap as `In(...)`.
 - [ ] **Reactive items from v1.2 usage feedback.**

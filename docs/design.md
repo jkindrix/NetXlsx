@@ -715,6 +715,29 @@ Implementation builds `CT_CustomFilters.customFilter` directly with the operator
 
 Column offset is **0-based within the AutoFilter range** — column 0 is the first column of the range, matching OOXML's `colId`. Negative or out-of-range offsets throw `ArgumentOutOfRangeException` with a friendlier message than NPOI would produce. `SetAutoFilterColumn` requires a prior `SetAutoFilter` call (`InvalidOperationException` otherwise).
 
+### 6.4.8.1 `FilterCriteria.In(...)` — I-68 (v1.3)
+
+```csharp
+// On FilterCriteria:
+public static FilterCriteria In(params string[] values);
+public static FilterCriteria In(IEnumerable<string> values);
+```
+
+**I-68 (added 2026-05-22):** The v1.2 AutoFilter slice (I-66) deferred the explicit-value-list filter (`<filters>` element) because NPOI 2.7.3's `CT_FilterColumn` proxy does not model that element — only `customFilters`. v1.3 ships `In(...)` with **two-value support** via the existing `customFilters` infrastructure (the same path Excel uses internally for short value lists) and throws `NotSupportedException` for 3+ values.
+
+**Behavior table:**
+
+| Value count | Implementation | Outcome |
+|---|---|---|
+| 0 (empty) | rejected | `ArgumentException` |
+| 1 | reduces to `EqualTo(v[0])` | single `customFilter` |
+| 2 | composes `EqualTo(a).Or(EqualTo(b))` | two OR-joined `customFilter` entries |
+| 3+ | rejected | `NotSupportedException` naming NPOI 2.7.3 + the `<filters>` element as the cause |
+
+The two-value case is the most-common real-world use ("filter to two regions / quarters / statuses"). Adding the surface now means call sites are ready when an NPOI 3.x bump (or a future XML-emission workaround) lifts the 3+ value limit — no caller-code change required.
+
+**Workaround for 3+ values until then:** reach through `ISheet.Underlying.GetCTWorksheet().autoFilter` and write the OOXML directly, or stage the data so the filter applies to fewer distinct values.
+
 ### 6.5 Cell (fluent)
 
 ```csharp

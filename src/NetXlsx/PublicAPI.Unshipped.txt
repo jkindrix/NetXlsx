@@ -1,1 +1,3 @@
 #nullable enable
+static NetXlsx.FilterCriteria.In(params string![]! values) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.In(System.Collections.Generic.IEnumerable<string!>! values) -> NetXlsx.FilterCriteria!
