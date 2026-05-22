@@ -332,8 +332,14 @@ the natural home for both.
       `NotSupportedException` until NPOI 3.x or a custom XML-
       emission workaround lifts the gap. API surface lifts
       cleanly when that happens — no caller-code change.
-- [ ] **`FilterCriteria.Top(n)` / `BottomPercent(...)` Top-N filter.**
-      Same NPOI 2.7.3 surfacing gap as `In(...)`.
+- [ ] **`FilterCriteria.Top(n)` / `BottomPercent(...)` Top-N filter** —
+      deferred indefinitely; **blocked on NPOI 3.x**. Unlike `In(...)`
+      (slice 2), Top-N has no customFilters fallback — the OOXML
+      `<top10>` element is fundamentally a different filter type that
+      can't be approximated with operator+value conditions. Adding the
+      method surface today would be a footgun (always throws). Re-add
+      when the upstream gap closes. Tracked here so it doesn't get
+      lost; not a v1.3 deliverable.
 - [ ] **Reactive items from v1.2 usage feedback.**
 
 ### v2.0 — Advanced styling & charts (target: TBD)

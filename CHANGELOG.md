@@ -9,6 +9,35 @@ changes (decision I19).
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-05-22
+
+v1.3 ships two slices that close the remaining v1.2 deferments
+plus an upstream-gap acknowledgement for the third item.
+
+- **Slice 1 (I-67):** OOXML named-style table integration.
+  `IWorkbook.RegisterStyle` now writes to `cellStyleXfs` +
+  `cellStyles`; `RegisteredStyleNames` / `GetRegisteredStyle`
+  lazy-rehydrate from OOXML on first access. Named styles
+  survive `Workbook.Open` round-trip and appear in Excel's
+  Cell Styles ribbon.
+- **Slice 2 (I-68):** `FilterCriteria.In(values)` — partial
+  landing. 1–2-value support via the customFilters route;
+  `NotSupportedException` for 3+ values (NPOI 2.7.3's
+  `CT_FilterColumn` doesn't surface the `<filters>` element).
+- **Slice 3 (deferred indefinitely):** `FilterCriteria.Top(n)` /
+  `BottomPercent(...)`. Unlike `In(...)`, Top-N has no
+  customFilters fallback — adding a method that always throws
+  would be a footgun. Held in the roadmap pending an NPOI 3.x
+  bump that surfaces `top10`.
+
+Decisions added: I-67, I-68.
+
+Test totals: **612 unit + 35 golden-file + 1 public-API
+snapshot + 18 fuzz = 666/TFM × 2 TFMs = 1,332 total** runs per
+CI build (was 655/TFM at v1.2). PublicAPI.Shipped.txt = 571
+entries (was 569 at v1.2; +2 for the `In(...)` overloads —
+v1.3's other behavioral changes don't add public surface).
+
 ### v1.3 slice 2 — `FilterCriteria.In(...)` (partial, I-68)
 
 Adds the explicit-value-list filter factory deferred from v1.2.

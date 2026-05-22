@@ -549,6 +549,8 @@ static NetXlsx.FilterCriteria.EndsWith(string! suffix) -> NetXlsx.FilterCriteria
 static NetXlsx.FilterCriteria.EqualTo(string! value) -> NetXlsx.FilterCriteria!
 static NetXlsx.FilterCriteria.GreaterThan(double value) -> NetXlsx.FilterCriteria!
 static NetXlsx.FilterCriteria.GreaterThanOrEqual(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.In(params string![]! values) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.In(System.Collections.Generic.IEnumerable<string!>! values) -> NetXlsx.FilterCriteria!
 static NetXlsx.FilterCriteria.LessThan(double value) -> NetXlsx.FilterCriteria!
 static NetXlsx.FilterCriteria.LessThanOrEqual(double value) -> NetXlsx.FilterCriteria!
 static NetXlsx.FilterCriteria.NotEqualTo(string! value) -> NetXlsx.FilterCriteria!
