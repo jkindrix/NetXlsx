@@ -403,6 +403,42 @@ public sealed class UnsupportedImageFormatException : WorkbookException { ... }
 
 `Resize()` is essential — without it, NPOI anchors the picture to a single-cell extent, stretching/shrinking the image to fit the (typically small) cell. Calling `Resize()` makes the picture's to-cell match the image's pixel dimensions, producing the expected display.
 
+### 6.4.3 Sheet protection — I-53
+
+```csharp
+public sealed record SheetProtection
+{
+    public bool LockFormatCells { get; init; }
+    public bool LockFormatColumns { get; init; }
+    public bool LockFormatRows { get; init; }
+    public bool LockInsertColumns { get; init; }
+    public bool LockInsertRows { get; init; }
+    public bool LockInsertHyperlinks { get; init; }
+    public bool LockDeleteColumns { get; init; }
+    public bool LockDeleteRows { get; init; }
+    public bool LockSelectLockedCells { get; init; }
+    public bool LockSelectUnlockedCells { get; init; }
+    public bool LockSort { get; init; }
+    public bool LockAutoFilter { get; init; }
+    public bool LockPivotTables { get; init; }
+    public bool LockObjects { get; init; }
+    public bool LockScenarios { get; init; }
+    public static SheetProtection Default { get; }   // all false
+    public static SheetProtection LockAll { get; }   // all true
+}
+
+// On ISheet:
+void Protect(string? password = null, SheetProtection? options = null);
+void Unprotect();
+bool IsProtected { get; }
+```
+
+**I-53 (added 2026-05-22):** Sheet protection is a **UX guard, not security**. Excel's sheet-protection password is hashed with a weak algorithm widely known to be brute-forceable. Use for "stop accidental edits", not "stop a determined attacker." Documented in the type's XML doc.
+
+`Protect()` with no arguments enables the protection flag without a password (Excel will block edits but accept any "unprotect" request immediately). `Protect(password: "...")` adds the (weak) password hash. Both forms accept an optional `SheetProtection` record with 15 granular `Lock*` flags mirroring NPOI 2.7.3's `XSSFSheet.Lock*(bool)` methods.
+
+**NPOI surprise:** `XSSFSheet.ProtectSheet(null)` is NPOI's *unprotect* operation, not "protect without password". The no-password path therefore manipulates `CT_SheetProtection` directly (`sp.sheet = true; sp.scenarios = true; sp.objects = true;` — matching the side effects of `ProtectSheet(non-null)`). Captured in `implementation-notes.md`.
+
 ### 6.5 Cell (fluent)
 
 ```csharp

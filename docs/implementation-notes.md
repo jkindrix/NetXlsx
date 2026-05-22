@@ -922,6 +922,72 @@ mis-classification that file-extension sniffing would invite.
 
 ---
 
+## 2026-05-22 — v1.1 slice 4: sheet protection (I-53)
+
+### `ProtectSheet(null)` means "unprotect", not "protect without password"
+
+First-attempt implementation called `_underlying.ProtectSheet(password)`
+uniformly, passing the caller's `password` through (including
+`null`). Tests immediately failed for the no-password case:
+`IsProtected` returned `false` after `Protect()`.
+
+NPOI 2.7.3 source confirms (`XSSFSheet.cs:2579`):
+
+```csharp
+public void ProtectSheet(string password)
+{
+    EnsureWorksheetLoaded();
+    if (password != null)
+    {
+        CT_SheetProtection sheetProtection = worksheet.AddNewSheetProtection();
+        SetSheetPassword(password, null);
+        sheetProtection.sheet = true;
+        sheetProtection.scenarios = true;
+        sheetProtection.objects = true;
+    }
+    else
+    {
+        worksheet.UnsetSheetProtection();   // <— null path removes protection
+    }
+}
+```
+
+The null branch is documented as "remove protection", not
+"protect without a password." `Unprotect()` therefore happily
+delegates to `ProtectSheet(null)`, but `Protect()` without a
+password has to take a different path.
+
+**Workaround:** mirror what the non-null branch does, minus the
+password step — create `CT_SheetProtection` directly with
+`sheet=true; scenarios=true; objects=true`. The granular `Lock*`
+flags can then be set on top via the existing `LockX(bool)`
+methods (they all assume the element exists).
+
+Same family of NPOI gotcha as the `XSSFTable.CreateColumn`
+surprise from slice 2: an API that *looks* like it should do
+one thing actually does another, and the only tell is reading
+NPOI source or running a probe app. The pattern is consistent
+enough now that "probe-app first when NPOI seems wrong" is the
+default reflex.
+
+### "Sheet protection" is not security; say so in the XML doc
+
+Excel's sheet-protection password uses a hash (CRC-style; in
+2007+ it's iteratively SHA-stretched but the algorithm is still
+documented and trivially brute-forced because the password
+space is small). Tools like `msoffice-crypt`, `office2john`, and
+even online "unprotect" services exist.
+
+If we don't document this in the type's XML doc, callers who see
+"password" assume real cryptographic protection. Added a
+prominent caveat in `SheetProtection`'s class doc and in the
+`ISheet.Protect` method doc. Same pattern as the
+"escape-hatch direct mutation is not synchronized" caveat on
+`.Underlying`: the surface allows the operation, the docs make
+clear what guarantees apply.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After

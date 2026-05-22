@@ -9,6 +9,34 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Sheet protection (slice 4/10)
+
+- **`ISheet.Protect` / `ISheet.Unprotect` / `ISheet.IsProtected`**:
+  toggle sheet-level UI protection (decision I-53).
+- New public record `SheetProtection` with 15 granular `Lock*`
+  flags (FormatCells, FormatColumns, FormatRows, InsertColumns,
+  InsertRows, InsertHyperlinks, DeleteColumns, DeleteRows,
+  SelectLockedCells, SelectUnlockedCells, Sort, AutoFilter,
+  PivotTables, Objects, Scenarios) mirroring NPOI 2.7.3's
+  `XSSFSheet.Lock*(bool)` methods. Plus `SheetProtection.Default`
+  (all permissive) and `SheetProtection.LockAll` (all restrictive)
+  static instances.
+- **Documented limitation**: sheet protection is a UX guard, not
+  security. Excel's sheet-protection password is hashed with a
+  weak, known-brute-forceable algorithm.
+- **NPOI surprise**: `XSSFSheet.ProtectSheet(null)` in NPOI 2.7.3
+  is the *unprotect* operation, not "protect without password".
+  The no-password path manipulates `CT_SheetProtection` directly
+  to mirror the non-null side effects. Captured in
+  `implementation-notes.md`.
+- Coverage: 12 new tests
+  (`tests/NetXlsx.Tests/SheetProtectionTests.cs`) — record
+  semantics (Default / LockAll / structural equality), enable +
+  disable behavior with and without password, idempotent
+  Unprotect, granular flag propagation, file round-trip for both
+  passwordless and password-protected sheets. Public-API
+  snapshot + disposed-workbook matrix updated.
+
 ### v1.1 — Image embedding / PNG + JPEG (slice 3/10)
 
 - **`ISheet.AddPicture(a1Cell, data, format)` / `ISheet.AddPicture(a1Cell, data)`**:

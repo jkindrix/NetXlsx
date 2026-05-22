@@ -321,6 +321,27 @@ public interface ISheet
     IPicture AddPicture(string a1Cell, byte[] data);
 
     /// <summary>
+    /// Protects this sheet against UI editing (decision I-53). When
+    /// <paramref name="password"/> is non-null, Excel requires it to
+    /// unprotect — but the password is hashed with a weak algorithm,
+    /// so this is a UX guard, not real security. When
+    /// <paramref name="options"/> is null, defaults to
+    /// <see cref="SheetProtection.Default"/> (every action permitted
+    /// for non-locked cells).
+    /// </summary>
+    void Protect(string? password = null, SheetProtection? options = null);
+
+    /// <summary>
+    /// Removes protection from this sheet (no-op if not protected).
+    /// </summary>
+    void Unprotect();
+
+    /// <summary>
+    /// Whether this sheet currently has protection applied.
+    /// </summary>
+    bool IsProtected { get; }
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFSheet</c>.
     /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>

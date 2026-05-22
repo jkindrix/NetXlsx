@@ -65,3 +65,39 @@ NetXlsx.UnsupportedImageFormatException
 NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException() -> void
 NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException(string! message) -> void
 NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException(string! message, System.Exception! innerException) -> void
+NetXlsx.SheetProtection
+NetXlsx.SheetProtection.LockFormatCells.get -> bool
+NetXlsx.SheetProtection.LockFormatCells.init -> void
+NetXlsx.SheetProtection.LockFormatColumns.get -> bool
+NetXlsx.SheetProtection.LockFormatColumns.init -> void
+NetXlsx.SheetProtection.LockFormatRows.get -> bool
+NetXlsx.SheetProtection.LockFormatRows.init -> void
+NetXlsx.SheetProtection.LockInsertColumns.get -> bool
+NetXlsx.SheetProtection.LockInsertColumns.init -> void
+NetXlsx.SheetProtection.LockInsertRows.get -> bool
+NetXlsx.SheetProtection.LockInsertRows.init -> void
+NetXlsx.SheetProtection.LockInsertHyperlinks.get -> bool
+NetXlsx.SheetProtection.LockInsertHyperlinks.init -> void
+NetXlsx.SheetProtection.LockDeleteColumns.get -> bool
+NetXlsx.SheetProtection.LockDeleteColumns.init -> void
+NetXlsx.SheetProtection.LockDeleteRows.get -> bool
+NetXlsx.SheetProtection.LockDeleteRows.init -> void
+NetXlsx.SheetProtection.LockSelectLockedCells.get -> bool
+NetXlsx.SheetProtection.LockSelectLockedCells.init -> void
+NetXlsx.SheetProtection.LockSelectUnlockedCells.get -> bool
+NetXlsx.SheetProtection.LockSelectUnlockedCells.init -> void
+NetXlsx.SheetProtection.LockSort.get -> bool
+NetXlsx.SheetProtection.LockSort.init -> void
+NetXlsx.SheetProtection.LockAutoFilter.get -> bool
+NetXlsx.SheetProtection.LockAutoFilter.init -> void
+NetXlsx.SheetProtection.LockPivotTables.get -> bool
+NetXlsx.SheetProtection.LockPivotTables.init -> void
+NetXlsx.SheetProtection.LockObjects.get -> bool
+NetXlsx.SheetProtection.LockObjects.init -> void
+NetXlsx.SheetProtection.LockScenarios.get -> bool
+NetXlsx.SheetProtection.LockScenarios.init -> void
+static NetXlsx.SheetProtection.Default.get -> NetXlsx.SheetProtection!
+static NetXlsx.SheetProtection.LockAll.get -> NetXlsx.SheetProtection!
+NetXlsx.ISheet.Protect(string? password = null, NetXlsx.SheetProtection? options = null) -> void
+NetXlsx.ISheet.Unprotect() -> void
+NetXlsx.ISheet.IsProtected.get -> bool

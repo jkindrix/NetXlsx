@@ -68,6 +68,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.RichTextRun",
             "NetXlsx.RichTextStyle",
             "NetXlsx.SheetNameException",
+            "NetXlsx.SheetProtection",
             "NetXlsx.StreamingOptions",
             "NetXlsx.TableStyles",
             "NetXlsx.UnderlineStyle",
