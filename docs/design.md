@@ -989,6 +989,22 @@ public sealed class FormulaException : WorkbookException { ... }
 public sealed class MissingFontException : WorkbookException { ... }   // I3 — AutoSize on headless Linux
 ```
 
+### 5.1 Extended benchmark coverage — I-62
+
+The original CI benchmark suite (`benchmarks/NetXlsx.Benchmarks/Benchmarks.cs`) covers the **meso** band — 5K–100K rows, the place where most real workloads live. v1.0 external review flagged two gaps:
+
+1. **Micro** — per-cell timing for scalars, A1-parse, style-pool hit vs miss. Lets a single-cell-cost regression show up immediately rather than being lost in the meso noise.
+2. **Macro** — many-sheets (500+) and very-wide layouts (100K cells in a single sheet); plus a streaming variant at 200K rows. Surfaces scaling issues invisible in the meso tier.
+3. **Percentile reporting** — P50/P95/P99 emitted to the regression gate alongside mean/median, so a slow-tail regression triggers an alert even when the central tendency is stable.
+
+`benchmarks/NetXlsx.Benchmarks/BenchmarksExtended.cs` ships these as three new `[Config(typeof(CiConfigWithPercentiles))]` classes:
+
+- `MicroBenchmarks` — Cell_SetString, Cell_SetNumber_Double, Cell_SetNumber_Int, Cell_SetBool, Cell_SetDate, Cell_Style_FreshCellStyle (worst-case pool miss), Cell_Style_PoolHit (warm-cache hit), CellAddress_ParseA1, CellAddress_FormatA1.
+- `MacroBenchmarks` — Macro_500Sheets, Macro_100kCells_Wide, Macro_Streaming_200kRows.
+- `ReadMicroBenchmarks` — Open_OneCell_Read, the read-side floor cost.
+
+All extended benchmarks run under the existing CI regression gate (15% threshold) — new shapes are first-class regression material, not opt-in.
+
 ## 7. Behavioral notes
 
 ### 7.1 Async semantics

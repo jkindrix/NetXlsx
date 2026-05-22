@@ -9,6 +9,26 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Extended benchmark coverage (post-v1.1-features; external-review item #2)
+
+- **New `benchmarks/NetXlsx.Benchmarks/BenchmarksExtended.cs`** with
+  three new benchmark classes covering the gaps the v1.0 review
+  identified (decision I-62):
+  - `MicroBenchmarks` — per-cell write timing for each scalar
+    type, A1-parse, style-pool hit/miss
+  - `MacroBenchmarks` — 500 sheets, 100K cells in one sheet,
+    streaming 200K rows
+  - `ReadMicroBenchmarks` — single-cell open + read
+- New `CiConfigWithPercentiles` config emits P50/P95/P99 to the
+  regression-gate JSON alongside mean/median — long-tail
+  regressions now fire the gate even when the central tendency
+  is stable.
+- All extended benchmarks run under the existing 15%-threshold
+  regression gate. Program.cs uses `BenchmarkSwitcher.FromAssembly`
+  so the new classes are auto-discovered.
+- Closes the v1.0 external-review recommendation #2 ("extend
+  benchmark suite to micro + macro shapes with percentiles").
+
 ### Style-pool diagnostics (post-v1.1-features; external-review item #3)
 
 - **`IWorkbook.GetStylePoolDiagnostics()`** + **`StylePoolDiagnostics`
