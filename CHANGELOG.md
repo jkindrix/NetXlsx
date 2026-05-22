@@ -9,6 +9,33 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Excel Tables / ListObject (slice 2/10)
+
+- **`ISheet.AddTable` / `ISheet.Tables` / `ISheet.TryGetTable`**:
+  sheet-scoped structured tables with a header row, optional style,
+  and OOXML-mandatory AutoFilter (decision I-51).
+- New public interface `ITable` (Name, DisplayName, Address, Sheet,
+  ColumnNames, HasTotalsRow, StyleName, Underlying) + `TableStyles`
+  static class with curated style-name constants (Light1, Light9,
+  Light15, Medium2, Medium9, Medium16, Dark1, Dark9).
+- `AddTable` validates: range has ≥2 rows; every header cell is a
+  non-empty string; column names unique within the table; table
+  name follows Excel rules and is unique workbook-wide (shares the
+  namespace with named ranges).
+- **`RemoveTable` deferred to v1.2.** NPOI 2.7.3's `XSSFSheet` has
+  no `RemoveTable` method; package-part manipulation needed and
+  not worth the v1.1 surface bloat. Reach through `.Underlying`
+  for removal.
+- **Per-column totals deferred to v1.2.** `HasTotalsRow` is
+  read-only in v1.1.
+- Coverage: 14 new tests (`tests/NetXlsx.Tests/TableApiTests.cs`)
+  — happy path, style application, validation matrix (null/empty
+  name, invalid name characters, A1-collision, duplicate
+  workbook-wide, named-range collision, single-row range, empty
+  headers, non-string headers, duplicate headers), and file
+  round-trip via `Workbook.Open`. Public-API snapshot +
+  disposed-workbook matrix updated.
+
 ### v1.1 — rich text in cells (slice 1/10)
 
 - **`ICell.SetRichText(RichText)` / `ICell.GetRichText()`**: multi-run

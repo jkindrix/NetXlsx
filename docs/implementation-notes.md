@@ -780,6 +780,98 @@ extension before assuming a new pool/cache is needed.
 
 ---
 
+## 2026-05-22 — v1.1 slice 2: Excel Tables / ListObject (I-51)
+
+### NPOI 2.7.3's `XSSFTable.CreateColumn` throws on a fresh table
+
+Wrote the obvious implementation first: `sh.CreateTable()` →
+`t.Name = ...` → `t.CreateColumn(header)` per header → `t.SetCellReferences(area)`.
+Tests failed with:
+
+```
+System.ArgumentOutOfRangeException : Index was out of range.
+   at System.Collections.Generic.List`1.get_Item(Int32 index)
+   at NPOI.XSSF.UserModel.XSSFTable.CreateColumn(String columnName, Int32 columnIndex)
+```
+
+Root cause: NPOI 2.7.3's `XSSFTable.CreateColumn` indexes into
+`ctTable.tableColumns.tableColumn` without first checking that the
+list itself is non-null. On a fresh `CreateTable()` return, that
+inner `List<CT_TableColumn>` is null. The trunk source we read
+earlier (which guards with `if (columns == null) columns = ctTable.AddNewTableColumns()`)
+matches a later NPOI version, not 2.7.3.
+
+This is a recurring kind of trap with NPOI: the trunk source on
+disk diverges from the released NuGet, and the documentation .xml
+is a sparse subset of the actual public surface. Specifically:
+
+- `XSSFTable.CreateColumn` — public in 2.7.3 source, broken at call site.
+- `XSSFTable.AddColumn` — exists in trunk source, **absent** from 2.7.3 binary.
+- `XSSFTable.StyleName` setter — public in 2.7.3 (works), but not in .xml docs.
+- `XSSFSheet.RemoveTable` — exists in trunk source, **absent** from 2.7.3.
+
+**Workaround pattern adopted:** populate `CT_Table.tableColumns`
+directly via the OOXML proxy types, bypassing `CreateColumn`:
+
+```csharp
+var ctTable = npoi.GetCTTable();
+var ctColumns = new CT_TableColumns
+{
+    tableColumn = new List<CT_TableColumn>(headers.Count),
+    count = (uint)headers.Count,
+};
+ctTable.tableColumns = ctColumns;
+for (int i = 0; i < headers.Count; i++)
+{
+    var ctCol = ctColumns.InsertNewTableColumn(i);
+    ctCol.id = (uint)(i + 1);
+    ctCol.name = headers[i];
+}
+```
+
+This bypasses the broken accessor entirely and produces output
+that round-trips cleanly through `Workbook.Open`. Verified with a
+standalone probe app against NPOI 2.7.3 before committing.
+
+**General lesson:** when an NPOI call from the source-line reads
+"obviously right" but throws at runtime, before debugging the call,
+check the actual NuGet binary surface (`grep` the .xml docs, or
+reflect via `typeof(T).GetMembers()`). Trunk source is aspirational;
+the binary is what's deployed. The probe-app pattern (a throwaway
+`/tmp/probe-app` `dotnet new console` referencing the same NPOI
+version) is the fastest way to confirm.
+
+### "RemoveTable" deferred — package-part manipulation isn't worth it
+
+NPOI 2.7.3 has no `XSSFSheet.RemoveTable`. Removing a table from a
+sheet requires:
+
+1. Removing the `<tablePart>` from `CT_Worksheet.tableParts`.
+2. Removing the relationship via `package.RemovePart()`.
+3. Updating the sheet's part-loaded `tables` dictionary.
+
+That's three coordinated mutations and zero observed user demand.
+v1.0 shipped without table support at all, and the v1.1 user-ask is
+"make tables", not "remove tables programmatically". Deferred to
+v1.2 (or whenever NPOI 3.x lands). Documented in CHANGELOG +
+design row I-51. Callers needing removal today reach through
+`.Underlying` and do the three-step dance themselves.
+
+### Name-space sharing between tables and named ranges
+
+Excel treats table codenames and named-range names as a single
+workbook-wide namespace. Two tables on different sheets cannot
+share a codename, and a table cannot have the same name as a
+named range. Reused `XssfWorkbook.GetAllNames()` enumeration to
+catch the named-range collision; walked all sheets'
+`GetTables()` to catch the cross-sheet table collision.
+
+Friendlier error message than letting NPOI's serializer fail at
+save time. Same pattern as the named-range uniqueness check from
+v0.7.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After

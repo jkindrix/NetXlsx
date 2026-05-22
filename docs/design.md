@@ -335,6 +335,47 @@ public interface ISheet
 }
 ```
 
+### 6.4.1 Tables (ListObject) — I-51
+
+```csharp
+public interface ITable
+{
+    string Name { get; }                 // codename (Excel name rules)
+    string DisplayName { get; set; }
+    string Address { get; }              // "A1:D10"
+    ISheet Sheet { get; }
+    IReadOnlyList<string> ColumnNames { get; }
+    bool HasTotalsRow { get; }
+    string? StyleName { get; set; }
+    NPOI.XSSF.UserModel.XSSFTable Underlying { get; }
+}
+
+// On ISheet:
+ITable AddTable(string a1Range, string name, string? style = null);
+IReadOnlyList<ITable> Tables { get; }
+bool TryGetTable(string name, [MaybeNullWhen(false)] out ITable table);
+
+public static class TableStyles
+{
+    public const string Light1 = "TableStyleLight1";
+    public const string Medium2 = "TableStyleMedium2";   // Excel default
+    public const string Dark9 = "TableStyleDark9";
+    // ... curated subset of common names ...
+}
+```
+
+**I-51 (added 2026-05-22):** Excel Tables are sheet-scoped structured ranges with a header row, optional totals row, optional style, and OOXML-mandatory AutoFilter. `ISheet.AddTable` requires:
+
+- A range with **at least two rows** (one header row, one data row).
+- A **non-empty string** in every header cell — these become the table's column names. No "auto Column1/Column2/…" path; reject explicitly.
+- A **valid Excel name** (letters / digits / underscores; must start with letter or underscore; cannot collide with an A1 reference) **unique workbook-wide** (case-insensitive). Table names share the namespace with named ranges and other tables.
+
+Style is a `string?` keyed against Excel's built-in style names (e.g., `TableStyleMedium2`). A `TableStyles` static class provides constants for the common subset; arbitrary Excel-recognized strings work. `null` (the default) applies no style.
+
+`HasTotalsRow` is **read-only** in v1.1 — adding totals requires per-column totals-row functions which is a larger surface; defer to v1.2 or reach through `.Underlying`. `RemoveTable` is also deferred: NPOI 2.7.3's `XSSFSheet` has no `RemoveTable` method, so removal requires package-part manipulation. Defer to v1.2 or NPOI 3.x.
+
+The implementation populates `CT_Table.tableColumns` directly rather than calling `XSSFTable.CreateColumn`, because NPOI 2.7.3's `CreateColumn` throws when the underlying `tableColumn` list is uninitialized (NPOI surprise; captured in `implementation-notes.md`).
+
 ### 6.5 Cell (fluent)
 
 ```csharp

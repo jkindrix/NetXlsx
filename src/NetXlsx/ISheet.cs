@@ -271,6 +271,35 @@ public interface ISheet
     bool ShowGridlines { get; set; }
 
     /// <summary>
+    /// Adds an Excel table (<c>ListObject</c>) over <paramref name="a1Range"/>
+    /// with header row, codename <paramref name="name"/>, and optional
+    /// <paramref name="style"/> (decision I-51).
+    /// <para>
+    /// The first row of the range must already contain non-empty string
+    /// cells — those become the table's column names. <paramref name="name"/>
+    /// must follow Excel's name rules (letters / digits / underscores; must
+    /// start with a letter or underscore) and be unique workbook-wide.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Range"/> or <paramref name="name"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// The name violates Excel's rules, the name is already taken, the
+    /// range is malformed, the header row is missing, or any header cell
+    /// is blank or non-string.
+    /// </exception>
+    ITable AddTable(string a1Range, string name, string? style = null);
+
+    /// <summary>Snapshot of the tables currently defined on this sheet.</summary>
+    System.Collections.Generic.IReadOnlyList<ITable> Tables { get; }
+
+    /// <summary>
+    /// Non-throwing table lookup by codename (case-insensitive).
+    /// </summary>
+    bool TryGetTable(string name, [MaybeNullWhen(false)] out ITable table);
+
+
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFSheet</c>.
     /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>

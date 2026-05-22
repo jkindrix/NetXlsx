@@ -7,7 +7,7 @@ using NPOI.XSSF.UserModel;
 
 namespace NetXlsx;
 
-internal sealed class XssfSheet : ISheet
+internal sealed partial class XssfSheet : ISheet
 {
     private readonly XssfWorkbook _workbook;
     private readonly XSSFSheet _underlying;

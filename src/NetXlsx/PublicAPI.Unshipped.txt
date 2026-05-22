@@ -29,3 +29,26 @@ NetXlsx.RichTextStyle.FontSize.init -> void
 NetXlsx.RichTextStyle.Color.get -> NetXlsx.Color?
 NetXlsx.RichTextStyle.Color.init -> void
 static NetXlsx.RichTextStyle.Default.get -> NetXlsx.RichTextStyle!
+NetXlsx.ITable
+NetXlsx.ITable.Name.get -> string!
+NetXlsx.ITable.DisplayName.get -> string!
+NetXlsx.ITable.DisplayName.set -> void
+NetXlsx.ITable.Address.get -> string!
+NetXlsx.ITable.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.ITable.ColumnNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NetXlsx.ITable.HasTotalsRow.get -> bool
+NetXlsx.ITable.StyleName.get -> string?
+NetXlsx.ITable.StyleName.set -> void
+NetXlsx.ITable.Underlying.get -> NPOI.XSSF.UserModel.XSSFTable!
+NetXlsx.ISheet.AddTable(string! a1Range, string! name, string? style = null) -> NetXlsx.ITable!
+NetXlsx.ISheet.Tables.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.ITable!>!
+NetXlsx.ISheet.TryGetTable(string! name, out NetXlsx.ITable! table) -> bool
+NetXlsx.TableStyles
+const NetXlsx.TableStyles.Light1 = "TableStyleLight1" -> string!
+const NetXlsx.TableStyles.Light9 = "TableStyleLight9" -> string!
+const NetXlsx.TableStyles.Light15 = "TableStyleLight15" -> string!
+const NetXlsx.TableStyles.Medium2 = "TableStyleMedium2" -> string!
+const NetXlsx.TableStyles.Medium9 = "TableStyleMedium9" -> string!
+const NetXlsx.TableStyles.Medium16 = "TableStyleMedium16" -> string!
+const NetXlsx.TableStyles.Dark1 = "TableStyleDark1" -> string!
+const NetXlsx.TableStyles.Dark9 = "TableStyleDark9" -> string!

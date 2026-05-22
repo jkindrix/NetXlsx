@@ -68,6 +68,9 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Range(r,c,r,c)", (Action<ISheet>)(s => s.Range(1, 1, 2, 2)) };
         yield return new object[] { "Column(int)", (Action<ISheet>)(s => s.Column(1)) };
         yield return new object[] { "Column(string)", (Action<ISheet>)(s => s.Column("A")) };
+        yield return new object[] { "AddTable", (Action<ISheet>)(s => s.AddTable("A1:B2", "T")) };
+        yield return new object[] { "Tables", (Action<ISheet>)(s => { var _ = s.Tables; }) };
+        yield return new object[] { "TryGetTable", (Action<ISheet>)(s => s.TryGetTable("T", out _)) };
     }
 
     [Theory]
