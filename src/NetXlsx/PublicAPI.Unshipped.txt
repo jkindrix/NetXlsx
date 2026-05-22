@@ -17,3 +17,19 @@ NetXlsx.TotalsRowFunction.StdDev = 7 -> NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.Var = 8 -> NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.Custom = 9 -> NetXlsx.TotalsRowFunction
 NetXlsx.IWorkbook.ProtectWithPassword(string! password, NetXlsx.WorkbookProtection? options = null) -> void
+NetXlsx.FilterCriteria
+NetXlsx.FilterCriteria.And(NetXlsx.FilterCriteria! other) -> NetXlsx.FilterCriteria!
+NetXlsx.FilterCriteria.Or(NetXlsx.FilterCriteria! other) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.EqualTo(string! value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.NotEqualTo(string! value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.GreaterThan(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.GreaterThanOrEqual(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.LessThan(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.LessThanOrEqual(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.Between(double min, double max) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.Contains(string! substring) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.DoesNotContain(string! substring) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.StartsWith(string! prefix) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.EndsWith(string! suffix) -> NetXlsx.FilterCriteria!
+NetXlsx.ISheet.SetAutoFilterColumn(int columnOffset, NetXlsx.FilterCriteria! criteria) -> void
+NetXlsx.ISheet.ClearAutoFilterColumn(int columnOffset) -> void

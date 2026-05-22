@@ -43,6 +43,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.ColumnAttribute",
             "NetXlsx.DataValidation",
             "NetXlsx.DateSystem",
+            "NetXlsx.FilterCriteria",
             "NetXlsx.FormulaException",
             "NetXlsx.HAlign",
             "NetXlsx.ICell",

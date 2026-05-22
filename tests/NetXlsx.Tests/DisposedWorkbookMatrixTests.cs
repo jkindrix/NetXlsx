@@ -90,6 +90,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "ClearAutoFilter", (Action<ISheet>)(s => s.ClearAutoFilter()) };
         yield return new object[] { "HasAutoFilter", (Action<ISheet>)(s => { var _ = s.HasAutoFilter; }) };
         yield return new object[] { "AutoFilterRange", (Action<ISheet>)(s => { var _ = s.AutoFilterRange; }) };
+        yield return new object[] { "SetAutoFilterColumn", (Action<ISheet>)(s => s.SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"))) };
+        yield return new object[] { "ClearAutoFilterColumn", (Action<ISheet>)(s => s.ClearAutoFilterColumn(0)) };
     }
 
     [Theory]

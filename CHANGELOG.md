@@ -9,6 +9,38 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.2 slice 5 — per-column AutoFilter criteria (I-66)
+
+Closes the v1.1 slice-7 deferment on AutoFilter. Adds the custom-
+filter operator surface: 1-2 conditions per column joined by AND
+or OR, covering equality, ordering, and string-pattern (contains /
+startsWith / endsWith via Excel's wildcards).
+
+- New `FilterCriteria` sealed class with 11 factories and two
+  combinators (`And` / `Or`).
+- New `ISheet.SetAutoFilterColumn(columnOffset, criteria)` —
+  0-based offset within the AutoFilter range, matches OOXML's
+  `colId`.
+- New `ISheet.ClearAutoFilterColumn(columnOffset)`.
+- Wildcard escaping: literal `*`, `?`, `~` in `Contains` /
+  `StartsWith` / `EndsWith` arguments are escaped with `~` prefix
+  before being wrapped in Excel's wildcard pattern.
+- **Deferred to v1.3+**: explicit-value list filter (`filters`
+  element, `In(...)` factory), Top-N filter (`top10` element),
+  date-group filter, dynamic filter, color filter. NPOI 2.7.3's
+  `CT_FilterColumn` doesn't surface those properties; would
+  require XML-node-level workarounds.
+
+Coverage: 16 new tests in
+`tests/NetXlsx.Tests/AutoFilterTests.cs` — validation
+(requires-AutoFilter, range bounds, null), single condition,
+Between two-condition AND, OR combinator, three string-pattern
+Theory cases, replace-on-same-column, ClearAutoFilterColumn
+selectivity, And-chain limit at 2, wildcard escaping, file
+round-trip.
+
+Public-API snapshot + disposed-workbook matrix updated.
+
 ### v1.2 slice 4 — workbook password protection (I-65)
 
 Closes the v1.1 slice-5 deferment. NPOI 2.7.3 did not expose a

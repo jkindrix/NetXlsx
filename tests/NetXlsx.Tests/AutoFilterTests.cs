@@ -90,6 +90,218 @@ public class AutoFilterTests
         sh.AutoFilterRange.Should().Be("A1");
     }
 
+    // ---- Per-column criteria (v1.2 / I-66) ----------------------------
+
+    [Fact]
+    public void SetAutoFilterColumn_Requires_AutoFilter_To_Be_Set_First()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        Action act = () => sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"));
+        act.Should().Throw<InvalidOperationException>().WithMessage("*SetAutoFilter*");
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_Rejects_Negative_Offset()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:C5");
+        Action act = () => sh.SetAutoFilterColumn(-1, FilterCriteria.EqualTo("x"));
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_Rejects_Offset_Past_Range_Width()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:C5");   // width 3
+        Action act = () => sh.SetAutoFilterColumn(3, FilterCriteria.EqualTo("x"));
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_Rejects_Null_Criteria()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A2");
+        Action act = () => sh.SetAutoFilterColumn(0, null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_EqualTo_Persists_Single_CustomFilter()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:B5");
+        sh.SetAutoFilterColumn(1, FilterCriteria.EqualTo("EU"));
+
+        var af = sh.Underlying.GetCTWorksheet().autoFilter;
+        af.filterColumn.Should().HaveCount(1);
+        af.filterColumn[0].colId.Should().Be(1u);
+        var cf = af.filterColumn[0].customFilters;
+        cf.customFilter.Should().HaveCount(1);
+        cf.customFilter[0].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.equal);
+        cf.customFilter[0].val.Should().Be("EU");
+        cf.and.Should().BeFalse("single condition — combinator is irrelevant but OOXML default is false");
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_Between_Builds_Two_Anded_Conditions()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        sh.SetAutoFilterColumn(0, FilterCriteria.Between(10, 100));
+
+        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
+        cf.customFilter.Should().HaveCount(2);
+        cf.and.Should().BeTrue();
+        cf.customFilter[0].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.greaterThanOrEqual);
+        cf.customFilter[0].val.Should().Be("10");
+        cf.customFilter[1].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.lessThanOrEqual);
+        cf.customFilter[1].val.Should().Be("100");
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_Or_Combinator_Sets_And_False()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        sh.SetAutoFilterColumn(0,
+            FilterCriteria.EqualTo("EU").Or(FilterCriteria.EqualTo("US")));
+
+        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
+        cf.and.Should().BeFalse();
+        cf.customFilter.Should().HaveCount(2);
+    }
+
+    [Theory]
+    [InlineData("Contains")]
+    [InlineData("StartsWith")]
+    [InlineData("EndsWith")]
+    public void SetAutoFilterColumn_String_Pattern_Encodes_With_Wildcards(string kind)
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+
+        var criteria = kind switch
+        {
+            "Contains" => FilterCriteria.Contains("foo"),
+            "StartsWith" => FilterCriteria.StartsWith("foo"),
+            "EndsWith" => FilterCriteria.EndsWith("foo"),
+            _ => throw new ArgumentException("bad kind"),
+        };
+        sh.SetAutoFilterColumn(0, criteria);
+
+        var val = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters.customFilter[0].val;
+        // Wildcards encode at the appropriate edges.
+        switch (kind)
+        {
+            case "Contains":  val.Should().Be("*foo*"); break;
+            case "StartsWith": val.Should().Be("foo*"); break;
+            case "EndsWith":   val.Should().Be("*foo"); break;
+        }
+    }
+
+    [Fact]
+    public void SetAutoFilterColumn_Replaces_Existing_Criteria_On_Same_Column()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("first"));
+        sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("second"));
+
+        var cols = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn;
+        cols.Should().HaveCount(1, "replace, not append, when same column re-targets");
+        cols[0].customFilters.customFilter[0].val.Should().Be("second");
+    }
+
+    [Fact]
+    public void ClearAutoFilterColumn_Removes_Just_That_Column()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:C5");
+        sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("a"));
+        sh.SetAutoFilterColumn(2, FilterCriteria.EqualTo("c"));
+
+        sh.ClearAutoFilterColumn(0);
+
+        var cols = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn;
+        cols.Should().HaveCount(1);
+        cols[0].colId.Should().Be(2u);
+    }
+
+    [Fact]
+    public void ClearAutoFilterColumn_On_Empty_Set_Is_Safe()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        Action act = () => sh.ClearAutoFilterColumn(0);
+        act.Should().NotThrow();
+    }
+
+    [Fact]
+    public void FilterCriteria_And_Then_And_Throws()
+    {
+        // Excel allows at most two conditions per column.
+        Action act = () => FilterCriteria.EqualTo("a")
+            .And(FilterCriteria.EqualTo("b"))
+            .And(FilterCriteria.EqualTo("c"));
+        act.Should().Throw<InvalidOperationException>().WithMessage("*at most two*");
+    }
+
+    [Fact]
+    public void FilterCriteria_Contains_With_Wildcards_Escapes_Them()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh.SetAutoFilter("A1:A5");
+        // Literal "*" and "?" in the search term must be escaped with "~".
+        sh.SetAutoFilterColumn(0, FilterCriteria.Contains("a*b?c"));
+        var val = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters.customFilter[0].val;
+        val.Should().Be("*a~*b~?c*");
+    }
+
+    [Fact]
+    public void AutoFilterColumn_Criteria_Survives_File_Roundtrip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"afcol-rt-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.Create())
+            {
+                var sh = wb.AddSheet("S");
+                sh.AppendRow().Set(1, "Region").Set(2, "Revenue");
+                sh.AppendRow().Set(1, "EU").Set(2, 100);
+                sh.AppendRow().Set(1, "US").Set(2, 200);
+                sh.SetAutoFilter("A1:B3");
+                sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("EU").Or(FilterCriteria.EqualTo("US")));
+                sh.SetAutoFilterColumn(1, FilterCriteria.GreaterThanOrEqual(50));
+                wb.Save(path);
+            }
+            using (var wb = Workbook.Open(path))
+            {
+                var af = wb["S"].Underlying.GetCTWorksheet().autoFilter;
+                af.filterColumn.Should().HaveCount(2);
+                af.filterColumn[0].customFilters.customFilter.Should().HaveCount(2);
+                af.filterColumn[0].customFilters.and.Should().BeFalse();
+                af.filterColumn[1].customFilters.customFilter[0].val.Should().Be("50");
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    // ---- Original test continues below --------------------------------
+
     [Fact]
     public void AutoFilter_Survives_File_Roundtrip()
     {

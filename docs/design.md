@@ -644,6 +644,51 @@ Steps 2 and 3 require crossing NPOI's protection boundary — `RemoveRelation` i
 
 **Validation:** `XssfSheet.RemoveTable` rejects foreign-table handles (the table's relationship id won't resolve on a different sheet) and rejects already-removed handles for the same reason — both throw `ArgumentException`. A second `RemoveTable(t)` on a freshly-removed handle is not idempotent-silent; it surfaces the stale handle loudly. Calling code that wants idempotency should check `sh.Tables.Contains(t)` first.
 
+### 6.4.8 Per-column AutoFilter criteria — I-66 (v1.2)
+
+```csharp
+public sealed class FilterCriteria
+{
+    // Operators (single condition)
+    public static FilterCriteria EqualTo(string value);
+    public static FilterCriteria NotEqualTo(string value);
+    public static FilterCriteria GreaterThan(double value);
+    public static FilterCriteria GreaterThanOrEqual(double value);
+    public static FilterCriteria LessThan(double value);
+    public static FilterCriteria LessThanOrEqual(double value);
+
+    // String pattern (encoded as Equal with wildcards)
+    public static FilterCriteria Contains(string substring);
+    public static FilterCriteria DoesNotContain(string substring);
+    public static FilterCriteria StartsWith(string prefix);
+    public static FilterCriteria EndsWith(string suffix);
+
+    // Numeric range — two-condition AND
+    public static FilterCriteria Between(double min, double max);
+
+    // Combinators (Excel limits to 2 conditions per column)
+    public FilterCriteria And(FilterCriteria other);
+    public FilterCriteria Or(FilterCriteria other);
+}
+
+// On ISheet:
+void SetAutoFilterColumn(int columnOffset, FilterCriteria criteria);
+void ClearAutoFilterColumn(int columnOffset);
+```
+
+**I-66 (added 2026-05-22):** v1.1 slice 7 (decision I-56) shipped range-only AutoFilter — `SetAutoFilter(range)` shows the dropdown arrows but no per-column criteria. v1.2 closes the gap for the **custom-filter** OOXML variant.
+
+**Scope (v1.2):** custom-filter conditions only — operator + value pairs joined by AND or OR. Covers equality (eq, ne), ordering (gt, ge, lt, le), and string patterns (contains / startsWith / endsWith via Excel's `*` / `?` wildcards). The `Between` factory composes two conditions with AND. Excel limits filter columns to **two conditions max**; chaining a third `And` / `Or` throws `InvalidOperationException`.
+
+**Deferred:**
+- **Explicit-value list filter** (`filters` element, `In(...)` factory). NPOI 2.7.3's `CT_FilterColumn` does not surface the `filters` property — only `customFilters`. Implementing would require XML-node-level reflection. Candidate for v1.3.
+- **Top-N filter** (`top10` element). Same NPOI 2.7.3 surfacing limitation.
+- **Date-group filter, dynamic filter (relative dates), color filter.** Niche; not in v1.2 scope.
+
+Implementation builds `CT_CustomFilters.customFilter` directly with the operator enum + value. String-pattern factories prefix/suffix the wildcard `*` to encode the pattern; the input string's literal `*` / `?` / `~` are escaped by prefixing with `~` (Excel's filter-language escape).
+
+Column offset is **0-based within the AutoFilter range** — column 0 is the first column of the range, matching OOXML's `colId`. Negative or out-of-range offsets throw `ArgumentOutOfRangeException` with a friendlier message than NPOI would produce. `SetAutoFilterColumn` requires a prior `SetAutoFilter` call (`InvalidOperationException` otherwise).
+
 ### 6.5 Cell (fluent)
 
 ```csharp

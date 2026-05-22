@@ -277,7 +277,7 @@ the one substantive open item from the v1.1 external review pass
       manipulates `CT_WorkbookProtection` directly to attach the
       password hash (same UX-guard-not-security caveat as sheet
       protection in I-53).
-- [ ] **Per-column filter criteria for `ISheet.SetAutoFilter`**. v1.1
+- [x] **Per-column filter criteria for `ISheet.SetAutoFilter`** — landed (I-66) for the custom-filter variant. Explicit-list (`In(...)`) + Top-N variants deferred to v1.3 (NPOI 2.7.3 doesn't surface those properties on `CT_FilterColumn`; would need XML-node-level workarounds). v1.1
       ships range-only AutoFilter. Excel's filter-criteria model is
       rich (text equals / contains / not-equals, top-N, color, date
       range, custom expression). The v1.2 surface needs a builder or

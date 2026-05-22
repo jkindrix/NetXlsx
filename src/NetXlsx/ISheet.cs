@@ -197,6 +197,26 @@ public interface ISheet
     /// <summary>Removes the AutoFilter from this sheet. No-op if none is set.</summary>
     void ClearAutoFilter();
 
+    /// <summary>
+    /// Applies <paramref name="criteria"/> to the column at
+    /// <paramref name="columnOffset"/> within the current AutoFilter
+    /// range (decision I-66). <paramref name="columnOffset"/> is
+    /// 0-based — column 0 is the first column of the AutoFilter range.
+    /// Replaces any existing criteria on that column.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No AutoFilter is set on this sheet. Call <see cref="SetAutoFilter"/> first.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="columnOffset"/> is negative or outside the AutoFilter range.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="criteria"/> is null.</exception>
+    void SetAutoFilterColumn(int columnOffset, FilterCriteria criteria);
+
+    /// <summary>
+    /// Removes any per-column criteria for the column at
+    /// <paramref name="columnOffset"/>. The AutoFilter itself stays in
+    /// place (use <see cref="ClearAutoFilter"/> to remove that).
+    /// No-op when no criteria is set on the column.
+    /// </summary>
+    void ClearAutoFilterColumn(int columnOffset);
+
     /// <summary>Whether this sheet currently has an AutoFilter applied.</summary>
     bool HasAutoFilter { get; }
 
