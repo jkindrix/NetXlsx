@@ -250,6 +250,64 @@ is in flight as part of the post-features push.
       in CI (long-running on a nightly cadence) without blocking
       every PR.
 
+### v1.2 — Close v1.1 deferments + post-tag polish (target: TBD)
+
+v1.1 shipped 10 surface slices with five deliberate deferments — each
+one was the right scope-control call at slice time, but the resulting
+"reach through `.Underlying`" gaps are exactly what v1.2 closes. Plus
+the one substantive open item from the v1.1 external review pass
+(ISheet.cs SRP pressure at 888 LOC).
+
+- [ ] **`ISheet.RemoveTable(ITable)`**. NPOI 2.7.3's `XSSFSheet` has
+      no `RemoveTable` method; removal requires three coordinated
+      mutations (drop the `<tablePart>` from `CT_Worksheet.tableParts`,
+      remove the package relationship, update the sheet's part-loaded
+      tables dictionary). Was deferred at v1.1 slice 2 — no observed
+      user demand, and the three-step dance is fragile against NPOI
+      internals. v1.2 either implements it carefully against 2.7.3
+      or skips to NPOI 3.x (if the August re-checks unblock the bump).
+- [ ] **Per-column totals row on `ITable`**. `ITable.HasTotalsRow` is
+      read-only in v1.1 because adding a totals row requires per-column
+      `SubTotalFunction` selection (Sum / Avg / Count / Min / Max /
+      StdDev / Var / Custom). A reasonable v1.2 surface: extend the
+      table-column model with a small enum + per-column setter.
+- [ ] **`IWorkbook.Protect(password: ...)` — workbook-level password**.
+      NPOI 2.7.3 does not expose workbook-password APIs directly; v1.1
+      shipped flag-only structure/windows/revision locks. v1.2
+      manipulates `CT_WorkbookProtection` directly to attach the
+      password hash (same UX-guard-not-security caveat as sheet
+      protection in I-53).
+- [ ] **Per-column filter criteria for `ISheet.SetAutoFilter`**. v1.1
+      ships range-only AutoFilter. Excel's filter-criteria model is
+      rich (text equals / contains / not-equals, top-N, color, date
+      range, custom expression). The v1.2 surface needs a builder or
+      record-based criteria type — non-trivial design work.
+- [ ] **OOXML named-style table integration**. v1.1 named styles
+      (decision I-57) are an in-process convenience — the name → style
+      map is not rehydrated by `Workbook.Open`. v1.2 makes named
+      styles produce real OOXML named-style table entries so they
+      survive save/open round-trips.
+- [ ] **`ISheet.cs` partial-class split** (v1.1 review item 2). The
+      file is at 888 LOC and approaching SRP pressure as the v1.1
+      surfaces (Tables, Pictures, Protection, AutoFilter, Validation)
+      all added partial files alongside the original. The shape is
+      well-established: `XssfSheet.Tables.cs`, `XssfSheet.Pictures.cs`,
+      `XssfSheet.Protection.cs`, `XssfSheet.AutoFilter.cs`,
+      `XssfSheet.Validation.cs` already exist on the impl side. Mirror
+      that on the public interface side — carve `ISheet` into
+      `ISheet.cs` (core) + `ISheet.Tables.cs` (partial extension) +
+      similar. Zero behavioral change; reduces future-contributor
+      friction.
+- [ ] **Reactive items from v1.1 usage feedback.** This bucket fills
+      as the released v1.1.0 sees real-world use. Anything that's a
+      bug fix lands in v1.1.x (patch); anything that's a missing
+      capability lands here.
+
+**Process note for v1.2.** Per the v1.1 working agreement, each
+slice surfaces a design row (I-63, I-64, …) and a per-slice commit
+with the standard checklist. The "go down the list" pattern from
+v1.1 carries forward.
+
 ### v2.0 — Advanced styling & charts (target: TBD)
 
 - [ ] Conditional formatting
