@@ -282,11 +282,17 @@ the one substantive open item from the v1.1 external review pass
       rich (text equals / contains / not-equals, top-N, color, date
       range, custom expression). The v1.2 surface needs a builder or
       record-based criteria type — non-trivial design work.
-- [ ] **OOXML named-style table integration**. v1.1 named styles
-      (decision I-57) are an in-process convenience — the name → style
-      map is not rehydrated by `Workbook.Open`. v1.2 makes named
-      styles produce real OOXML named-style table entries so they
-      survive save/open round-trips.
+- [ ] **OOXML named-style table integration** — deferred to v1.3
+      after scope assessment in v1.2. v1.1 named styles (decision I-57)
+      are an in-process convenience — the name → style map is not
+      rehydrated by `Workbook.Open`. The full integration requires
+      both a write-side (allocate `CT_Xf` in `cellStyleXfs`, register
+      `CT_CellStyle` with name + xfId on each `RegisterStyle` call)
+      AND a read-side (new CT_Xf → `CellStyle` parser distinct from
+      the existing `CellStylePool.ReadFromNpoi(ICellStyle)`). The
+      paired implementation is one focused slice in its own right;
+      v1.2 ships the other five v1.1 deferments first, v1.3 leads
+      with this one.
 - [ ] **`ISheet.cs` partial-class split** (v1.1 review item 2). The
       file is at 888 LOC and approaching SRP pressure as the v1.1
       surfaces (Tables, Pictures, Protection, AutoFilter, Validation)
@@ -307,6 +313,27 @@ the one substantive open item from the v1.1 external review pass
 slice surfaces a design row (I-63, I-64, …) and a per-slice commit
 with the standard checklist. The "go down the list" pattern from
 v1.1 carries forward.
+
+### v1.3 — OOXML named-style integration + AutoFilter follow-ups (target: TBD)
+
+v1.2 deferred two items after in-flight scope assessment. v1.3 is
+the natural home for both.
+
+- [ ] **OOXML named-style table integration.** v1.1 named styles
+      (I-57) are in-process — the name → style map is not rehydrated
+      by `Workbook.Open`. v1.3 adds write-side serialization
+      (`CT_Xf` in `cellStyleXfs` + `CT_CellStyle` in `cellStyles`)
+      and the read-side `CT_Xf → CellStyle` parser. Substantial
+      single slice — paired write + read or the API contract is
+      inconsistent.
+- [ ] **`FilterCriteria.In(...)` explicit-value list filter.** v1.2
+      (I-66) covers custom-filter operators only because NPOI 2.7.3's
+      `CT_FilterColumn` doesn't surface the `filters` property. v1.3
+      either reaches across via XML-node-level workaround, or waits
+      for an NPOI 3.x bump that surfaces the property.
+- [ ] **`FilterCriteria.Top(n)` / `BottomPercent(...)` Top-N filter.**
+      Same NPOI 2.7.3 surfacing gap as `In(...)`.
+- [ ] **Reactive items from v1.2 usage feedback.**
 
 ### v2.0 — Advanced styling & charts (target: TBD)
 

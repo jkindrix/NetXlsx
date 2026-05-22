@@ -118,6 +118,9 @@ NetXlsx.DataValidation
 NetXlsx.DateSystem
 NetXlsx.DateSystem.Excel1900 = 0 -> NetXlsx.DateSystem
 NetXlsx.DateSystem.Excel1904 = 1 -> NetXlsx.DateSystem
+NetXlsx.FilterCriteria
+NetXlsx.FilterCriteria.And(NetXlsx.FilterCriteria! other) -> NetXlsx.FilterCriteria!
+NetXlsx.FilterCriteria.Or(NetXlsx.FilterCriteria! other) -> NetXlsx.FilterCriteria!
 NetXlsx.FormulaException
 NetXlsx.FormulaException.FormulaException(string! message, System.Exception! innerException) -> void
 NetXlsx.FormulaException.FormulaException(string! message) -> void
@@ -237,6 +240,7 @@ NetXlsx.ISheet.AddTable(string! a1Range, string! name, string? style = null) -> 
 NetXlsx.ISheet.AddValidation(string! a1Range, NetXlsx.DataValidation! validation) -> void
 NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
 NetXlsx.ISheet.AutoFilterRange.get -> string?
+NetXlsx.ISheet.ClearAutoFilterColumn(int columnOffset) -> void
 NetXlsx.ISheet.ClearAutoFilter() -> void
 NetXlsx.ISheet.Column(int index) -> NetXlsx.IColumn!
 NetXlsx.ISheet.Column(string! letter) -> NetXlsx.IColumn!
@@ -253,7 +257,9 @@ NetXlsx.ISheet.Name.get -> string!
 NetXlsx.ISheet.Protect(string? password = null, NetXlsx.SheetProtection? options = null) -> void
 NetXlsx.ISheet.Range(int row1, int col1, int row2, int col2) -> NetXlsx.IRange!
 NetXlsx.ISheet.Range(string! a1Range) -> NetXlsx.IRange!
+NetXlsx.ISheet.RemoveTable(NetXlsx.ITable! table) -> void
 NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
+NetXlsx.ISheet.SetAutoFilterColumn(int columnOffset, NetXlsx.FilterCriteria! criteria) -> void
 NetXlsx.ISheet.SetAutoFilter(string! a1Range) -> void
 NetXlsx.ISheet.ShowGridlines.get -> bool
 NetXlsx.ISheet.ShowGridlines.set -> void
@@ -309,11 +315,16 @@ NetXlsx.IStreamingWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true)
 NetXlsx.IStreamingWorkbook.Underlying.get -> NPOI.XSSF.Streaming.SXSSFWorkbook!
 NetXlsx.ITable
 NetXlsx.ITable.Address.get -> string!
+NetXlsx.ITable.AddTotalsRow() -> void
 NetXlsx.ITable.ColumnNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NetXlsx.ITable.DisplayName.get -> string!
 NetXlsx.ITable.DisplayName.set -> void
 NetXlsx.ITable.HasTotalsRow.get -> bool
 NetXlsx.ITable.Name.get -> string!
+NetXlsx.ITable.RemoveTotalsRow() -> void
+NetXlsx.ITable.SetColumnTotalLabel(string! columnName, string! label) -> void
+NetXlsx.ITable.SetColumnTotal(string! columnName, NetXlsx.TotalsRowFunction function) -> void
+NetXlsx.ITable.SetColumnTotal(string! columnName, string! customFormula) -> void
 NetXlsx.ITable.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.ITable.StyleName.get -> string?
 NetXlsx.ITable.StyleName.set -> void
@@ -326,6 +337,7 @@ NetXlsx.IWorkbook.GetStylePoolDiagnostics() -> NetXlsx.StylePoolDiagnostics
 NetXlsx.IWorkbook.IsProtected.get -> bool
 NetXlsx.IWorkbook.NamedRanges.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.INamedRange!>!
 NetXlsx.IWorkbook.Protect(NetXlsx.WorkbookProtection? options = null) -> void
+NetXlsx.IWorkbook.ProtectWithPassword(string! password, NetXlsx.WorkbookProtection? options = null) -> void
 NetXlsx.IWorkbook.RegisteredStyleNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
 NetXlsx.IWorkbook.RegisterStyle(string! name, NetXlsx.CellStyle! style) -> void
 NetXlsx.IWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
@@ -430,6 +442,17 @@ NetXlsx.StylePoolDiagnostics.StylePoolDiagnostics() -> void
 NetXlsx.StylePoolDiagnostics.UniqueFonts.get -> int
 NetXlsx.StylePoolDiagnostics.UniqueStyles.get -> int
 NetXlsx.TableStyles
+NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Average = 4 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Count = 5 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.CountNumbers = 6 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Custom = 9 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Max = 3 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Min = 2 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.None = 0 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.StdDev = 7 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Sum = 1 -> NetXlsx.TotalsRowFunction
+NetXlsx.TotalsRowFunction.Var = 8 -> NetXlsx.TotalsRowFunction
 NetXlsx.UnderlineStyle
 NetXlsx.UnderlineStyle.Double = 2 -> NetXlsx.UnderlineStyle
 NetXlsx.UnderlineStyle.DoubleAccounting = 4 -> NetXlsx.UnderlineStyle
@@ -519,6 +542,17 @@ static NetXlsx.DataValidation.ListFromRange(string! formula) -> NetXlsx.DataVali
 static NetXlsx.DataValidation.List(params string![]! values) -> NetXlsx.DataValidation!
 static NetXlsx.DataValidation.TextLengthAtLeast(int min) -> NetXlsx.DataValidation!
 static NetXlsx.DataValidation.TextLengthAtMost(int max) -> NetXlsx.DataValidation!
+static NetXlsx.FilterCriteria.Between(double min, double max) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.Contains(string! substring) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.DoesNotContain(string! substring) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.EndsWith(string! suffix) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.EqualTo(string! value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.GreaterThan(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.GreaterThanOrEqual(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.LessThan(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.LessThanOrEqual(double value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.NotEqualTo(string! value) -> NetXlsx.FilterCriteria!
+static NetXlsx.FilterCriteria.StartsWith(string! prefix) -> NetXlsx.FilterCriteria!
 static NetXlsx.RichTextStyle.Default.get -> NetXlsx.RichTextStyle!
 static NetXlsx.SheetProtection.Default.get -> NetXlsx.SheetProtection!
 static NetXlsx.SheetProtection.LockAll.get -> NetXlsx.SheetProtection!

@@ -9,6 +9,52 @@ changes (decision I19).
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-05-22
+
+v1.2 closes five of the six deferments from v1.1 and lands one
+substantive refactor flagged by the v1.1 external review.
+
+- **Slice 1 (refactor):** `ISheet.cs` partial-class split — 901 LOC
+  monolithic file becomes 6 files split by abstraction level
+  (IWorkbook / ISheet / ICell / IRow / IRange / IColumn). Mirrors
+  the established `XssfCell.*.cs` / `XssfSheet.*.cs` impl-side
+  pattern. Zero behavioral change.
+- **Slice 2 (I-63):** `ISheet.RemoveTable(ITable)` — drops the
+  OOXML `<tablePart>`, package relationship, and cached entry from
+  `XSSFSheet.tables`. NPOI 2.7.3's `XSSFSheet` does not expose
+  `RemoveTable` publicly; reaches across via reflection scoped to
+  one method + one field, centralized in `Internal/NpoiInternals.cs`.
+- **Slice 3 (I-64):** Per-column totals row on `ITable`. New
+  `TotalsRowFunction` enum, `AddTotalsRow` / `RemoveTotalsRow` /
+  `SetColumnTotal` / `SetColumnTotalLabel`. Uses 100-series SUBTOTAL
+  formula codes for AutoFilter-aware totals; writes both the OOXML
+  metadata AND the actual cell formula for cross-viewer robustness.
+- **Slice 4 (I-65):** `IWorkbook.ProtectWithPassword(password, options?)`
+  — writes the 16-bit XOR verifier into `CT_WorkbookProtection.workbookPassword`.
+  Separately-named method rather than overload of `Protect` to
+  sidestep call-site ambiguity + Roslyn `RS0027`.
+- **Slice 5 (I-66):** Per-column AutoFilter criteria. New
+  `FilterCriteria` class with 11 factories + `And` / `Or` /
+  `Between` combinators, `ISheet.SetAutoFilterColumn` /
+  `ClearAutoFilterColumn`. Covers Excel's custom-filter variant
+  (equality, ordering, contains / startsWith / endsWith with
+  wildcard escaping). Explicit-value list + Top-N variants
+  deferred to v1.3 — NPOI 2.7.3 doesn't surface those properties
+  on `CT_FilterColumn`.
+- **Slice 6 (deferred to v1.3):** OOXML named-style table
+  integration. Scope assessment during v1.2 surfaced that the
+  full write + read integration is substantial enough to warrant
+  its own focused slice; deferred rather than land a partial
+  measure. v1.1 in-process behavior (decision I-57) remains
+  correct and documented.
+
+Decisions added: I-63 through I-66.
+
+Test totals: **601 unit + 35 golden-file + 1 public-API snapshot +
+18 fuzz = 655/TFM × 2 TFMs = 1,310 total** runs per CI build
+(was 601/TFM at v1.1). PublicAPI.Shipped.txt = 569 entries
+(was 535 at v1.1; +34 v1.2 surface).
+
 ### v1.2 slice 5 — per-column AutoFilter criteria (I-66)
 
 Closes the v1.1 slice-7 deferment on AutoFilter. Adds the custom-
