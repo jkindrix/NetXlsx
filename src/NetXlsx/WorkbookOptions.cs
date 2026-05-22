@@ -75,6 +75,27 @@ public class WorkbookOptions
     /// Default font size in points. Default: <c>11</c>.
     /// </summary>
     public double DefaultFontSize { get; init; } = 11;
+
+    /// <summary>
+    /// Opt-in strict concurrency detection (decision I-59). When
+    /// <c>true</c>, every structural mutating path on <see cref="IWorkbook"/>
+    /// takes a real per-workbook lock, eliminating the gap between the
+    /// default opportunistic reentry counter (decision #43) and silent
+    /// corruption from concurrent threads.
+    /// <para>
+    /// Default <c>false</c> — single-threaded callers don't pay the
+    /// lock cost. Set this when the workbook may be touched from
+    /// multiple threads, even with external serialization, and you
+    /// want a hard guarantee that concurrent mutations surface as
+    /// <see cref="System.InvalidOperationException"/> rather than
+    /// silently corrupting state.
+    /// </para>
+    /// <para>
+    /// Strict mode does not make the workbook thread-safe for
+    /// reads — concurrent reads of any kind remain undefined.
+    /// </para>
+    /// </summary>
+    public bool StrictConcurrencyDetection { get; init; }
 }
 
 /// <summary>

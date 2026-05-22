@@ -270,6 +270,23 @@ IRange ApplyNamedStyle(string name);
 
 Names are case-insensitive. Re-registering an existing name replaces the definition.
 
+### 6.2.3 Strict concurrency detection — I-59
+
+```csharp
+// On WorkbookOptions:
+public bool StrictConcurrencyDetection { get; init; }   // default false
+```
+
+**I-59 (added 2026-05-22):** Opt-in real-lock mode replacing the opportunistic reentry counter (decision #43) for callers who want a hard guarantee against silent corruption from concurrent threads.
+
+When `false` (default): the workbook uses an `Interlocked.CompareExchange`-based reentry counter on `EnterMutation`. Concurrent mutation throws `InvalidOperationException` *opportunistically* — the check has a brief gap during which two threads can both observe a "no mutation in progress" state and proceed. Same-thread reentrancy is also rejected.
+
+When `true`: `EnterMutation` takes a real per-workbook `Monitor` lock. Concurrent mutations serialize cleanly (no exception); reentrant mutations on the same thread are permitted (Monitor is reentrant). Trades some throughput for a strong "you cannot silently corrupt this workbook even if you ignore the thread-safety docs" guarantee.
+
+The default-mode exception message explicitly references the option so callers discover it when they hit a contention throw.
+
+Strict mode does not make the workbook thread-safe for reads — concurrent reads of any kind remain undefined. The lock is for mutations only.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

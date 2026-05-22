@@ -338,22 +338,55 @@ internal sealed partial class XssfWorkbook : IWorkbook
     /// mutations (AddSheet, future Add/RemoveRow, etc.) where the read of
     /// internal collections during another thread's mutation would corrupt.
     /// </remarks>
+    private readonly object _strictLock = new();
+
     internal MutationScope EnterMutation()
     {
+        // Strict mode (decision I-59): take a real per-workbook lock.
+        // Reentrant on the same thread (Monitor is reentrant), so nested
+        // same-thread mutations are permitted in strict mode — unlike
+        // the opportunistic counter which rejects them. The trade-off
+        // is deliberate: strict mode is for "another thread cannot
+        // silently corrupt me", not for "fluent-chain reentrancy is
+        // forbidden". Callers concerned about reentrancy can compose
+        // their own external guard.
+        if (Options.StrictConcurrencyDetection)
+        {
+            Monitor.Enter(_strictLock);
+            return new MutationScope(this, strict: true);
+        }
+
+        // Default opportunistic counter (decision #43).
         if (Interlocked.CompareExchange(ref _inMutation, 1, 0) != 0)
         {
             throw new InvalidOperationException(
                 "Concurrent or reentrant mutation detected on IWorkbook. " +
-                "Workbooks are not thread-safe (decision #43); serialize access externally.");
+                "Workbooks are not thread-safe (decision #43); serialize access externally. " +
+                "Pass WorkbookOptions { StrictConcurrencyDetection = true } for a real-lock mode (decision I-59).");
         }
-        return new MutationScope(this);
+        return new MutationScope(this, strict: false);
     }
 
     internal readonly struct MutationScope : IDisposable
     {
         private readonly XssfWorkbook _owner;
-        public MutationScope(XssfWorkbook owner) { _owner = owner; }
-        public void Dispose() => Interlocked.Exchange(ref _owner._inMutation, 0);
+        private readonly bool _strict;
+        public MutationScope(XssfWorkbook owner, bool strict)
+        {
+            _owner = owner;
+            _strict = strict;
+        }
+        public void Dispose()
+        {
+            if (_strict)
+            {
+                Monitor.Exit(_owner._strictLock);
+            }
+            else
+            {
+                Interlocked.Exchange(ref _owner._inMutation, 0);
+            }
+        }
     }
 
     // Date/time default styles are now pool entries (S29 → folded into

@@ -9,6 +9,41 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Strict concurrency detection (slice 10/10, v1.1 complete)
+
+- **`WorkbookOptions.StrictConcurrencyDetection`**: opt-in real-lock
+  mode (decision I-59). When `true`, every structural mutating path
+  on `IWorkbook` takes a real per-workbook `Monitor` lock,
+  eliminating the gap between the default opportunistic reentry
+  counter and silent corruption from concurrent threads.
+- Default `false` — single-threaded callers don't pay the lock cost.
+- Trade-offs vs the default opportunistic counter (decision #43):
+  - Strict mode: concurrent mutations serialize cleanly (no
+    exception); same-thread reentrancy permitted (Monitor is
+    reentrant); some throughput cost.
+  - Default mode: concurrent mutation may throw
+    `InvalidOperationException` opportunistically; same-thread
+    reentrancy is rejected; zero lock overhead.
+- The default-mode exception message now mentions
+  `StrictConcurrencyDetection` so callers discover the option when
+  they hit a contention throw.
+- Strict mode does not make the workbook thread-safe for reads —
+  concurrent reads of any kind remain undefined.
+- Coverage: 6 new tests
+  (`tests/NetXlsx.Tests/StrictConcurrencyTests.cs`) — default
+  value, single-threaded mutation, same-thread reentrancy (strict
+  mode permits, default mode rejects), 50 parallel AddSheet
+  serialize cleanly under strict mode with all 50 sheets present,
+  default-mode behavior under contention does not produce silent
+  corruption.
+
+**v1.1 status: feature-complete.** 10/10 roadmap items shipped
+between 2026-05-22 commits e576b27 through this slice. Total +~111
+unit tests added (from 411 at v1.0 → 522 unit / 541 total
+including SourceGen + golden-file). Public-API surface grew by
+~140 entries in `PublicAPI.Unshipped.txt` (will flip to
+`Shipped.txt` at the v1.1 tag).
+
 ### v1.1 — Custom type converters for typed mapping (slice 9/10)
 
 - **`ICellConverter<T>` interface** + **`ColumnAttribute.ConverterType`**:
