@@ -83,9 +83,12 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
     public bool IsIgnored { get; }
     public PropertyLocation Location { get; }
     public bool TypeIsSupported { get; }
+    /// <summary>Fully-qualified converter type, or null when no converter is configured.</summary>
+    public string? ConverterTypeFullName { get; }
 
     public WorksheetProperty(string name, string fullTypeName, SpecialType underlyingSpecialType,
-        bool isNullable, ColumnMapping? column, bool isIgnored, PropertyLocation location, bool typeIsSupported)
+        bool isNullable, ColumnMapping? column, bool isIgnored, PropertyLocation location, bool typeIsSupported,
+        string? converterTypeFullName)
     {
         Name = name;
         FullTypeName = fullTypeName;
@@ -95,6 +98,7 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         IsIgnored = isIgnored;
         Location = location;
         TypeIsSupported = typeIsSupported;
+        ConverterTypeFullName = converterTypeFullName;
     }
 
     public bool Equals(WorksheetProperty? other) =>
@@ -106,7 +110,8 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         && Equals(Column, other.Column)
         && IsIgnored == other.IsIgnored
         && Location.Equals(other.Location)
-        && TypeIsSupported == other.TypeIsSupported;
+        && TypeIsSupported == other.TypeIsSupported
+        && ConverterTypeFullName == other.ConverterTypeFullName;
 
     public override bool Equals(object? obj) => Equals(obj as WorksheetProperty);
 
@@ -123,6 +128,7 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
             h = h * 31 + IsIgnored.GetHashCode();
             h = h * 31 + Location.GetHashCode();
             h = h * 31 + TypeIsSupported.GetHashCode();
+            h = h * 31 + (ConverterTypeFullName?.GetHashCode() ?? 0);
             return h;
         }
     }

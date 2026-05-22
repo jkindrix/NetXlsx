@@ -806,6 +806,32 @@ Consequences:
 - **No fallback path.** A type without `[Worksheet]` cannot be passed to `AddRow`/`AddRows`/`ReadRows` — the extension method does not exist for that type, and the code does not compile. There is no exception to catch because the call site never reaches runtime.
 - The same extension methods exist on `IStreamingSheet` for the streaming write path.
 
+### 6.9.1 Custom type converters — I-58
+
+```csharp
+public interface ICellConverter<T>
+{
+    void Write(ICell cell, T value);
+    T Read(ICell cell);
+}
+
+// On ColumnAttribute:
+[Column("Tags", ConverterType = typeof(TagsConverter))]
+public List<string> Tags { get; init; }
+```
+
+**I-58 (added 2026-05-22):** Lets a `[Worksheet]`-mapped property carry any type the user can write a converter for, escaping the generator's built-in scalar set (string / numeric / bool / DateTime / DateOnly / TimeOnly / TimeSpan).
+
+A configured `ConverterType` **overrides** the built-in `IsSupportedPropertyType` check — the property is treated as emissible regardless of declared type. The generator emits one `static readonly` field per converter property, sharing one instance across all `AddRow` / `ReadRows` calls. The converter's `Write` and `Read` methods are invoked through that cached instance.
+
+**Constraints (compile-time):**
+- Converter type must be non-abstract and have a public parameterless constructor.
+- Converter type must implement `ICellConverter<T>` where `T` exactly matches the property type.
+
+Violations surface at C# compile time via the cast in the generated field-initializer (`new SomeConverter()` assigned to `ICellConverter<T>` — mismatched `T` → CS0029 / similar). v1.1 does not add a dedicated `NXLS0007` diagnostic for this — the C# error is already clear.
+
+**Why not a workbook-level registry?** Considered (`workbook.Converters.Register<T, TConv>()`); rejected because the source generator runs at compile time and can't see runtime registrations. Per-property attribute keeps the converter visible at the call site and binds at code-emit time.
+
 ### 6.10 A1 / range parser grammar
 
 The cell and range parser accepts these forms. All accepted forms are normalized to the canonical form on output (`ICell.Address`, `IRange.Address`).

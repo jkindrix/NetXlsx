@@ -145,6 +145,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             var colAttr = attrs.FirstOrDefault(a => a.AttributeClass?.ToDisplayString() == ColumnAttributeFullName);
 
             ColumnMapping? column = null;
+            string? converterTypeName = null;
             if (colAttr is not null && colAttr.ConstructorArguments.Length > 0)
             {
                 var headerName = colAttr.ConstructorArguments[0].Value as string ?? member.Name;
@@ -154,6 +155,10 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
                 {
                     if (named.Key == "Order" && named.Value.Value is int o) order = o;
                     else if (named.Key == "Format" && named.Value.Value is string f) format = f;
+                    else if (named.Key == "ConverterType" && named.Value.Value is INamedTypeSymbol convType)
+                    {
+                        converterTypeName = convType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                    }
                 }
                 column = new ColumnMapping(headerName, order, format);
             }
@@ -175,7 +180,10 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             // v0.3.x: nullable value types are not yet generator-supported
             // (no Set(int, T?) overloads). They trip NXLS0006 honestly
             // until the next slice adds nullable-aware emit.
-            var supported = !isNullable && IsSupportedPropertyType(underlying);
+            // A custom converter (decision I-58) overrides the built-in
+            // type check — the converter is responsible for read/write.
+            var supported = converterTypeName is not null
+                || (!isNullable && IsSupportedPropertyType(underlying));
 
             var locFrom = member.Locations.FirstOrDefault();
             var loc = LocationFrom(locFrom) ?? new PropertyLocation("<unknown>", 0, 0, 0);
@@ -188,7 +196,8 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
                 column: column,
                 isIgnored: ignored,
                 location: loc,
-                typeIsSupported: supported));
+                typeIsSupported: supported,
+                converterTypeFullName: converterTypeName));
         }
         return result;
     }
@@ -235,6 +244,14 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
     /// </summary>
     private static string? FormatSetCall(WorksheetProperty p, int columnIndex)
     {
+        // Custom converter (decision I-58) overrides the built-in
+        // type-to-Set-overload mapping. Cached as a static field on
+        // the generated extension class — see EmitConverterFields.
+        if (p.ConverterTypeFullName is not null)
+        {
+            return $"s_conv_{p.Name}.Write(row.Cell({columnIndex}), record.{p.Name});";
+        }
+
         var castedExpression = p.UnderlyingSpecialType switch
         {
             SpecialType.System_String => $"record.{p.Name}",
@@ -283,6 +300,15 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
     {
         // cell access: row.Cell(col_PropName)
         var cellExpr = $"{rowVar}.Cell(col_{p.Name})";
+
+        // Custom converter (decision I-58) overrides the built-in
+        // cell-kind dispatch. Cached as a static field — see
+        // EmitConverterFields.
+        if (p.ConverterTypeFullName is not null)
+        {
+            return $"s_conv_{p.Name}.Read({cellExpr})";
+        }
+
         // shared throw expression for "required cell missing / wrong type"
         string ThrowExpr(string expected) =>
             $"throw new global::NetXlsx.WorkbookException($\"Row {{r}} column '{p.Column!.HeaderName}' expected {expected} but got {{({cellExpr}).Kind}}.\")";
@@ -475,6 +501,25 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         var extClassName = $"{m.TypeName}_SheetExtensions";
         sb.Append(m.Visibility).Append(" static class ").Append(extClassName).AppendLine();
         sb.AppendLine("{");
+
+        // Cached converter instances per property (decision I-58).
+        // One static readonly field per property with a configured
+        // ConverterType. Allocates once at class-init; subsequent
+        // AddRow / ReadRows calls reuse the instance.
+        foreach (var p in m.Properties)
+        {
+            if (p.IsIgnored) continue;
+            if (p.Column is null) continue;
+            if (p.ConverterTypeFullName is null) continue;
+            sb.Append("    private static readonly global::NetXlsx.ICellConverter<")
+              .Append(p.FullTypeName)
+              .Append("> s_conv_")
+              .Append(p.Name)
+              .Append(" = new ")
+              .Append(p.ConverterTypeFullName)
+              .AppendLine("();");
+        }
+        sb.AppendLine();
 
         // Properties that get a Set call, in source-declaration order
         // among mapped non-ignored properties. v0.3.x does NOT honor

@@ -77,6 +77,22 @@ public sealed class ColumnAttribute : Attribute
     public string? Format { get; init; }
 
     /// <summary>
+    /// Optional custom <see cref="ICellConverter{T}"/> implementation
+    /// (decision I-58). When set, the source generator treats the
+    /// property as supported even if its declared type is not in the
+    /// built-in scalar set, and emits read/write calls through a
+    /// cached instance of the supplied type.
+    /// <para>
+    /// The converter type must (1) be non-abstract, (2) have a public
+    /// parameterless constructor, and (3) implement
+    /// <see cref="ICellConverter{T}"/> where <c>T</c> matches the
+    /// declared property type. Violations surface as compile-time
+    /// diagnostic <c>NXLS0007</c>.
+    /// </para>
+    /// </summary>
+    public Type? ConverterType { get; init; }
+
+    /// <summary>
     /// Creates a column mapping bound to the supplied header name.
     /// </summary>
     public ColumnAttribute(string name)

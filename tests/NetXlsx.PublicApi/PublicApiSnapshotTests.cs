@@ -46,6 +46,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.FormulaException",
             "NetXlsx.HAlign",
             "NetXlsx.ICell",
+            "NetXlsx.ICellConverter`1",
             "NetXlsx.IColumn",
             "NetXlsx.INamedRange",
             "NetXlsx.IPicture",

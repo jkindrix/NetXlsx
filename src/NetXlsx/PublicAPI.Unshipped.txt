@@ -118,6 +118,11 @@ NetXlsx.IWorkbook.GetRegisteredStyle(string! name) -> NetXlsx.CellStyle?
 NetXlsx.IWorkbook.RegisteredStyleNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
 NetXlsx.ICell.ApplyNamedStyle(string! name) -> NetXlsx.ICell!
 NetXlsx.IRange.ApplyNamedStyle(string! name) -> NetXlsx.IRange!
+NetXlsx.ICellConverter<T>
+NetXlsx.ICellConverter<T>.Write(NetXlsx.ICell! cell, T value) -> void
+NetXlsx.ICellConverter<T>.Read(NetXlsx.ICell! cell) -> T
+NetXlsx.ColumnAttribute.ConverterType.get -> System.Type?
+NetXlsx.ColumnAttribute.ConverterType.init -> void
 NetXlsx.DataValidation
 NetXlsx.ISheet.AddValidation(string! a1Range, NetXlsx.DataValidation! validation) -> void
 static NetXlsx.DataValidation.List(params string![]! values) -> NetXlsx.DataValidation!

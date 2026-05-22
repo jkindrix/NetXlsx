@@ -9,6 +9,35 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Custom type converters for typed mapping (slice 9/10)
+
+- **`ICellConverter<T>` interface** + **`ColumnAttribute.ConverterType`**:
+  let a `[Worksheet]`-mapped property carry any type the user can write
+  a converter for, escaping the generator's built-in scalar set
+  (decision I-58).
+- A configured `ConverterType` overrides the built-in
+  `IsSupportedPropertyType` check — the property emits write/read calls
+  through a cached `static readonly ICellConverter<T> s_conv_X` field
+  on the generated extension class. One instance shared across all
+  `AddRow` / `ReadRows` calls.
+- Source-generator changes:
+  - `WorksheetProperty` model gains `ConverterTypeFullName`.
+  - `IsSupportedPropertyType` returns true when a converter is set,
+    regardless of underlying type.
+  - `FormatSetCall` / `FormatReadExpression` emit converter dispatch
+    when a converter is configured.
+  - Emit pipeline outputs cached converter fields at the top of the
+    generated extension class.
+- **Why not a workbook-level registry?** The source generator runs at
+  compile time and can't see runtime registrations. Per-property
+  attribute binds at code-emit time.
+- Coverage: 6 new tests
+  (`tests/NetXlsx.Tests/CustomConverterTests.cs`) via the in-process
+  generator harness — emits cached field, routes Write/Read through
+  converter, no NXLS0006 for converter-property, mixed
+  built-in-plus-converter still works, type with no SpecialType
+  (List&lt;string&gt;) is not skipped from emission.
+
 ### v1.1 — Named / reusable styles (slice 8/10)
 
 - **`IWorkbook.RegisterStyle` / `GetRegisteredStyle` /
