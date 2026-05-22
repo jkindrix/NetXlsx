@@ -80,6 +80,10 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Unprotect", (Action<ISheet>)(s => s.Unprotect()) };
         yield return new object[] { "IsProtected", (Action<ISheet>)(s => { var _ = s.IsProtected; }) };
         yield return new object[] { "AddValidation", (Action<ISheet>)(s => s.AddValidation("A1:A5", DataValidation.IntegerBetween(1, 10))) };
+        yield return new object[] { "SetAutoFilter", (Action<ISheet>)(s => s.SetAutoFilter("A1:B5")) };
+        yield return new object[] { "ClearAutoFilter", (Action<ISheet>)(s => s.ClearAutoFilter()) };
+        yield return new object[] { "HasAutoFilter", (Action<ISheet>)(s => { var _ = s.HasAutoFilter; }) };
+        yield return new object[] { "AutoFilterRange", (Action<ISheet>)(s => { var _ = s.AutoFilterRange; }) };
     }
 
     [Theory]

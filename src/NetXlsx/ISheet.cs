@@ -321,6 +321,28 @@ public interface ISheet
 
 
     /// <summary>
+    /// Applies an AutoFilter (dropdown filter on the header row) over
+    /// <paramref name="a1Range"/> (decision I-56). The range must include
+    /// the header row as its first row; Excel's filter dropdown appears
+    /// on each header cell. Replaces any existing AutoFilter on this sheet.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Range"/> is null.</exception>
+    /// <exception cref="InvalidCellAddressException"><paramref name="a1Range"/> is not a valid A1 range.</exception>
+    void SetAutoFilter(string a1Range);
+
+    /// <summary>Removes the AutoFilter from this sheet. No-op if none is set.</summary>
+    void ClearAutoFilter();
+
+    /// <summary>Whether this sheet currently has an AutoFilter applied.</summary>
+    bool HasAutoFilter { get; }
+
+    /// <summary>
+    /// The current AutoFilter range (e.g. <c>"A1:D10"</c>), or <c>null</c>
+    /// when no AutoFilter is set.
+    /// </summary>
+    string? AutoFilterRange { get; }
+
+    /// <summary>
     /// Applies <paramref name="validation"/> to the cells in
     /// <paramref name="a1Range"/> (decision I-55). Excel rejects user
     /// input that fails the rule with a default error dialog.

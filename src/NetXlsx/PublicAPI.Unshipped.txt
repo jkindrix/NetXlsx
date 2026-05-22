@@ -126,3 +126,7 @@ static NetXlsx.DataValidation.DateBetween(System.DateOnly start, System.DateOnly
 static NetXlsx.DataValidation.TextLengthAtMost(int max) -> NetXlsx.DataValidation!
 static NetXlsx.DataValidation.TextLengthAtLeast(int min) -> NetXlsx.DataValidation!
 static NetXlsx.DataValidation.Custom(string! formula) -> NetXlsx.DataValidation!
+NetXlsx.ISheet.SetAutoFilter(string! a1Range) -> void
+NetXlsx.ISheet.ClearAutoFilter() -> void
+NetXlsx.ISheet.HasAutoFilter.get -> bool
+NetXlsx.ISheet.AutoFilterRange.get -> string?

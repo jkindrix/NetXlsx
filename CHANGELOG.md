@@ -9,6 +9,30 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — AutoFilter (slice 7/10)
+
+- **`ISheet.SetAutoFilter(a1Range)` / `ClearAutoFilter` /
+  `HasAutoFilter` / `AutoFilterRange`**: standalone AutoFilter for
+  ranges that aren't structured tables (decision I-56).
+- `SetAutoFilter` replaces any existing AutoFilter on the sheet.
+  `ClearAutoFilter` removes it (no-op if none is set).
+- **Per-column filter criteria deferred**. Excel's filter criteria
+  model (text contains, top-N, color, date range, custom
+  expression) is rich enough that exposing it would be a
+  significant v1.1 surface chunk. Callers reach through
+  `ISheet.Underlying.GetCTWorksheet().autoFilter.filterColumn`.
+- **NPOI surprise**: `CT_Worksheet.autoFilter` is a direct property
+  in NPOI 2.7.3 with no `IsSetX` / `UnsetX` accessors. Clearing
+  assigns `null` to remove the element. The auxiliary
+  `_FilterDatabase` built-in name (created by NPOI's
+  `SetAutoFilter`) is left in place when clearing — Excel
+  tolerates a stale name pointing at an absent autoFilter.
+- Coverage: 9 new tests
+  (`tests/NetXlsx.Tests/AutoFilterTests.cs`) — initial state,
+  set + record range, replace, clear + idempotent clear, null
+  + invalid range rejection, single-cell range, file round-trip.
+  Disposed-workbook matrix updated.
+
 ### v1.1 — Data validation (slice 6/10)
 
 - **`ISheet.AddValidation(a1Range, DataValidation)`**: apply data

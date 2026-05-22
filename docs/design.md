@@ -494,6 +494,22 @@ void AddValidation(string a1Range, DataValidation validation);
 
 **Out of v1.1 scope:** time-of-day validation, "not between" / "not equal" operators, formula-driven decimal/integer constraints, error-style customization (Stop / Warning / Information), per-validation prompt + error messages. These reach through `ISheet.Underlying.GetDataValidationHelper()`.
 
+### 6.4.5 AutoFilter — I-56
+
+```csharp
+// On ISheet:
+void SetAutoFilter(string a1Range);
+void ClearAutoFilter();
+bool HasAutoFilter { get; }
+string? AutoFilterRange { get; }
+```
+
+**I-56 (added 2026-05-22):** Standalone AutoFilter for ranges that are not tables. `SetAutoFilter` applies Excel's dropdown filter over a range (the first row of the range becomes the header); replacing an existing AutoFilter just updates the range. `ClearAutoFilter` removes it.
+
+**Out of v1.1 scope:** per-column filter criteria (filter A="X" AND B>0, etc.). Excel's filter criteria model is rich (text equals/contains, top-N, color, date range, custom expression) — exposing it as a v1.1 surface would be a significant chunk of API. Callers reach through `ISheet.Underlying.GetCTWorksheet().autoFilter.filterColumn` for now.
+
+**NPOI surprise:** `CT_Worksheet` in NPOI 2.7.3 exposes the `autoFilter` element as a direct property, not via `IsSetX` / `UnsetX` accessors. `ClearAutoFilter` therefore assigns `null` to the property to remove the element from the serialized XML. The auxiliary `_FilterDatabase` built-in name (created by NPOI's `SetAutoFilter`) is left in place when clearing — Excel tolerates a stale name pointing at an absent autoFilter, and pruning it would require walking the workbook's name table.
+
 ### 6.5 Cell (fluent)
 
 ```csharp
