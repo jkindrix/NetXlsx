@@ -224,10 +224,22 @@ gets right and wrong about OOXML to translate effectively).
 
 ## Status
 
-- **Current** (2026-05-20): research-only. Not started. From-scratch
+- **Current** (2026-05-22): research-only. Not started. From-scratch
   is option 4 of 4 in `docs/long-term.md`'s EV-ordered list.
-- **Next milestone:** post-v1.0-tag, run the R&D-1 parallel spikes
-  (from-scratch + bind-ClosedXML at same scope). The output
-  selects between continuing from-scratch (R&D-2/R&D-3),
-  switching to bind-ClosedXML, or shelving both and re-evaluating
-  NPOI 3.x.
+- **2026-05-22 checkpoint:** v1.1 features landed today (10 slices,
+  decisions I-50…I-59, all compatible with the NPOI 2.7.3 pin). The
+  NPOI-surprise count from v1.1 — three (XSSFTable.CreateColumn,
+  ProtectSheet(null), XSSFSheet.RemoveTable absent) — is *additional*
+  signal in favor of evaluating NPOI 3.x or an alternative engine when
+  the upstream-state gates fire. None of those surprises were
+  unworkable; each cost ≤2 hours of investigation + CT-level
+  workaround. But cumulatively they confirm that NPOI 2.7.3 has been
+  binary-frozen for years and the gap from "ideal upstream behavior"
+  is growing.
+- **Next gating event:** the 2026-08-16 quarterly spike re-checks
+  (`docs/scheduled-spikes.md` Spike 4-Q + Spike 5-Q). If both come
+  back negative (NPOI still AOT/trim-broken, OSMF still binding),
+  the R&D-1 parallel spikes (from-scratch + bind-ClosedXML at
+  matched scope) become the next concrete commitment. If either
+  comes back positive, the R&D-1 step skips and we evaluate the
+  upstream change first.

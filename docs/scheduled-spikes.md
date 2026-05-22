@@ -34,6 +34,7 @@ warning count, runtime behavior, and any new diagnostic IDs.
 | Run date   | NPOI version | AOT runtime | Trim runtime | Notes |
 |------------|--------------|-------------|--------------|-------|
 | 2026-05-15 | 2.7.3        | Fails (`POIXMLException` at `XSSFWorkbook.OnWorkbookCreate`) | Fails (`POIXMLException` at `CreateSheet`) | Original spike 4. Roadmap rows set to `No†`. |
+| 2026-05-22 | 2.7.3        | (no re-test) | (no re-test) | Checkpoint: v1.1 features landed today (`e576b27`→`a0c9acb`). No NPOI bump in v1.1. Cadence holds — next re-test still 2026-08-16. |
 | 2026-08-16 | (pending)    | (pending)   | (pending)    | (pending) |
 
 **Promotion / demotion rules.**
@@ -79,6 +80,7 @@ Spike 4-Q to amortize the review session). Subsequent: 2026-11-16, …
 | Run date   | NPOI latest | OSMF status            | I23 verdict        | Notes |
 |------------|-------------|------------------------|--------------------|-------|
 | 2026-05-20 | 2.8.0       | EULA on binary; transitive obligations unclear | **Hold pin at 2.7.3** | Initial assessment. |
+| 2026-05-22 | 2.8.0       | (no re-assess)         | **Hold**           | Checkpoint: v1.1 features landed today. The 10 v1.1 slices were all NPOI-2.7.3-compatible (worked around `XSSFTable.CreateColumn` via direct CT manipulation, `ProtectSheet(null)` via direct CT manipulation, absence of `XSSFSheet.RemoveTable` via deferring `RemoveTable` to v1.2 — see implementation-notes.md). No new pressure to bump. Cadence holds — next re-assess still 2026-08-16. |
 | 2026-08-16 | (pending)   | (pending)              | (pending)          | (pending) |
 
 **Promotion rules.**
