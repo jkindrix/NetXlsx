@@ -216,26 +216,27 @@ A release ships when **all** of the following are true:
 - [ ] Cookbook samples project with the 13 recipes listed in design §8.1, each backed by a golden-file test
 - [ ] Manual smoke-test checklist documented
 
-### v1.1 — Common asks (target: TBD)
+### v1.1 — Common asks (target: tag pending release-PR + review pass)
 
-- [ ] Rich text in cells
-- [ ] Excel Tables (`ListObject`)
-- [ ] Image embedding (PNG / JPEG)
-- [ ] Sheet protection
-- [ ] Workbook protection
-- [ ] Data validation (lists, ranges, custom)
-- [ ] AutoFilter
-- [ ] Named / reusable styles API
-- [ ] Custom type converters for `Rows<T>`
-- [ ] `WorkbookOptions.StrictConcurrencyDetection` (opt-in). Decision
-      #43's reentry counter is opportunistic — concurrent mutations
-      *may* surface as `InvalidOperationException` but the detection
-      isn't a lock, so silent corruption in the gap is possible for
-      callers who don't read the docs. Strict mode would take a real
-      lock on the workbook's mutating paths, trading some throughput
-      for "you cannot silently corrupt a workbook even if you ignore
-      the thread-safety doc." Opt-in (default stays opportunistic) so
-      single-threaded callers don't pay the lock cost.
+Feature work landed 2026-05-22 across 10 slice commits (`e576b27` →
+`a0c9acb`). Design decisions I-50…I-59 capture the surface shape +
+rationale for each. The one remaining v1.1 item — the fuzz harness —
+is in flight as part of the post-features push.
+
+- [x] Rich text in cells — `e576b27` (I-50)
+- [x] Excel Tables (`ListObject`) — `8c0aef5` (I-51)
+- [x] Image embedding (PNG / JPEG) — `4b5ae48` (I-52)
+- [x] Sheet protection — `49ed280` (I-53)
+- [x] Workbook protection — `3861ac4` (I-54)
+- [x] Data validation (lists, ranges, custom) — `a90e780` (I-55)
+- [x] AutoFilter — `ae8a481` (I-56)
+- [x] Named / reusable styles API — `f796aa9` (I-57)
+- [x] Custom type converters for `Rows<T>` — `efe0092` (I-58)
+- [x] `WorkbookOptions.StrictConcurrencyDetection` — `a0c9acb` (I-59).
+      Opt-in real-lock mode replacing the opportunistic reentry counter
+      (decision #43). Default false (single-threaded callers don't pay
+      the lock cost); when true, takes a per-workbook Monitor lock on
+      every mutating path.
 - [ ] **Fuzz harness for the open path** (SharpFuzz or libFuzzer). The
       design's "bounded-resource parsing" claim (decision #20,
       `ReadMaxSheets` + `ReadMaxUncompressedBytes`) is enforced by a

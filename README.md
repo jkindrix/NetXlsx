@@ -2,7 +2,7 @@
 
 Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating and reading `.xlsx` spreadsheets.
 
-**Status:** **v1.0.0** released 2026-05-20. The public surface is exercised by 434 tests per TFM × 2 TFMs = **868 total runs per CI build** across unit, golden-file, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. Future surface additions land via the standard `PublicAPI.Unshipped.txt` → `PublicAPI.Shipped.txt` flip at the next tagged release; the [v1.1 roadmap](docs/roadmap.md#v11--common-asks-target-tbd) lists the next batch of common asks (Tables, data validation, image embedding, fuzz harness, strict-concurrency opt-in).
+**Status:** **v1.0.0** released 2026-05-20; **v1.1.0** feature-complete on `main` and pending release-PR + review pass. v1.1 added 10 surface slices (rich text, Excel tables, image embedding, sheet / workbook protection, data validation, AutoFilter, named styles, custom type converters, strict-concurrency option — decisions I-50…I-59). The public surface is exercised by **551 tests per TFM × 2 TFMs = 1,102 total runs per CI build** across unit, golden-file, source-generator, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. Post-v1.1 work tracks via the standard `PublicAPI.Unshipped.txt` → `PublicAPI.Shipped.txt` flip at the v1.1 tag; the [roadmap](docs/roadmap.md) lists the remaining v1.1 fuzz-harness item plus the v1.2 and beyond backlog.
 
 Targets `net8.0` and `net10.0` (both LTS). MIT-licensed.
 
@@ -190,7 +190,7 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 13 worked recipes
 
 ## Documentation
 
-- [Design](docs/design.md) — 52 foundational + 22 implementation decisions, full v1.0 interface sketch, performance targets, behavioral specifications, quality gates.
+- [Design](docs/design.md) — 52 foundational + 32 implementation decisions, full interface sketch, performance targets, behavioral specifications, quality gates.
 - [Roadmap](docs/roadmap.md) — binary feature matrix v1.0 / v1.1 / v2.0 / v3.0 / Never, per-release DoD, process rules.
 - [Implementation notes](docs/implementation-notes.md) — patterns and lessons from the implementation phase (not yet a methodology — see file header).
 - [Scheduled spikes](docs/scheduled-spikes.md) — quarterly re-checks (e.g. NPOI AOT/trim posture, next due 2026-08-16).
