@@ -258,7 +258,7 @@ one was the right scope-control call at slice time, but the resulting
 the one substantive open item from the v1.1 external review pass
 (ISheet.cs SRP pressure at 888 LOC).
 
-- [ ] **`ISheet.RemoveTable(ITable)`**. NPOI 2.7.3's `XSSFSheet` has
+- [x] **`ISheet.RemoveTable(ITable)`** — landed (I-63). NPOI 2.7.3's `XSSFSheet` has
       no `RemoveTable` method; removal requires three coordinated
       mutations (drop the `<tablePart>` from `CT_Worksheet.tableParts`,
       remove the package relationship, update the sheet's part-loaded

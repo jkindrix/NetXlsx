@@ -4,6 +4,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
+using NPOI;
 using NPOI.OpenXmlFormats.Spreadsheet;
 using NPOI.SS;
 using NPOI.SS.UserModel;
@@ -134,6 +136,57 @@ internal sealed partial class XssfSheet
         }
         table = null;
         return false;
+    }
+
+    public void RemoveTable(ITable table)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(table);
+        if (table is not XssfTable xt)
+        {
+            throw new ArgumentException(
+                "Table instance is not an XssfTable — likely a foreign or mocked implementation.",
+                nameof(table));
+        }
+        // Verify the table actually belongs to this sheet. NPOI's
+        // GetRelationId returns null if the part isn't a relation of
+        // this sheet — that's the cheapest belongs-to check available.
+        var relId = _underlying.GetRelationId(xt.Underlying);
+        if (string.IsNullOrEmpty(relId))
+        {
+            throw new ArgumentException(
+                "Table does not belong to this sheet (no relation found).",
+                nameof(table));
+        }
+
+        // Step 1: drop the <tablePart> entry referencing this relId
+        // from CT_Worksheet.tableParts. Walk the list backwards in
+        // case duplicate ids ever appear (defensive — shouldn't, but
+        // the cost is one extra comparison).
+        var ws = _underlying.GetCTWorksheet();
+        if (ws.tableParts?.tablePart is { } parts)
+        {
+            for (int i = parts.Count - 1; i >= 0; i--)
+            {
+                if (parts[i].id == relId) parts.RemoveAt(i);
+            }
+            ws.tableParts.count = (uint)parts.Count;
+            // OOXML allows the <tableParts> element to be present-but-
+            // empty, but Excel is friendlier with it absent entirely
+            // when the sheet has no remaining tables.
+            if (parts.Count == 0) ws.tableParts = null;
+        }
+
+        // Step 2: drop the package relationship + part via
+        // POIXMLDocumentPart.RemoveRelation. The method is protected
+        // upstream; reach across via the cached MethodInfo from
+        // NpoiInternals (one reflection lookup, shared across calls).
+        NpoiInternals.RemoveRelation(_underlying, xt.Underlying);
+
+        // Step 3: drop the cached entry from XSSFSheet's internal
+        // `tables` dictionary so a subsequent GetTables() snapshot
+        // doesn't surface the removed table.
+        NpoiInternals.RemoveTableFromSheetCache(_underlying, relId);
     }
 
     // ---- Internal helpers ---------------------------------------------

@@ -204,6 +204,105 @@ public class TableApiTests
         act.Should().Throw<ArgumentException>().WithMessage("*Duplicate header*");
     }
 
+    // ---- RemoveTable (v1.2 / I-63) ------------------------------------
+
+    [Fact]
+    public void RemoveTable_Drops_The_Table_From_Tables_Snapshot()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("H"); sh["A2"].SetString("v");
+        var t = sh.AddTable("A1:A2", "T");
+
+        sh.Tables.Should().HaveCount(1);
+        sh.RemoveTable(t);
+        sh.Tables.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RemoveTable_Allows_Subsequent_AddTable_With_Same_Name()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("H"); sh["A2"].SetString("v");
+
+        var t = sh.AddTable("A1:A2", "Reusable");
+        sh.RemoveTable(t);
+
+        // The name is freed; we can register a fresh table with the
+        // same codename without a uniqueness collision.
+        Action act = () => sh.AddTable("A1:A2", "Reusable");
+        act.Should().NotThrow();
+        sh.Tables.Should().HaveCount(1);
+        sh.Tables[0].Name.Should().Be("Reusable");
+    }
+
+    [Fact]
+    public void RemoveTable_Rejects_Null()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        Action act = () => sh.RemoveTable(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void RemoveTable_Rejects_Table_From_Different_Sheet()
+    {
+        using var wb = Workbook.Create();
+        var s1 = wb.AddSheet("S1");
+        var s2 = wb.AddSheet("S2");
+        s1["A1"].SetString("H"); s1["A2"].SetString("v");
+        s2["A1"].SetString("H"); s2["A2"].SetString("v");
+
+        var t1 = s1.AddTable("A1:A2", "SheetOneTable");
+        Action act = () => s2.RemoveTable(t1);
+        act.Should().Throw<ArgumentException>().WithMessage("*does not belong*");
+    }
+
+    [Fact]
+    public void RemoveTable_Idempotent_When_Called_Twice_Throws_Second_Time()
+    {
+        using var wb = Workbook.Create();
+        var sh = wb.AddSheet("S");
+        sh["A1"].SetString("H"); sh["A2"].SetString("v");
+
+        var t = sh.AddTable("A1:A2", "T");
+        sh.RemoveTable(t);
+
+        // The handle is now stale — its underlying part no longer has a
+        // relation to the sheet. A second remove must fail loudly, not
+        // silently no-op (silent-no-op would mask caller bugs).
+        Action act = () => sh.RemoveTable(t);
+        act.Should().Throw<ArgumentException>().WithMessage("*does not belong*");
+    }
+
+    [Fact]
+    public void RemoveTable_Survives_File_Roundtrip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"rmtbl-rt-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.Create())
+            {
+                var sh = wb.AddSheet("S");
+                sh.AppendRow().Set(1, "H1").Set(2, "H2");
+                sh.AppendRow().Set(1, "a").Set(2, "b");
+                var kept = sh.AddTable("A1:A2", "Kept");
+                var dropped = sh.AddTable("B1:B2", "Dropped");
+                sh.RemoveTable(dropped);
+                wb.Save(path);
+            }
+            using (var wb = Workbook.Open(path))
+            {
+                var sh = wb["S"];
+                sh.Tables.Should().HaveCount(1);
+                sh.Tables[0].Name.Should().Be("Kept");
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     // ---- File round-trip ----------------------------------------------
 
     [Fact]

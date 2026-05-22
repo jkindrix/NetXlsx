@@ -573,6 +573,23 @@ string? AutoFilterRange { get; }
 
 **NPOI surprise:** `CT_Worksheet` in NPOI 2.7.3 exposes the `autoFilter` element as a direct property, not via `IsSetX` / `UnsetX` accessors. `ClearAutoFilter` therefore assigns `null` to the property to remove the element from the serialized XML. The auxiliary `_FilterDatabase` built-in name (created by NPOI's `SetAutoFilter`) is left in place when clearing — Excel tolerates a stale name pointing at an absent autoFilter, and pruning it would require walking the workbook's name table.
 
+### 6.4.6 Table removal — I-63 (v1.2)
+
+```csharp
+// On ISheet:
+void RemoveTable(ITable table);
+```
+
+**I-63 (added 2026-05-22):** v1.1 slice 2 (decision I-51) deferred `RemoveTable` because NPOI 2.7.3's `XSSFSheet` did not expose a `RemoveTable` method (the upstream source has one; the 2.7.x binary line never published it). v1.2 closes the gap by performing the three-step removal directly:
+
+1. Drop the matching `<tablePart>` entry from `CT_Worksheet.tableParts` (matched by the table's package-relationship id).
+2. Remove the package relationship + part via `POIXMLDocumentPart.RemoveRelation`.
+3. Drop the cached entry from `XSSFSheet`'s internal `tables` dictionary so subsequent `GetTables()` snapshots don't surface the removed entry.
+
+Steps 2 and 3 require crossing NPOI's protection boundary — `RemoveRelation` is `protected` and the `tables` field is `private`. Both crossings are centralized in `src/NetXlsx/Internal/NpoiInternals.cs`, with `MethodInfo` / `FieldInfo` cached as `static readonly` fields so each reflection lookup happens once. A future NPOI 3.x bump that exposes `RemoveTable` publicly removes both reflection calls; until then, this is the narrowest workable surface.
+
+**Validation:** `XssfSheet.RemoveTable` rejects foreign-table handles (the table's relationship id won't resolve on a different sheet) and rejects already-removed handles for the same reason — both throw `ArgumentException`. A second `RemoveTable(t)` on a freshly-removed handle is not idempotent-silent; it surfaces the stale handle loudly. Calling code that wants idempotency should check `sh.Tables.Contains(t)` first.
+
 ### 6.5 Cell (fluent)
 
 ```csharp

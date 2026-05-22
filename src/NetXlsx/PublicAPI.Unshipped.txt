@@ -1,1 +1,2 @@
 #nullable enable
+NetXlsx.ISheet.RemoveTable(NetXlsx.ITable! table) -> void

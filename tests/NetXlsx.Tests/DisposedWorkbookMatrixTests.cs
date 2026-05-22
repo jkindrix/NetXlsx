@@ -78,6 +78,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "AddTable", (Action<ISheet>)(s => s.AddTable("A1:B2", "T")) };
         yield return new object[] { "Tables", (Action<ISheet>)(s => { var _ = s.Tables; }) };
         yield return new object[] { "TryGetTable", (Action<ISheet>)(s => s.TryGetTable("T", out _)) };
+        yield return new object[] { "RemoveTable", (Action<ISheet>)(s => s.RemoveTable(new XssfTableStub())) };
         yield return new object[] { "AddPicture(3-arg)", (Action<ISheet>)(s => s.AddPicture("A1", new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, ImageFormat.Png)) };
         yield return new object[] { "AddPicture(2-arg)", (Action<ISheet>)(s => s.AddPicture("A1", new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })) };
         yield return new object[] { "Protect", (Action<ISheet>)(s => s.Protect()) };
@@ -291,5 +292,21 @@ public class DisposedWorkbookMatrixTests
             Action second = () => wb.Dispose();
             second.Should().NotThrow($"second Dispose with {sheets} sheets");
         }
+    }
+
+    // Stub used to exercise the RemoveTable disposed-throw check —
+    // ThrowIfDisposed fires before the foreign-table-rejection logic,
+    // so the stub never gets dereferenced as anything but a non-null
+    // reference.
+    private sealed class XssfTableStub : ITable
+    {
+        public string Name => "";
+        public string DisplayName { get => ""; set { } }
+        public string Address => "";
+        public ISheet Sheet => null!;
+        public IReadOnlyList<string> ColumnNames => Array.Empty<string>();
+        public bool HasTotalsRow => false;
+        public string? StyleName { get => null; set { } }
+        public NPOI.XSSF.UserModel.XSSFTable Underlying => null!;
     }
 }

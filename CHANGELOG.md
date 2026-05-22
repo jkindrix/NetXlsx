@@ -9,6 +9,37 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.2 slice 2 — `ISheet.RemoveTable` (I-63)
+
+Closes the first non-refactor item from the v1.2 roadmap. v1.1
+slice 2 deferred this because NPOI 2.7.3's `XSSFSheet` didn't
+publish a `RemoveTable` method; v1.2 implements it via the
+three-step CT-part + relationship + cache cleanup pattern
+already validated in v1.1 for other NPOI-internals workarounds.
+
+- New `ISheet.RemoveTable(ITable)`. Drops the OOXML
+  `<tablePart>`, removes the package relationship, and clears
+  the cached entry from `XSSFSheet`'s internal `tables`
+  dictionary.
+- New `src/NetXlsx/Internal/NpoiInternals.cs` — centralized
+  reflection over NPOI's protected `POIXMLDocumentPart.RemoveRelation`
+  and private `XSSFSheet.tables` field. `MethodInfo` /
+  `FieldInfo` cached as `static readonly` so each lookup
+  happens once at class-init. Throws a clear "NPOI 2.7.3
+  internal change" diagnostic if a future version moves either
+  member, surfacing the breakage instead of failing silently.
+- Validation surface: rejects null, rejects table handles that
+  don't belong to this sheet (no matching relationship id), and
+  rejects already-removed handles for the same reason.
+  A second `RemoveTable(t)` on a freshly-removed handle throws
+  loudly — not silently idempotent.
+- After removal the codename is freed; a subsequent `AddTable`
+  with the same name succeeds. Verified by file round-trip.
+
+Coverage: 6 new tests in `tests/NetXlsx.Tests/TableApiTests.cs`.
+Disposed-workbook matrix updated; `RemoveTable` exercised via an
+inline stub.
+
 ## [1.1.0] — 2026-05-22
 
 v1.1 ships the 10-slice "common asks" feature push from the v1.1

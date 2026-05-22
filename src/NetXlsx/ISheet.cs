@@ -161,6 +161,27 @@ public interface ISheet
     /// </summary>
     bool TryGetTable(string name, [MaybeNullWhen(false)] out ITable table);
 
+    /// <summary>
+    /// Removes <paramref name="table"/> from this sheet (decision I-63).
+    /// Drops the OOXML <c>&lt;tablePart&gt;</c> entry, the package
+    /// relationship, and the underlying table part. The supplied
+    /// <see cref="ITable"/> handle becomes stale — subsequent member
+    /// access throws <see cref="ObjectDisposedException"/> if the
+    /// owning workbook has been disposed, or may produce undefined
+    /// values otherwise.
+    /// <para>
+    /// NPOI 2.7.3's <c>XSSFSheet</c> has no public <c>RemoveTable</c>
+    /// method (the source has one upstream but the 2.7.x line never
+    /// exposed it). This implementation reaches across the
+    /// protected <c>POIXMLDocumentPart.RemoveRelation</c> via
+    /// reflection, scoped to that single method. Captured in
+    /// <c>docs/implementation-notes.md</c>.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="table"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="table"/> does not belong to this sheet.</exception>
+    void RemoveTable(ITable table);
+
 
 
     /// <summary>
