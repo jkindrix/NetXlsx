@@ -9,6 +9,35 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v1.1 — Data validation (slice 6/10)
+
+- **`ISheet.AddValidation(a1Range, DataValidation)`**: apply data
+  validation rules to a cell range (decision I-55).
+- New public sealed class `DataValidation` with 11 static
+  factories covering Excel's most-used validation families:
+  - **List** (dropdown): `List(params string[])`,
+    `ListFromRange(formula)`
+  - **Integer**: `IntegerBetween`, `IntegerEqual`,
+    `IntegerGreaterThan`, `IntegerLessThan`
+  - **Decimal**: `DecimalBetween`
+  - **Date**: `DateBetween(DateOnly, DateOnly)`
+  - **Text length**: `TextLengthAtMost`, `TextLengthAtLeast`
+  - **Custom formula**: `Custom(formula)`
+- `DateBetween` uses Excel's `DATE(yyyy,m,d)` formula form rather
+  than a locale-specific date literal — validation survives a
+  round-trip on machines with non-US date formats.
+- **Deferred to v1.2/.Underlying**: time-of-day validation,
+  "not between" / "not equal" operators, formula-driven
+  decimal/integer constraints, error-style customization
+  (Stop/Warning/Information), per-validation prompt + error
+  messages.
+- Coverage: 12 new tests
+  (`tests/NetXlsx.Tests/DataValidationTests.cs`) — factory
+  validation, single + multiple rule application, range +
+  single-cell address, file round-trip, locale-stable date
+  formula. Public-API snapshot + disposed-workbook matrix
+  updated.
+
 ### v1.1 — Workbook protection (slice 5/10)
 
 - **`IWorkbook.Protect` / `IWorkbook.Unprotect` / `IWorkbook.IsProtected`**:

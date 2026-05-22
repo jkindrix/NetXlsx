@@ -79,6 +79,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Protect", (Action<ISheet>)(s => s.Protect()) };
         yield return new object[] { "Unprotect", (Action<ISheet>)(s => s.Unprotect()) };
         yield return new object[] { "IsProtected", (Action<ISheet>)(s => { var _ = s.IsProtected; }) };
+        yield return new object[] { "AddValidation", (Action<ISheet>)(s => s.AddValidation("A1:A5", DataValidation.IntegerBetween(1, 10))) };
     }
 
     [Theory]

@@ -321,6 +321,15 @@ public interface ISheet
 
 
     /// <summary>
+    /// Applies <paramref name="validation"/> to the cells in
+    /// <paramref name="a1Range"/> (decision I-55). Excel rejects user
+    /// input that fails the rule with a default error dialog.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Range"/> or <paramref name="validation"/> is null.</exception>
+    /// <exception cref="InvalidCellAddressException"><paramref name="a1Range"/> is not a valid A1 range.</exception>
+    void AddValidation(string a1Range, DataValidation validation);
+
+    /// <summary>
     /// Embeds <paramref name="data"/> as an image anchored at
     /// <paramref name="a1Cell"/> (its top-left corner). The image is
     /// rendered at its natural pixel size; resize through

@@ -463,6 +463,37 @@ bool IsProtected { get; }
 
 **NPOI surprise:** `XSSFSheet.ProtectSheet(null)` is NPOI's *unprotect* operation, not "protect without password". The no-password path therefore manipulates `CT_SheetProtection` directly (`sp.sheet = true; sp.scenarios = true; sp.objects = true;` — matching the side effects of `ProtectSheet(non-null)`). Captured in `implementation-notes.md`.
 
+### 6.4.4 Data validation — I-55
+
+```csharp
+public sealed class DataValidation
+{
+    // List (dropdown)
+    public static DataValidation List(params string[] values);
+    public static DataValidation ListFromRange(string formula);
+    // Integer / decimal
+    public static DataValidation IntegerBetween(int min, int max);
+    public static DataValidation IntegerEqual(int value);
+    public static DataValidation IntegerGreaterThan(int value);
+    public static DataValidation IntegerLessThan(int value);
+    public static DataValidation DecimalBetween(double min, double max);
+    // Date / text / custom
+    public static DataValidation DateBetween(DateOnly start, DateOnly end);
+    public static DataValidation TextLengthAtMost(int max);
+    public static DataValidation TextLengthAtLeast(int min);
+    public static DataValidation Custom(string formula);
+}
+
+// On ISheet:
+void AddValidation(string a1Range, DataValidation validation);
+```
+
+**I-55 (added 2026-05-22):** Data validation is exposed via a single sealed class with static factories — no public constructor, no exposed inheritance hierarchy. Each factory captures the NPOI helper-method call site as a lambda; the captured rule materializes against the sheet's `IDataValidationHelper` at `AddValidation` time.
+
+**Date validation uses the `DATE(yyyy,m,d)` formula form** rather than a locale-specific literal. Excel evaluates `DATE(...)` deterministically across all locales; a literal like `"5/22/2026"` would be misparsed on machines with European date formats. Captured in `implementation-notes.md`.
+
+**Out of v1.1 scope:** time-of-day validation, "not between" / "not equal" operators, formula-driven decimal/integer constraints, error-style customization (Stop / Warning / Information), per-validation prompt + error messages. These reach through `ISheet.Underlying.GetDataValidationHelper()`.
+
 ### 6.5 Cell (fluent)
 
 ```csharp
