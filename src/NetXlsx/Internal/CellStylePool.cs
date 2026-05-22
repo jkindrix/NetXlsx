@@ -20,6 +20,17 @@ internal sealed class CellStylePool
     private readonly Dictionary<CellStyle, ICellStyle> _pool = new();
     private readonly Dictionary<FontKey, IFont> _fontPool = new();
 
+    // Dedup counters per decision I-61. Read-only operational
+    // visibility — increments under the workbook's own mutation
+    // protection (the pool is only touched from inside EnterMutation
+    // scopes), so plain int suffices.
+    internal int StyleHitCount;
+    internal int StyleMissCount;
+    internal int FontHitCount;
+    internal int FontMissCount;
+    internal int UniqueStyles => _pool.Count;
+    internal int UniqueFonts => _fontPool.Count;
+
     public CellStylePool(XSSFWorkbook wb) { _wb = wb; }
 
     /// <summary>
@@ -29,7 +40,12 @@ internal sealed class CellStylePool
     /// </summary>
     public ICellStyle GetOrCreate(CellStyle style)
     {
-        if (_pool.TryGetValue(style, out var existing)) return existing;
+        if (_pool.TryGetValue(style, out var existing))
+        {
+            StyleHitCount++;
+            return existing;
+        }
+        StyleMissCount++;
         var npoiStyle = AllocateNpoiStyle(style);
         _pool[style] = npoiStyle;
         return npoiStyle;
@@ -168,7 +184,12 @@ internal sealed class CellStylePool
 
     private IFont GetOrCreateFont(FontKey key)
     {
-        if (_fontPool.TryGetValue(key, out var existing)) return existing;
+        if (_fontPool.TryGetValue(key, out var existing))
+        {
+            FontHitCount++;
+            return existing;
+        }
+        FontMissCount++;
         var f = _wb.CreateFont();
         if (key.Bold) f.IsBold = true;
         if (key.Italic) f.IsItalic = true;

@@ -117,6 +117,15 @@ public interface IWorkbook : IDisposable
     System.Collections.Generic.IReadOnlyList<INamedRange> NamedRanges { get; }
 
     /// <summary>
+    /// Returns a snapshot of the workbook's style-pool dedup activity
+    /// (decision I-61). Useful for ops verification — confirms the
+    /// pool is sharing styles / fonts rather than allocating per cell.
+    /// The returned struct is a snapshot; subsequent mutations don't
+    /// update it.
+    /// </summary>
+    StylePoolDiagnostics GetStylePoolDiagnostics();
+
+    /// <summary>
     /// Registers <paramref name="style"/> under <paramref name="name"/> for
     /// reuse via <see cref="ICell.ApplyNamedStyle"/> and
     /// <see cref="IRange.ApplyNamedStyle"/> (decision I-57). Names are

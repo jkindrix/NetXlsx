@@ -287,6 +287,31 @@ The default-mode exception message explicitly references the option so callers d
 
 Strict mode does not make the workbook thread-safe for reads — concurrent reads of any kind remain undefined. The lock is for mutations only.
 
+### 6.2.4 Style-pool diagnostics — I-61
+
+```csharp
+public readonly struct StylePoolDiagnostics
+{
+    public int StyleHitCount { get; }
+    public int StyleMissCount { get; }
+    public int FontHitCount { get; }
+    public int FontMissCount { get; }
+    public int UniqueStyles { get; }
+    public int UniqueFonts { get; }
+    public double StyleDedupRatio { get; }   // hits / (hits + misses); 0 when no lookups
+    public double FontDedupRatio { get; }
+}
+
+// On IWorkbook:
+StylePoolDiagnostics GetStylePoolDiagnostics();
+```
+
+**I-61 (added 2026-05-22):** Read-only operational visibility over the workbook's `CellStyle` + font dedup pools (decision #4). Surfaces "is the dedup actually working in production?" as a query, useful for ops sanity checks ("we have 50,000 cells; do we have 50 unique styles or 50,000?") and as test-time assertion material.
+
+The counters track every call site that goes through `CellStylePool.GetOrCreate` and `GetOrCreateFont` — both the explicit `ICell.Style(CellStyle)` path and the internal default-style-on-write paths (e.g., `SetDate` applying the workbook's date style).
+
+The returned struct is a **snapshot** by value. Calling `GetStylePoolDiagnostics` does not allocate, and the snapshot does not update after capture. A subsequent mutation requires a new call.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

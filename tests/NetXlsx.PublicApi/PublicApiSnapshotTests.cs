@@ -72,6 +72,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.SheetNameException",
             "NetXlsx.SheetProtection",
             "NetXlsx.StreamingOptions",
+            "NetXlsx.StylePoolDiagnostics",
             "NetXlsx.TableStyles",
             "NetXlsx.UnderlineStyle",
             "NetXlsx.UnsupportedImageFormatException",

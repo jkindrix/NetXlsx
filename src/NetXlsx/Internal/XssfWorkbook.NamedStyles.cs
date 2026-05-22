@@ -30,6 +30,19 @@ internal sealed partial class XssfWorkbook
         return _namedStyles is not null && _namedStyles.TryGetValue(name, out var s) ? s : null;
     }
 
+    public StylePoolDiagnostics GetStylePoolDiagnostics()
+    {
+        ThrowIfDisposed();
+        var pool = StylePool;
+        return new StylePoolDiagnostics(
+            styleHits: pool.StyleHitCount,
+            styleMisses: pool.StyleMissCount,
+            fontHits: pool.FontHitCount,
+            fontMisses: pool.FontMissCount,
+            uniqueStyles: pool.UniqueStyles,
+            uniqueFonts: pool.UniqueFonts);
+    }
+
     public IReadOnlyCollection<string> RegisteredStyleNames
     {
         get

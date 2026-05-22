@@ -9,6 +9,18 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Style-pool diagnostics (post-v1.1-features; external-review item #3)
+
+- **`IWorkbook.GetStylePoolDiagnostics()`** + **`StylePoolDiagnostics`
+  value struct** (decision I-61). Read-only counters over the workbook's
+  `CellStyle` + font dedup pools — exposes `StyleHitCount` /
+  `StyleMissCount` / `FontHitCount` / `FontMissCount` / `UniqueStyles` /
+  `UniqueFonts` plus convenience `StyleDedupRatio` and `FontDedupRatio`
+  properties.
+- Snapshot by value — does not allocate, does not update after capture.
+- Closes the v1.0 external-review recommendation #3 ("expose style-pool
+  diagnostics for ops visibility").
+
 ### Fuzz harness for the open path (post-v1.1-features hardening)
 
 - **New project `tests/NetXlsx.Fuzz/`** (xUnit, opt-in via `[Trait("Category", "Fuzz")]`) — 18 tests across 6 fuzzing strategies (garbage bytes, empty/junk zips, truncated content-types XML, billion-laughs XML expansion bomb, high-compression-ratio zip bomb, bit-flip mutations of a known-good baseline, 100-iteration bulk random sweep with 2-second per-call cancellation cap). Closes the v1.1 roadmap's "fuzz harness for the open path" item (decision I-60).

@@ -34,6 +34,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "RegisterStyle", (Action<IWorkbook>)(wb => wb.RegisterStyle("H", CellStyle.Default)) };
         yield return new object[] { "GetRegisteredStyle", (Action<IWorkbook>)(wb => wb.GetRegisteredStyle("H")) };
         yield return new object[] { "RegisteredStyleNames", (Action<IWorkbook>)(wb => { var _ = wb.RegisteredStyleNames; }) };
+        yield return new object[] { "GetStylePoolDiagnostics", (Action<IWorkbook>)(wb => wb.GetStylePoolDiagnostics()) };
     }
 
     [Theory]
