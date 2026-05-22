@@ -9,6 +9,37 @@ changes (decision I19).
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-05-22
+
+v1.1 ships the 10-slice "common asks" feature push from the v1.1
+roadmap, plus four post-features improvements driven by the v1.0
+external review and the new fuzz harness:
+
+- **Style-pool diagnostics** — operational visibility (review #3)
+- **Extended benchmark breadth** — micro + macro + percentile
+  reporting (review #2)
+- **NPOI 3.x evaluation checkpoint** — cadence holds, next
+  re-check 2026-08-16 (review #4)
+- **Fuzz harness + Open-path hardening** — closes the v1.1
+  roadmap's fuzz-harness item; first run found and fixed an
+  `IndexOutOfRangeException` leak from NPOI's parser
+
+The "Unreleased" section above this header captures the full
+slice-by-slice narrative. PublicAPI.Unshipped.txt flipped to
+PublicAPI.Shipped.txt at this tag — 155 new public-surface
+entries are now part of the SemVer-protected contract.
+
+Decisions added in v1.1: I-50 (rich text), I-51 (tables), I-52
+(images), I-53 (sheet protection), I-54 (workbook protection),
+I-55 (data validation), I-56 (AutoFilter), I-57 (named styles),
+I-58 (custom type converters), I-59 (strict concurrency
+detection), I-60 (fuzz harness + Open-path hardening), I-61
+(style-pool diagnostics), I-62 (extended benchmark coverage).
+
+Test totals: **547 unit + 35 golden-file + 1 public-API
+snapshot + 18 fuzz = 601/TFM × 2 TFMs = 1,202 total** runs per
+CI build (was 868/TFM at v1.0).
+
 ### v1.1 cookbook recipes (release-PR prep)
 
 Seven new cookbook recipes covering the v1.1 feature surface,

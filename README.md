@@ -2,7 +2,9 @@
 
 Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating and reading `.xlsx` spreadsheets.
 
-**Status:** **v1.0.0** released 2026-05-20; **v1.1.0** feature-complete on `main` and pending release-PR + review pass. v1.1 added 10 surface slices (rich text, Excel tables, image embedding, sheet / workbook protection, data validation, AutoFilter, named styles, custom type converters, strict-concurrency option — decisions I-50…I-59). The public surface is exercised by **551 tests per TFM × 2 TFMs = 1,102 total runs per CI build** across unit, golden-file, source-generator, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. Post-v1.1 work tracks via the standard `PublicAPI.Unshipped.txt` → `PublicAPI.Shipped.txt` flip at the v1.1 tag; the [roadmap](docs/roadmap.md) lists the remaining v1.1 fuzz-harness item plus the v1.2 and beyond backlog.
+**Status:** **v1.1.0** release-PR ready on `main` (2026-05-22), pending operator tag + external review pass. v1.1 added the 10-slice "common asks" feature set — rich text, Excel tables, image embedding, sheet/workbook protection, data validation, AutoFilter, named styles, custom type converters, strict-concurrency option — plus a fuzz harness for the open path and the v1.0 review's recommended polish (style-pool diagnostics, extended benchmark coverage). Decisions I-50…I-62 capture the v1.1 surface + rationale. **v1.0.0** was released 2026-05-20.
+
+The public surface is exercised by **601 tests per TFM × 2 TFMs = 1,202 total runs per CI build** across unit, golden-file, source-generator, fuzz, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. The [roadmap](docs/roadmap.md) lists the v1.2 and beyond backlog.
 
 Targets `net8.0` and `net10.0` (both LTS). MIT-licensed.
 

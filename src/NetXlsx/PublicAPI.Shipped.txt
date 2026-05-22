@@ -1,13 +1,56 @@
 #nullable enable
+const NetXlsx.CellAddress.MaxColumn = 16384 -> int
+const NetXlsx.CellAddress.MaxRow = 1048576 -> int
+const NetXlsx.NumberFormats.Accounting = "$#,##0.00;[Red]-$#,##0.00" -> string!
+const NetXlsx.NumberFormats.Currency = "$#,##0.00" -> string!
+const NetXlsx.NumberFormats.CurrencyNoSymbol = "#,##0.00" -> string!
+const NetXlsx.NumberFormats.DateTime = "yyyy-mm-dd hh:mm:ss" -> string!
+const NetXlsx.NumberFormats.Date = "yyyy-mm-dd" -> string!
+const NetXlsx.NumberFormats.Duration = "[h]:mm:ss" -> string!
+const NetXlsx.NumberFormats.General = "General" -> string!
+const NetXlsx.NumberFormats.Integer = "0" -> string!
+const NetXlsx.NumberFormats.Number = "#,##0" -> string!
+const NetXlsx.NumberFormats.NumberTwo = "#,##0.00" -> string!
+const NetXlsx.NumberFormats.Percent = "0%" -> string!
+const NetXlsx.NumberFormats.PercentTwo = "0.00%" -> string!
+const NetXlsx.NumberFormats.Scientific = "0.00E+00" -> string!
+const NetXlsx.NumberFormats.Text = "@" -> string!
+const NetXlsx.NumberFormats.Time = "hh:mm:ss" -> string!
+const NetXlsx.TableStyles.Dark1 = "TableStyleDark1" -> string!
+const NetXlsx.TableStyles.Dark9 = "TableStyleDark9" -> string!
+const NetXlsx.TableStyles.Light15 = "TableStyleLight15" -> string!
+const NetXlsx.TableStyles.Light1 = "TableStyleLight1" -> string!
+const NetXlsx.TableStyles.Light9 = "TableStyleLight9" -> string!
+const NetXlsx.TableStyles.Medium16 = "TableStyleMedium16" -> string!
+const NetXlsx.TableStyles.Medium2 = "TableStyleMedium2" -> string!
+const NetXlsx.TableStyles.Medium9 = "TableStyleMedium9" -> string!
+NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Dashed = 5 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Dotted = 6 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Double = 4 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Medium = 2 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.None = 0 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Thick = 3 -> NetXlsx.BorderStyle
+NetXlsx.BorderStyle.Thin = 1 -> NetXlsx.BorderStyle
 NetXlsx.CellAddress
-NetXlsx.CellKind
-NetXlsx.CellKind.Bool = 4 -> NetXlsx.CellKind
-NetXlsx.CellKind.Date = 3 -> NetXlsx.CellKind
-NetXlsx.CellKind.Empty = 0 -> NetXlsx.CellKind
-NetXlsx.CellKind.Error = 6 -> NetXlsx.CellKind
-NetXlsx.CellKind.Formula = 5 -> NetXlsx.CellKind
-NetXlsx.CellKind.Number = 2 -> NetXlsx.CellKind
-NetXlsx.CellKind.String = 1 -> NetXlsx.CellKind
+NetXlsx.CellBorders
+NetXlsx.CellBorders.BottomColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.BottomColor.init -> void
+NetXlsx.CellBorders.Bottom.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Bottom.init -> void
+NetXlsx.CellBorders.CellBorders(NetXlsx.BorderStyle? Top = null, NetXlsx.Color? TopColor = null, NetXlsx.BorderStyle? Right = null, NetXlsx.Color? RightColor = null, NetXlsx.BorderStyle? Bottom = null, NetXlsx.Color? BottomColor = null, NetXlsx.BorderStyle? Left = null, NetXlsx.Color? LeftColor = null) -> void
+NetXlsx.CellBorders.LeftColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.LeftColor.init -> void
+NetXlsx.CellBorders.Left.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Left.init -> void
+NetXlsx.CellBorders.RightColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.RightColor.init -> void
+NetXlsx.CellBorders.Right.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Right.init -> void
+NetXlsx.CellBorders.TopColor.get -> NetXlsx.Color?
+NetXlsx.CellBorders.TopColor.init -> void
+NetXlsx.CellBorders.Top.get -> NetXlsx.BorderStyle?
+NetXlsx.CellBorders.Top.init -> void
 NetXlsx.CellError
 NetXlsx.CellError.DivByZero = 1 -> NetXlsx.CellError
 NetXlsx.CellError.GettingData = 7 -> NetXlsx.CellError
@@ -17,48 +60,14 @@ NetXlsx.CellError.Null = 0 -> NetXlsx.CellError
 NetXlsx.CellError.Num = 5 -> NetXlsx.CellError
 NetXlsx.CellError.Ref = 3 -> NetXlsx.CellError
 NetXlsx.CellError.Value = 2 -> NetXlsx.CellError
-NetXlsx.ColumnAttribute
-NetXlsx.ColumnAttribute.ColumnAttribute(string! name) -> void
-NetXlsx.ColumnAttribute.Format.get -> string?
-NetXlsx.ColumnAttribute.Format.init -> void
-NetXlsx.ColumnAttribute.Name.get -> string!
-NetXlsx.ColumnAttribute.Order.get -> int
-NetXlsx.ColumnAttribute.Order.init -> void
-NetXlsx.ICell
-NetXlsx.ICell.Address.get -> string!
-NetXlsx.ICell.Clear() -> void
-NetXlsx.ICell.ColumnIndex.get -> int
-NetXlsx.ICell.GetBool() -> bool?
-NetXlsx.ICell.GetNumber() -> double?
-NetXlsx.ICell.GetString() -> string!
-NetXlsx.ICell.Kind.get -> NetXlsx.CellKind
-NetXlsx.ICell.RowIndex.get -> int
-NetXlsx.ICell.GetDate() -> System.DateTime?
-NetXlsx.ICell.GetDateOnly() -> System.DateOnly?
-NetXlsx.ICell.GetDuration() -> System.TimeSpan?
-NetXlsx.ICell.GetTime() -> System.TimeOnly?
-NetXlsx.ICell.SetBool(bool value) -> void
-NetXlsx.ICell.SetDate(System.DateOnly value) -> void
-NetXlsx.ICell.SetDate(System.DateTime value) -> void
-NetXlsx.ICell.SetDuration(System.TimeSpan value) -> void
-NetXlsx.ICell.SetNumber(decimal value) -> void
-NetXlsx.ICell.SetNumber(double value) -> void
-NetXlsx.ICell.SetNumber(int value) -> void
-NetXlsx.ICell.SetNumber(long value) -> void
-NetXlsx.ICell.Comment(string! text, string? author = null) -> NetXlsx.ICell!
-NetXlsx.ICell.GetComment() -> string?
-NetXlsx.ICell.GetCommentAuthor() -> string?
-NetXlsx.ICell.Hyperlink(string! target, string? display = null) -> NetXlsx.ICell!
-NetXlsx.ICell.GetHyperlink() -> string?
-NetXlsx.ICell.SetFormula(string! formula) -> void
-NetXlsx.ICell.GetFormula() -> string?
-NetXlsx.ICell.SetString(string! value) -> void
-NetXlsx.ICell.SetTime(System.TimeOnly value) -> void
-NetXlsx.ICell.Style(NetXlsx.CellStyle! style) -> NetXlsx.ICell!
-NetXlsx.ICell.NumberFormat(string! format) -> NetXlsx.ICell!
-NetXlsx.ICell.GetError() -> NetXlsx.CellError?
-NetXlsx.ICell.GetStyle() -> NetXlsx.CellStyle!
-NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
+NetXlsx.CellKind
+NetXlsx.CellKind.Bool = 4 -> NetXlsx.CellKind
+NetXlsx.CellKind.Date = 3 -> NetXlsx.CellKind
+NetXlsx.CellKind.Empty = 0 -> NetXlsx.CellKind
+NetXlsx.CellKind.Error = 6 -> NetXlsx.CellKind
+NetXlsx.CellKind.Formula = 5 -> NetXlsx.CellKind
+NetXlsx.CellKind.Number = 2 -> NetXlsx.CellKind
+NetXlsx.CellKind.String = 1 -> NetXlsx.CellKind
 NetXlsx.CellStyle
 NetXlsx.CellStyle.Background.get -> NetXlsx.Color?
 NetXlsx.CellStyle.Background.init -> void
@@ -84,49 +93,34 @@ NetXlsx.CellStyle.VerticalAlignment.get -> NetXlsx.VAlign?
 NetXlsx.CellStyle.VerticalAlignment.init -> void
 NetXlsx.CellStyle.WrapText.get -> bool?
 NetXlsx.CellStyle.WrapText.init -> void
-static NetXlsx.CellStyle.Default.get -> NetXlsx.CellStyle!
-NetXlsx.CellBorders
-NetXlsx.CellBorders.CellBorders(NetXlsx.BorderStyle? Top = null, NetXlsx.Color? TopColor = null, NetXlsx.BorderStyle? Right = null, NetXlsx.Color? RightColor = null, NetXlsx.BorderStyle? Bottom = null, NetXlsx.Color? BottomColor = null, NetXlsx.BorderStyle? Left = null, NetXlsx.Color? LeftColor = null) -> void
-NetXlsx.CellBorders.Bottom.get -> NetXlsx.BorderStyle?
-NetXlsx.CellBorders.Bottom.init -> void
-NetXlsx.CellBorders.BottomColor.get -> NetXlsx.Color?
-NetXlsx.CellBorders.BottomColor.init -> void
-NetXlsx.CellBorders.Left.get -> NetXlsx.BorderStyle?
-NetXlsx.CellBorders.Left.init -> void
-NetXlsx.CellBorders.LeftColor.get -> NetXlsx.Color?
-NetXlsx.CellBorders.LeftColor.init -> void
-NetXlsx.CellBorders.Right.get -> NetXlsx.BorderStyle?
-NetXlsx.CellBorders.Right.init -> void
-NetXlsx.CellBorders.RightColor.get -> NetXlsx.Color?
-NetXlsx.CellBorders.RightColor.init -> void
-NetXlsx.CellBorders.Top.get -> NetXlsx.BorderStyle?
-NetXlsx.CellBorders.Top.init -> void
-NetXlsx.CellBorders.TopColor.get -> NetXlsx.Color?
-NetXlsx.CellBorders.TopColor.init -> void
-static NetXlsx.CellBorders.All(NetXlsx.BorderStyle style, NetXlsx.Color? color = null) -> NetXlsx.CellBorders!
 NetXlsx.Color
 NetXlsx.Color.A.get -> byte
 NetXlsx.Color.A.init -> void
 NetXlsx.Color.B.get -> byte
 NetXlsx.Color.B.init -> void
-NetXlsx.Color.Color() -> void
 NetXlsx.Color.Color(byte A, byte R, byte G, byte B) -> void
+NetXlsx.Color.Color() -> void
 NetXlsx.Color.G.get -> byte
 NetXlsx.Color.G.init -> void
 NetXlsx.Color.R.get -> byte
 NetXlsx.Color.R.init -> void
 NetXlsx.Color.ToHex() -> string!
-static NetXlsx.Color.Black.get -> NetXlsx.Color
-static NetXlsx.Color.Blue.get -> NetXlsx.Color
-static NetXlsx.Color.FromArgb(byte a, byte r, byte g, byte b) -> NetXlsx.Color
-static NetXlsx.Color.FromHex(string! hex) -> NetXlsx.Color
-static NetXlsx.Color.FromRgb(byte r, byte g, byte b) -> NetXlsx.Color
-static NetXlsx.Color.Gray.get -> NetXlsx.Color
-static NetXlsx.Color.Green.get -> NetXlsx.Color
-static NetXlsx.Color.LightGray.get -> NetXlsx.Color
-static NetXlsx.Color.Red.get -> NetXlsx.Color
-static NetXlsx.Color.White.get -> NetXlsx.Color
-static NetXlsx.Color.Yellow.get -> NetXlsx.Color
+NetXlsx.ColumnAttribute
+NetXlsx.ColumnAttribute.ColumnAttribute(string! name) -> void
+NetXlsx.ColumnAttribute.ConverterType.get -> System.Type?
+NetXlsx.ColumnAttribute.ConverterType.init -> void
+NetXlsx.ColumnAttribute.Format.get -> string?
+NetXlsx.ColumnAttribute.Format.init -> void
+NetXlsx.ColumnAttribute.Name.get -> string!
+NetXlsx.ColumnAttribute.Order.get -> int
+NetXlsx.ColumnAttribute.Order.init -> void
+NetXlsx.DataValidation
+NetXlsx.DateSystem
+NetXlsx.DateSystem.Excel1900 = 0 -> NetXlsx.DateSystem
+NetXlsx.DateSystem.Excel1904 = 1 -> NetXlsx.DateSystem
+NetXlsx.FormulaException
+NetXlsx.FormulaException.FormulaException(string! message, System.Exception! innerException) -> void
+NetXlsx.FormulaException.FormulaException(string! message) -> void
 NetXlsx.HAlign
 NetXlsx.HAlign.Center = 2 -> NetXlsx.HAlign
 NetXlsx.HAlign.Fill = 4 -> NetXlsx.HAlign
@@ -134,45 +128,143 @@ NetXlsx.HAlign.General = 0 -> NetXlsx.HAlign
 NetXlsx.HAlign.Justify = 5 -> NetXlsx.HAlign
 NetXlsx.HAlign.Left = 1 -> NetXlsx.HAlign
 NetXlsx.HAlign.Right = 3 -> NetXlsx.HAlign
-NetXlsx.VAlign
-NetXlsx.VAlign.Bottom = 2 -> NetXlsx.VAlign
-NetXlsx.VAlign.Center = 1 -> NetXlsx.VAlign
-NetXlsx.VAlign.Justify = 3 -> NetXlsx.VAlign
-NetXlsx.VAlign.Top = 0 -> NetXlsx.VAlign
-NetXlsx.BorderStyle
-NetXlsx.BorderStyle.Dashed = 5 -> NetXlsx.BorderStyle
-NetXlsx.BorderStyle.Dotted = 6 -> NetXlsx.BorderStyle
-NetXlsx.BorderStyle.Double = 4 -> NetXlsx.BorderStyle
-NetXlsx.BorderStyle.Medium = 2 -> NetXlsx.BorderStyle
-NetXlsx.BorderStyle.None = 0 -> NetXlsx.BorderStyle
-NetXlsx.BorderStyle.Thick = 3 -> NetXlsx.BorderStyle
-NetXlsx.BorderStyle.Thin = 1 -> NetXlsx.BorderStyle
-NetXlsx.UnderlineStyle
-NetXlsx.UnderlineStyle.Double = 2 -> NetXlsx.UnderlineStyle
-NetXlsx.UnderlineStyle.DoubleAccounting = 4 -> NetXlsx.UnderlineStyle
-NetXlsx.UnderlineStyle.None = 0 -> NetXlsx.UnderlineStyle
-NetXlsx.UnderlineStyle.Single = 1 -> NetXlsx.UnderlineStyle
-NetXlsx.UnderlineStyle.SingleAccounting = 3 -> NetXlsx.UnderlineStyle
-NetXlsx.NumberFormats
-const NetXlsx.NumberFormats.Accounting = "$#,##0.00;[Red]-$#,##0.00" -> string!
-const NetXlsx.NumberFormats.Currency = "$#,##0.00" -> string!
-const NetXlsx.NumberFormats.CurrencyNoSymbol = "#,##0.00" -> string!
-const NetXlsx.NumberFormats.Date = "yyyy-mm-dd" -> string!
-const NetXlsx.NumberFormats.DateTime = "yyyy-mm-dd hh:mm:ss" -> string!
-const NetXlsx.NumberFormats.Duration = "[h]:mm:ss" -> string!
-const NetXlsx.NumberFormats.General = "General" -> string!
-const NetXlsx.NumberFormats.Integer = "0" -> string!
-const NetXlsx.NumberFormats.Number = "#,##0" -> string!
-const NetXlsx.NumberFormats.NumberTwo = "#,##0.00" -> string!
-const NetXlsx.NumberFormats.Percent = "0%" -> string!
-const NetXlsx.NumberFormats.PercentTwo = "0.00%" -> string!
-const NetXlsx.NumberFormats.Scientific = "0.00E+00" -> string!
-const NetXlsx.NumberFormats.Text = "@" -> string!
-const NetXlsx.NumberFormats.Time = "hh:mm:ss" -> string!
+NetXlsx.ICell
+NetXlsx.ICell.Address.get -> string!
+NetXlsx.ICell.ApplyNamedStyle(string! name) -> NetXlsx.ICell!
+NetXlsx.ICell.Clear() -> void
+NetXlsx.ICell.ColumnIndex.get -> int
+NetXlsx.ICell.Comment(string! text, string? author = null) -> NetXlsx.ICell!
+NetXlsx.ICellConverter<T>
+NetXlsx.ICellConverter<T>.Read(NetXlsx.ICell! cell) -> T
+NetXlsx.ICellConverter<T>.Write(NetXlsx.ICell! cell, T value) -> void
+NetXlsx.ICell.GetBool() -> bool?
+NetXlsx.ICell.GetCommentAuthor() -> string?
+NetXlsx.ICell.GetComment() -> string?
+NetXlsx.ICell.GetDateOnly() -> System.DateOnly?
+NetXlsx.ICell.GetDate() -> System.DateTime?
+NetXlsx.ICell.GetDuration() -> System.TimeSpan?
+NetXlsx.ICell.GetError() -> NetXlsx.CellError?
+NetXlsx.ICell.GetFormula() -> string?
+NetXlsx.ICell.GetHyperlink() -> string?
+NetXlsx.ICell.GetNumber() -> double?
+NetXlsx.ICell.GetRichText() -> NetXlsx.RichText?
+NetXlsx.ICell.GetString() -> string!
+NetXlsx.ICell.GetStyle() -> NetXlsx.CellStyle!
+NetXlsx.ICell.GetTime() -> System.TimeOnly?
+NetXlsx.ICell.Hyperlink(string! target, string? display = null) -> NetXlsx.ICell!
+NetXlsx.ICell.Kind.get -> NetXlsx.CellKind
+NetXlsx.ICell.NumberFormat(string! format) -> NetXlsx.ICell!
+NetXlsx.ICell.RowIndex.get -> int
+NetXlsx.ICell.SetBool(bool value) -> void
+NetXlsx.ICell.SetDate(System.DateOnly value) -> void
+NetXlsx.ICell.SetDate(System.DateTime value) -> void
+NetXlsx.ICell.SetDuration(System.TimeSpan value) -> void
+NetXlsx.ICell.SetFormula(string! formula) -> void
+NetXlsx.ICell.SetNumber(decimal value) -> void
+NetXlsx.ICell.SetNumber(double value) -> void
+NetXlsx.ICell.SetNumber(int value) -> void
+NetXlsx.ICell.SetNumber(long value) -> void
+NetXlsx.ICell.SetRichText(NetXlsx.RichText! value) -> void
+NetXlsx.ICell.SetString(string! value) -> void
+NetXlsx.ICell.SetTime(System.TimeOnly value) -> void
+NetXlsx.ICell.Style(NetXlsx.CellStyle! style) -> NetXlsx.ICell!
+NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
+NetXlsx.IColumn
+NetXlsx.IColumn.AutoSize() -> NetXlsx.IColumn!
+NetXlsx.IColumn.ForEachPopulated(System.Action<NetXlsx.ICell!>! apply) -> NetXlsx.IColumn!
+NetXlsx.IColumn.Hidden.get -> bool
+NetXlsx.IColumn.Hidden.set -> void
+NetXlsx.IColumn.Index.get -> int
+NetXlsx.IColumn.Letter.get -> string!
+NetXlsx.IColumn.SetDefaultStyle(NetXlsx.CellStyle! style) -> NetXlsx.IColumn!
+NetXlsx.IColumn.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IColumn.Width(double units) -> NetXlsx.IColumn!
+NetXlsx.IColumn.WidthUnits.get -> double
+NetXlsx.IColumn.WidthUnits.set -> void
+NetXlsx.IgnoreAttribute
+NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
+NetXlsx.ImageFormat
+NetXlsx.ImageFormat.Jpeg = 1 -> NetXlsx.ImageFormat
+NetXlsx.ImageFormat.Png = 0 -> NetXlsx.ImageFormat
 NetXlsx.INamedRange
 NetXlsx.INamedRange.Formula.get -> string!
 NetXlsx.INamedRange.Name.get -> string!
 NetXlsx.INamedRange.SheetScope.get -> string?
+NetXlsx.InvalidCellAddressException
+NetXlsx.InvalidCellAddressException.Input.get -> string!
+NetXlsx.InvalidCellAddressException.InvalidCellAddressException(string! input, string! reason) -> void
+NetXlsx.IPicture
+NetXlsx.IPicture.Format.get -> NetXlsx.ImageFormat
+NetXlsx.IPicture.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IPicture.Underlying.get -> NPOI.XSSF.UserModel.XSSFPicture!
+NetXlsx.IRange
+NetXlsx.IRange.Address.get -> string!
+NetXlsx.IRange.ApplyNamedStyle(string! name) -> NetXlsx.IRange!
+NetXlsx.IRange.Apply(NetXlsx.CellStyle! style) -> NetXlsx.IRange!
+NetXlsx.IRange.ClearContents() -> NetXlsx.IRange!
+NetXlsx.IRange.Count.get -> int
+NetXlsx.IRange.EnumerateAll() -> System.Collections.Generic.IEnumerable<NetXlsx.ICell!>!
+NetXlsx.IRange.FirstCol.get -> int
+NetXlsx.IRange.FirstRow.get -> int
+NetXlsx.IRange.LastCol.get -> int
+NetXlsx.IRange.LastRow.get -> int
+NetXlsx.IRange.Merge() -> NetXlsx.IRange!
+NetXlsx.IRange.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IRange.Value(object? value) -> NetXlsx.IRange!
+NetXlsx.IRow
+NetXlsx.IRow.Cell(int column) -> NetXlsx.ICell!
+NetXlsx.IRow.Hidden.get -> bool
+NetXlsx.IRow.Hidden.set -> void
+NetXlsx.IRow.Index.get -> int
+NetXlsx.IRow.Set(int column, bool value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, decimal value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, double value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, int value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, long value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, string! value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.DateOnly value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.DateTime value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.TimeOnly value) -> NetXlsx.IRow!
+NetXlsx.IRow.Set(int column, System.TimeSpan value) -> NetXlsx.IRow!
+NetXlsx.IRow.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IRow.this[int column].get -> NetXlsx.ICell!
+NetXlsx.IRow.this[string! columnLetter].get -> NetXlsx.ICell!
+NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
+NetXlsx.ISheet
+NetXlsx.ISheet.AddPicture(string! a1Cell, byte[]! data, NetXlsx.ImageFormat format) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddPicture(string! a1Cell, byte[]! data) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddTable(string! a1Range, string! name, string? style = null) -> NetXlsx.ITable!
+NetXlsx.ISheet.AddValidation(string! a1Range, NetXlsx.DataValidation! validation) -> void
+NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
+NetXlsx.ISheet.AutoFilterRange.get -> string?
+NetXlsx.ISheet.ClearAutoFilter() -> void
+NetXlsx.ISheet.Column(int index) -> NetXlsx.IColumn!
+NetXlsx.ISheet.Column(string! letter) -> NetXlsx.IColumn!
+NetXlsx.ISheet.FreezeColumns(int cols) -> void
+NetXlsx.ISheet.FreezePane(int rows, int cols) -> void
+NetXlsx.ISheet.FreezeRows(int rows) -> void
+NetXlsx.ISheet.HasAutoFilter.get -> bool
+NetXlsx.ISheet.Hidden.get -> bool
+NetXlsx.ISheet.Hidden.set -> void
+NetXlsx.ISheet.IsProtected.get -> bool
+NetXlsx.ISheet.MergeCells(string! a1Range) -> void
+NetXlsx.ISheet.MergedRanges.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NetXlsx.ISheet.Name.get -> string!
+NetXlsx.ISheet.Protect(string? password = null, NetXlsx.SheetProtection? options = null) -> void
+NetXlsx.ISheet.Range(int row1, int col1, int row2, int col2) -> NetXlsx.IRange!
+NetXlsx.ISheet.Range(string! a1Range) -> NetXlsx.IRange!
+NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
+NetXlsx.ISheet.SetAutoFilter(string! a1Range) -> void
+NetXlsx.ISheet.ShowGridlines.get -> bool
+NetXlsx.ISheet.ShowGridlines.set -> void
+NetXlsx.ISheet.Tables.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.ITable!>!
+NetXlsx.ISheet.this[int row, int column].get -> NetXlsx.ICell!
+NetXlsx.ISheet.this[string! a1].get -> NetXlsx.ICell!
+NetXlsx.ISheet.TryGetTable(string! name, out NetXlsx.ITable! table) -> bool
+NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
+NetXlsx.ISheet.UnmergeCells(string! a1Range) -> void
+NetXlsx.ISheet.Unprotect() -> void
+NetXlsx.ISheet.Workbook.get -> NetXlsx.IWorkbook!
 NetXlsx.IStreamingCell
 NetXlsx.IStreamingCell.Address.get -> string!
 NetXlsx.IStreamingCell.ColumnIndex.get -> int
@@ -203,18 +295,161 @@ NetXlsx.IStreamingRow.Sheet.get -> NetXlsx.IStreamingSheet!
 NetXlsx.IStreamingRow.this[int column].get -> NetXlsx.IStreamingCell!
 NetXlsx.IStreamingRow.this[string! columnLetter].get -> NetXlsx.IStreamingCell!
 NetXlsx.IStreamingSheet
-NetXlsx.IStreamingSheet.AppendRow() -> NetXlsx.IStreamingRow!
 NetXlsx.IStreamingSheet.AppendRow(int index) -> NetXlsx.IStreamingRow!
+NetXlsx.IStreamingSheet.AppendRow() -> NetXlsx.IStreamingRow!
 NetXlsx.IStreamingSheet.Name.get -> string!
 NetXlsx.IStreamingSheet.Underlying.get -> NPOI.XSSF.Streaming.SXSSFSheet!
 NetXlsx.IStreamingSheet.Workbook.get -> NetXlsx.IStreamingWorkbook!
 NetXlsx.IStreamingWorkbook
 NetXlsx.IStreamingWorkbook.AddSheet(string! name) -> NetXlsx.IStreamingSheet!
-NetXlsx.IStreamingWorkbook.Save(string! path) -> void
-NetXlsx.IStreamingWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
 NetXlsx.IStreamingWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 NetXlsx.IStreamingWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IStreamingWorkbook.Save(string! path) -> void
+NetXlsx.IStreamingWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
 NetXlsx.IStreamingWorkbook.Underlying.get -> NPOI.XSSF.Streaming.SXSSFWorkbook!
+NetXlsx.ITable
+NetXlsx.ITable.Address.get -> string!
+NetXlsx.ITable.ColumnNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+NetXlsx.ITable.DisplayName.get -> string!
+NetXlsx.ITable.DisplayName.set -> void
+NetXlsx.ITable.HasTotalsRow.get -> bool
+NetXlsx.ITable.Name.get -> string!
+NetXlsx.ITable.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.ITable.StyleName.get -> string?
+NetXlsx.ITable.StyleName.set -> void
+NetXlsx.ITable.Underlying.get -> NPOI.XSSF.UserModel.XSSFTable!
+NetXlsx.IWorkbook
+NetXlsx.IWorkbook.AddNamedRange(string! name, string! formula, string? sheetScope = null) -> NetXlsx.INamedRange!
+NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
+NetXlsx.IWorkbook.GetRegisteredStyle(string! name) -> NetXlsx.CellStyle?
+NetXlsx.IWorkbook.GetStylePoolDiagnostics() -> NetXlsx.StylePoolDiagnostics
+NetXlsx.IWorkbook.IsProtected.get -> bool
+NetXlsx.IWorkbook.NamedRanges.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.INamedRange!>!
+NetXlsx.IWorkbook.Protect(NetXlsx.WorkbookProtection? options = null) -> void
+NetXlsx.IWorkbook.RegisteredStyleNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
+NetXlsx.IWorkbook.RegisterStyle(string! name, NetXlsx.CellStyle! style) -> void
+NetXlsx.IWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+NetXlsx.IWorkbook.Save(string! path) -> void
+NetXlsx.IWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
+NetXlsx.IWorkbook.SheetCount.get -> int
+NetXlsx.IWorkbook.this[int index].get -> NetXlsx.ISheet!
+NetXlsx.IWorkbook.this[string! name].get -> NetXlsx.ISheet!
+NetXlsx.IWorkbook.TryGetSheet(string! name, out NetXlsx.ISheet! sheet) -> bool
+NetXlsx.IWorkbook.Underlying.get -> NPOI.XSSF.UserModel.XSSFWorkbook!
+NetXlsx.IWorkbook.Unprotect() -> void
+NetXlsx.MalformedFileException
+NetXlsx.MalformedFileException.MalformedFileException(string! message, System.Exception! innerException) -> void
+NetXlsx.MalformedFileException.MalformedFileException(string! message) -> void
+NetXlsx.MissingFontException
+NetXlsx.MissingFontException.MissingFontException(string! message, System.Exception! innerException) -> void
+NetXlsx.MissingFontException.MissingFontException(string! message) -> void
+NetXlsx.MissingFontException.MissingFontException(System.Exception! innerException) -> void
+NetXlsx.MissingFontException.MissingFontException() -> void
+NetXlsx.NumberFormats
+NetXlsx.ResourceLimitExceededException
+NetXlsx.ResourceLimitExceededException.Actual.get -> long
+NetXlsx.ResourceLimitExceededException.Limit.get -> long
+NetXlsx.ResourceLimitExceededException.LimitName.get -> string!
+NetXlsx.ResourceLimitExceededException.ResourceLimitExceededException(string! limitName, long limit, long actual) -> void
+NetXlsx.RichText
+NetXlsx.RichText.Equals(NetXlsx.RichText? other) -> bool
+NetXlsx.RichText.PlainText.get -> string!
+NetXlsx.RichText.RichText(params NetXlsx.RichTextRun![]! runs) -> void
+NetXlsx.RichText.RichText(System.Collections.Generic.IReadOnlyList<NetXlsx.RichTextRun!>! runs) -> void
+NetXlsx.RichTextRun
+NetXlsx.RichTextRun.RichTextRun(string! Text, NetXlsx.RichTextStyle! Style) -> void
+NetXlsx.RichTextRun.RichTextRun(string! text) -> void
+NetXlsx.RichText.Runs.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.RichTextRun!>!
+NetXlsx.RichTextRun.Style.get -> NetXlsx.RichTextStyle!
+NetXlsx.RichTextRun.Style.init -> void
+NetXlsx.RichTextRun.Text.get -> string!
+NetXlsx.RichTextRun.Text.init -> void
+NetXlsx.RichTextStyle
+NetXlsx.RichTextStyle.Bold.get -> bool?
+NetXlsx.RichTextStyle.Bold.init -> void
+NetXlsx.RichTextStyle.Color.get -> NetXlsx.Color?
+NetXlsx.RichTextStyle.Color.init -> void
+NetXlsx.RichTextStyle.FontName.get -> string?
+NetXlsx.RichTextStyle.FontName.init -> void
+NetXlsx.RichTextStyle.FontSize.get -> double?
+NetXlsx.RichTextStyle.FontSize.init -> void
+NetXlsx.RichTextStyle.Italic.get -> bool?
+NetXlsx.RichTextStyle.Italic.init -> void
+NetXlsx.RichTextStyle.Underline.get -> NetXlsx.UnderlineStyle?
+NetXlsx.RichTextStyle.Underline.init -> void
+NetXlsx.SheetNameException
+NetXlsx.SheetNameException.Name.get -> string!
+NetXlsx.SheetNameException.SheetNameException(string! name, string! reason) -> void
+NetXlsx.SheetProtection
+NetXlsx.SheetProtection.LockAutoFilter.get -> bool
+NetXlsx.SheetProtection.LockAutoFilter.init -> void
+NetXlsx.SheetProtection.LockDeleteColumns.get -> bool
+NetXlsx.SheetProtection.LockDeleteColumns.init -> void
+NetXlsx.SheetProtection.LockDeleteRows.get -> bool
+NetXlsx.SheetProtection.LockDeleteRows.init -> void
+NetXlsx.SheetProtection.LockFormatCells.get -> bool
+NetXlsx.SheetProtection.LockFormatCells.init -> void
+NetXlsx.SheetProtection.LockFormatColumns.get -> bool
+NetXlsx.SheetProtection.LockFormatColumns.init -> void
+NetXlsx.SheetProtection.LockFormatRows.get -> bool
+NetXlsx.SheetProtection.LockFormatRows.init -> void
+NetXlsx.SheetProtection.LockInsertColumns.get -> bool
+NetXlsx.SheetProtection.LockInsertColumns.init -> void
+NetXlsx.SheetProtection.LockInsertHyperlinks.get -> bool
+NetXlsx.SheetProtection.LockInsertHyperlinks.init -> void
+NetXlsx.SheetProtection.LockInsertRows.get -> bool
+NetXlsx.SheetProtection.LockInsertRows.init -> void
+NetXlsx.SheetProtection.LockObjects.get -> bool
+NetXlsx.SheetProtection.LockObjects.init -> void
+NetXlsx.SheetProtection.LockPivotTables.get -> bool
+NetXlsx.SheetProtection.LockPivotTables.init -> void
+NetXlsx.SheetProtection.LockScenarios.get -> bool
+NetXlsx.SheetProtection.LockScenarios.init -> void
+NetXlsx.SheetProtection.LockSelectLockedCells.get -> bool
+NetXlsx.SheetProtection.LockSelectLockedCells.init -> void
+NetXlsx.SheetProtection.LockSelectUnlockedCells.get -> bool
+NetXlsx.SheetProtection.LockSelectUnlockedCells.init -> void
+NetXlsx.SheetProtection.LockSort.get -> bool
+NetXlsx.SheetProtection.LockSort.init -> void
+NetXlsx.StreamingOptions
+NetXlsx.StreamingOptions.CompressTempFiles.get -> bool
+NetXlsx.StreamingOptions.CompressTempFiles.init -> void
+NetXlsx.StreamingOptions.RowAccessWindowSize.get -> int
+NetXlsx.StreamingOptions.RowAccessWindowSize.init -> void
+NetXlsx.StreamingOptions.StreamingOptions() -> void
+NetXlsx.StylePoolDiagnostics
+NetXlsx.StylePoolDiagnostics.FontDedupRatio.get -> double
+NetXlsx.StylePoolDiagnostics.FontHitCount.get -> int
+NetXlsx.StylePoolDiagnostics.FontMissCount.get -> int
+NetXlsx.StylePoolDiagnostics.StyleDedupRatio.get -> double
+NetXlsx.StylePoolDiagnostics.StyleHitCount.get -> int
+NetXlsx.StylePoolDiagnostics.StyleMissCount.get -> int
+NetXlsx.StylePoolDiagnostics.StylePoolDiagnostics(int styleHits, int styleMisses, int fontHits, int fontMisses, int uniqueStyles, int uniqueFonts) -> void
+NetXlsx.StylePoolDiagnostics.StylePoolDiagnostics() -> void
+NetXlsx.StylePoolDiagnostics.UniqueFonts.get -> int
+NetXlsx.StylePoolDiagnostics.UniqueStyles.get -> int
+NetXlsx.TableStyles
+NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.Double = 2 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.DoubleAccounting = 4 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.None = 0 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.Single = 1 -> NetXlsx.UnderlineStyle
+NetXlsx.UnderlineStyle.SingleAccounting = 3 -> NetXlsx.UnderlineStyle
+NetXlsx.UnsupportedImageFormatException
+NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException(string! message, System.Exception! innerException) -> void
+NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException(string! message) -> void
+NetXlsx.UnsupportedImageFormatException.UnsupportedImageFormatException() -> void
+NetXlsx.VAlign
+NetXlsx.VAlign.Bottom = 2 -> NetXlsx.VAlign
+NetXlsx.VAlign.Center = 1 -> NetXlsx.VAlign
+NetXlsx.VAlign.Justify = 3 -> NetXlsx.VAlign
+NetXlsx.VAlign.Top = 0 -> NetXlsx.VAlign
+NetXlsx.Workbook
+NetXlsx.WorkbookException
+NetXlsx.WorkbookException.WorkbookException(string! message, System.Exception! innerException) -> void
+NetXlsx.WorkbookException.WorkbookException(string! message) -> void
+NetXlsx.WorkbookException.WorkbookException() -> void
 NetXlsx.WorkbookOptions
 NetXlsx.WorkbookOptions.DateSystem.get -> NetXlsx.DateSystem
 NetXlsx.WorkbookOptions.DateSystem.init -> void
@@ -234,125 +469,16 @@ NetXlsx.WorkbookOptions.ReadMaxSheets.get -> int
 NetXlsx.WorkbookOptions.ReadMaxSheets.init -> void
 NetXlsx.WorkbookOptions.ReadMaxUncompressedBytes.get -> long
 NetXlsx.WorkbookOptions.ReadMaxUncompressedBytes.init -> void
+NetXlsx.WorkbookOptions.StrictConcurrencyDetection.get -> bool
+NetXlsx.WorkbookOptions.StrictConcurrencyDetection.init -> void
 NetXlsx.WorkbookOptions.WorkbookOptions() -> void
-NetXlsx.StreamingOptions
-NetXlsx.StreamingOptions.CompressTempFiles.get -> bool
-NetXlsx.StreamingOptions.CompressTempFiles.init -> void
-NetXlsx.StreamingOptions.RowAccessWindowSize.get -> int
-NetXlsx.StreamingOptions.RowAccessWindowSize.init -> void
-NetXlsx.StreamingOptions.StreamingOptions() -> void
-NetXlsx.DateSystem
-NetXlsx.DateSystem.Excel1900 = 0 -> NetXlsx.DateSystem
-NetXlsx.DateSystem.Excel1904 = 1 -> NetXlsx.DateSystem
-static NetXlsx.Workbook.CreateStreaming(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!
-NetXlsx.IWorkbook
-NetXlsx.IWorkbook.AddNamedRange(string! name, string! formula, string? sheetScope = null) -> NetXlsx.INamedRange!
-NetXlsx.IWorkbook.NamedRanges.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.INamedRange!>!
-NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
-NetXlsx.IWorkbook.Save(string! path) -> void
-NetXlsx.IWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
-NetXlsx.IWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-NetXlsx.IWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
-NetXlsx.IWorkbook.SheetCount.get -> int
-NetXlsx.IWorkbook.this[int index].get -> NetXlsx.ISheet!
-NetXlsx.IWorkbook.this[string! name].get -> NetXlsx.ISheet!
-NetXlsx.IWorkbook.TryGetSheet(string! name, out NetXlsx.ISheet! sheet) -> bool
-NetXlsx.IWorkbook.Underlying.get -> NPOI.XSSF.UserModel.XSSFWorkbook!
-NetXlsx.IgnoreAttribute
-NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
-NetXlsx.InvalidCellAddressException
-NetXlsx.InvalidCellAddressException.Input.get -> string!
-NetXlsx.InvalidCellAddressException.InvalidCellAddressException(string! input, string! reason) -> void
-NetXlsx.IRange
-NetXlsx.IRange.Address.get -> string!
-NetXlsx.IRange.Apply(NetXlsx.CellStyle! style) -> NetXlsx.IRange!
-NetXlsx.IRange.ClearContents() -> NetXlsx.IRange!
-NetXlsx.IRange.Count.get -> int
-NetXlsx.IRange.EnumerateAll() -> System.Collections.Generic.IEnumerable<NetXlsx.ICell!>!
-NetXlsx.IRange.FirstCol.get -> int
-NetXlsx.IRange.FirstRow.get -> int
-NetXlsx.IRange.LastCol.get -> int
-NetXlsx.IRange.LastRow.get -> int
-NetXlsx.IRange.Merge() -> NetXlsx.IRange!
-NetXlsx.IRange.Sheet.get -> NetXlsx.ISheet!
-NetXlsx.IRange.Value(object? value) -> NetXlsx.IRange!
-NetXlsx.IRow
-NetXlsx.IRow.Cell(int column) -> NetXlsx.ICell!
-NetXlsx.IRow.Index.get -> int
-NetXlsx.IRow.Set(int column, bool value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, decimal value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, double value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, int value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, long value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, string! value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, System.DateOnly value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, System.DateTime value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, System.TimeOnly value) -> NetXlsx.IRow!
-NetXlsx.IRow.Set(int column, System.TimeSpan value) -> NetXlsx.IRow!
-NetXlsx.IRow.Sheet.get -> NetXlsx.ISheet!
-NetXlsx.IRow.this[int column].get -> NetXlsx.ICell!
-NetXlsx.IRow.this[string! columnLetter].get -> NetXlsx.ICell!
-NetXlsx.IRow.Hidden.get -> bool
-NetXlsx.IRow.Hidden.set -> void
-NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
-NetXlsx.ISheet
-NetXlsx.IColumn
-NetXlsx.IColumn.AutoSize() -> NetXlsx.IColumn!
-NetXlsx.IColumn.ForEachPopulated(System.Action<NetXlsx.ICell!>! apply) -> NetXlsx.IColumn!
-NetXlsx.IColumn.Hidden.get -> bool
-NetXlsx.IColumn.Hidden.set -> void
-NetXlsx.IColumn.Index.get -> int
-NetXlsx.IColumn.Letter.get -> string!
-NetXlsx.IColumn.SetDefaultStyle(NetXlsx.CellStyle! style) -> NetXlsx.IColumn!
-NetXlsx.IColumn.Sheet.get -> NetXlsx.ISheet!
-NetXlsx.IColumn.Width(double units) -> NetXlsx.IColumn!
-NetXlsx.IColumn.WidthUnits.get -> double
-NetXlsx.IColumn.WidthUnits.set -> void
-NetXlsx.FormulaException
-NetXlsx.FormulaException.FormulaException(string! message) -> void
-NetXlsx.FormulaException.FormulaException(string! message, System.Exception! innerException) -> void
-NetXlsx.MissingFontException
-NetXlsx.MissingFontException.MissingFontException() -> void
-NetXlsx.MissingFontException.MissingFontException(string! message) -> void
-NetXlsx.MissingFontException.MissingFontException(System.Exception! innerException) -> void
-NetXlsx.MissingFontException.MissingFontException(string! message, System.Exception! innerException) -> void
-NetXlsx.ISheet.Column(int index) -> NetXlsx.IColumn!
-NetXlsx.ISheet.Column(string! letter) -> NetXlsx.IColumn!
-NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
-NetXlsx.ISheet.FreezeColumns(int cols) -> void
-NetXlsx.ISheet.FreezePane(int rows, int cols) -> void
-NetXlsx.ISheet.FreezeRows(int rows) -> void
-NetXlsx.ISheet.Hidden.get -> bool
-NetXlsx.ISheet.Hidden.set -> void
-NetXlsx.ISheet.MergedRanges.get -> System.Collections.Generic.IReadOnlyList<string!>!
-NetXlsx.ISheet.MergeCells(string! a1Range) -> void
-NetXlsx.ISheet.Name.get -> string!
-NetXlsx.ISheet.Range(int row1, int col1, int row2, int col2) -> NetXlsx.IRange!
-NetXlsx.ISheet.Range(string! a1Range) -> NetXlsx.IRange!
-NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
-NetXlsx.ISheet.ShowGridlines.get -> bool
-NetXlsx.ISheet.ShowGridlines.set -> void
-NetXlsx.ISheet.this[int row, int column].get -> NetXlsx.ICell!
-NetXlsx.ISheet.this[string! a1].get -> NetXlsx.ICell!
-NetXlsx.ISheet.UnmergeCells(string! a1Range) -> void
-NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
-NetXlsx.ISheet.Workbook.get -> NetXlsx.IWorkbook!
-NetXlsx.MalformedFileException
-NetXlsx.MalformedFileException.MalformedFileException(string! message) -> void
-NetXlsx.MalformedFileException.MalformedFileException(string! message, System.Exception! innerException) -> void
-NetXlsx.ResourceLimitExceededException
-NetXlsx.ResourceLimitExceededException.Actual.get -> long
-NetXlsx.ResourceLimitExceededException.Limit.get -> long
-NetXlsx.ResourceLimitExceededException.LimitName.get -> string!
-NetXlsx.ResourceLimitExceededException.ResourceLimitExceededException(string! limitName, long limit, long actual) -> void
-NetXlsx.SheetNameException
-NetXlsx.SheetNameException.Name.get -> string!
-NetXlsx.SheetNameException.SheetNameException(string! name, string! reason) -> void
-NetXlsx.Workbook
-NetXlsx.WorkbookException
-NetXlsx.WorkbookException.WorkbookException() -> void
-NetXlsx.WorkbookException.WorkbookException(string! message) -> void
-NetXlsx.WorkbookException.WorkbookException(string! message, System.Exception! innerException) -> void
+NetXlsx.WorkbookProtection
+NetXlsx.WorkbookProtection.Revision.get -> bool
+NetXlsx.WorkbookProtection.Revision.init -> void
+NetXlsx.WorkbookProtection.Structure.get -> bool
+NetXlsx.WorkbookProtection.Structure.init -> void
+NetXlsx.WorkbookProtection.Windows.get -> bool
+NetXlsx.WorkbookProtection.Windows.init -> void
 NetXlsx.WorksheetAttribute
 NetXlsx.WorksheetAttribute.Visibility.get -> NetXlsx.WorksheetVisibility
 NetXlsx.WorksheetAttribute.Visibility.init -> void
@@ -360,21 +486,50 @@ NetXlsx.WorksheetAttribute.WorksheetAttribute() -> void
 NetXlsx.WorksheetVisibility
 NetXlsx.WorksheetVisibility.Internal = 0 -> NetXlsx.WorksheetVisibility
 NetXlsx.WorksheetVisibility.Public = 1 -> NetXlsx.WorksheetVisibility
-const NetXlsx.CellAddress.MaxColumn = 16384 -> int
-const NetXlsx.CellAddress.MaxRow = 1048576 -> int
-static NetXlsx.CellAddress.Format(int row, int column) -> string!
+override NetXlsx.RichText.GetHashCode() -> int
 static NetXlsx.CellAddress.FormatColumn(int column) -> string!
+static NetXlsx.CellAddress.Format(int row, int column) -> string!
 static NetXlsx.CellAddress.FormatRange(int row1, int col1, int row2, int col2) -> string!
-static NetXlsx.CellAddress.Parse(string! a1) -> (int Row, int Column)
 static NetXlsx.CellAddress.ParseColumn(string! letter) -> int
 static NetXlsx.CellAddress.ParseRange(string! a1Range) -> (int Row1, int Col1, int Row2, int Col2)
-static NetXlsx.CellAddress.TryParse(string! a1, out int row, out int column) -> bool
+static NetXlsx.CellAddress.Parse(string! a1) -> (int Row, int Column)
 static NetXlsx.CellAddress.TryParseColumn(string! letter, out int column) -> bool
+static NetXlsx.CellAddress.TryParse(string! a1, out int row, out int column) -> bool
+static NetXlsx.CellBorders.All(NetXlsx.BorderStyle style, NetXlsx.Color? color = null) -> NetXlsx.CellBorders!
+static NetXlsx.CellStyle.Default.get -> NetXlsx.CellStyle!
+static NetXlsx.Color.Black.get -> NetXlsx.Color
+static NetXlsx.Color.Blue.get -> NetXlsx.Color
+static NetXlsx.Color.FromArgb(byte a, byte r, byte g, byte b) -> NetXlsx.Color
+static NetXlsx.Color.FromHex(string! hex) -> NetXlsx.Color
+static NetXlsx.Color.FromRgb(byte r, byte g, byte b) -> NetXlsx.Color
+static NetXlsx.Color.Gray.get -> NetXlsx.Color
+static NetXlsx.Color.Green.get -> NetXlsx.Color
+static NetXlsx.Color.LightGray.get -> NetXlsx.Color
+static NetXlsx.Color.Red.get -> NetXlsx.Color
+static NetXlsx.Color.White.get -> NetXlsx.Color
+static NetXlsx.Color.Yellow.get -> NetXlsx.Color
+static NetXlsx.DataValidation.Custom(string! formula) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.DateBetween(System.DateOnly start, System.DateOnly end) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.DecimalBetween(double min, double max) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.IntegerBetween(int min, int max) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.IntegerEqual(int value) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.IntegerGreaterThan(int value) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.IntegerLessThan(int value) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.ListFromRange(string! formula) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.List(params string![]! values) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.TextLengthAtLeast(int min) -> NetXlsx.DataValidation!
+static NetXlsx.DataValidation.TextLengthAtMost(int max) -> NetXlsx.DataValidation!
+static NetXlsx.RichTextStyle.Default.get -> NetXlsx.RichTextStyle!
+static NetXlsx.SheetProtection.Default.get -> NetXlsx.SheetProtection!
+static NetXlsx.SheetProtection.LockAll.get -> NetXlsx.SheetProtection!
 static NetXlsx.Workbook.Create(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.CreateStreaming(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!
 static NetXlsx.Workbook.IsValidSheetName(string! proposed) -> bool
-static NetXlsx.Workbook.Open(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
-static NetXlsx.Workbook.Open(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.OpenAsync(string! path, NetXlsx.WorkbookOptions? options = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
 static NetXlsx.Workbook.OpenAsync(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<NetXlsx.IWorkbook!>!
+static NetXlsx.Workbook.Open(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.Open(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.WorkbookProtection.Default.get -> NetXlsx.WorkbookProtection!
+static NetXlsx.WorkbookProtection.LockStructure.get -> NetXlsx.WorkbookProtection!
 static NetXlsx.Workbook.SanitizeSheetName(string! proposed) -> string!
 static NetXlsx.Workbook.SuggestSheetName(NetXlsx.IWorkbook! workbook, string! proposed) -> string!
