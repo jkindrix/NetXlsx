@@ -849,6 +849,42 @@ Violations surface at C# compile time via the cast in the generated field-initia
 
 **Why not a workbook-level registry?** Considered (`workbook.Converters.Register<T, TConv>()`); rejected because the source generator runs at compile time and can't see runtime registrations. Per-property attribute keeps the converter visible at the call site and binds at code-emit time.
 
+### 6.13.1 Fuzz harness for the open path — I-60
+
+A standalone test project `tests/NetXlsx.Fuzz/` (xUnit, opt-in via the
+`Fuzz` trait) feeds malformed inputs to `Workbook.Open` and asserts:
+
+1. Every input terminates in **bounded time** (2-second per-call cap on
+   the bulk sweep). A hang is a finding — resource exhaustion or an
+   infinite loop.
+2. Every input produces **either** a documented NetXlsx exception
+   (`WorkbookException` family + `ResourceLimitExceededException`) **or**
+   a documented BCL exception (`InvalidDataException`, `IOException`,
+   `FormatException`, `ArgumentException`) **or** an NPOI namespaced
+   exception. Anything else is a finding.
+
+Corpus (decision I-60):
+
+- Pure random / all-zero / all-`0xFF` bytes at sizes 0, 1, 16, 256, 4096.
+- Empty ZIP, ZIP with random non-OOXML entries, ZIP with truncated
+  `[Content_Types].xml`.
+- Classic billion-laughs XML expansion bomb in `[Content_Types].xml`.
+- High-compression-ratio zip bomb (64 MiB of zeros → ~few KB on disk)
+  against a tightened `WorkbookOptions.ReadMaxUncompressedBytes`.
+- Bit-flip mutations of a known-good baseline workbook across five
+  deterministic seeds.
+- 100-iteration bulk random sweep with per-call cancellation timer.
+
+**Driven hardening (post-v1.0):** the initial harness run surfaced
+`IndexOutOfRangeException` leaking from NPOI's parsers on truncated /
+adversarial input. `Workbook.Open` now translates the runtime-exception
+family commonly seen here — `IndexOutOfRangeException`,
+`NullReferenceException`, `OverflowException`,
+`ArgumentOutOfRangeException` — to `MalformedFileException`. The
+underlying NPOI behavior is still arguably a bug there; on our open
+path the right user-visible contract is "this file is malformed", not
+a leaked runtime exception. Captured in `implementation-notes.md`.
+
 ### 6.10 A1 / range parser grammar
 
 The cell and range parser accepts these forms. All accepted forms are normalized to the canonical form on output (`ICell.Address`, `IRange.Address`).

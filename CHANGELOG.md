@@ -9,6 +9,11 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Fuzz harness for the open path (post-v1.1-features hardening)
+
+- **New project `tests/NetXlsx.Fuzz/`** (xUnit, opt-in via `[Trait("Category", "Fuzz")]`) — 18 tests across 6 fuzzing strategies (garbage bytes, empty/junk zips, truncated content-types XML, billion-laughs XML expansion bomb, high-compression-ratio zip bomb, bit-flip mutations of a known-good baseline, 100-iteration bulk random sweep with 2-second per-call cancellation cap). Closes the v1.1 roadmap's "fuzz harness for the open path" item (decision I-60).
+- **`Workbook.Open` hardening**: the initial harness run surfaced `IndexOutOfRangeException` leaking from NPOI's parsers on adversarial input. `IsKnownMalformedOpenException` now also translates `IndexOutOfRangeException`, `NullReferenceException`, `OverflowException`, and `ArgumentOutOfRangeException` to `MalformedFileException`. The user-visible contract on `Open` for bad input is now strictly the documented exception family.
+
 ### v1.1 — Strict concurrency detection (slice 10/10, v1.1 complete)
 
 - **`WorkbookOptions.StrictConcurrencyDetection`**: opt-in real-lock

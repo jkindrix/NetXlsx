@@ -988,6 +988,100 @@ clear what guarantees apply.
 
 ---
 
+## 2026-05-22 — fuzz harness drives Open-path hardening (I-60)
+
+### The harness immediately found something
+
+First run of the new fuzz harness produced a failing bit-flip test:
+NPOI's parser threw `IndexOutOfRangeException` from somewhere inside
+`XSSFWorkbook(stream)`, propagating past NetXlsx's
+`IsKnownMalformedOpenException` filter. The runtime exception
+escaped into user code as-is.
+
+This is exactly the kind of finding the harness is meant to catch:
+not a logic bug in NetXlsx, but a contract gap. Our `Open` documents
+that bad input surfaces as `MalformedFileException`. A leaked
+`IndexOutOfRangeException` violates that contract — the user can't
+write a clean `try { Open(...) } catch (MalformedFileException) { ... }`
+if NPOI bypasses it.
+
+**Fix:** extend `IsKnownMalformedOpenException` to translate the
+runtime-exception family commonly produced by parsers on truncated
+or adversarial input:
+
+```csharp
+return ex is System.IO.InvalidDataException
+    or System.IO.IOException
+    or System.IO.EndOfStreamException
+    or System.Xml.XmlException
+    or System.IndexOutOfRangeException    // new
+    or System.NullReferenceException      // new
+    or System.OverflowException           // new
+    or System.ArgumentOutOfRangeException // new
+    or FormatException;
+```
+
+Critical exceptions (`OutOfMemoryException`, `StackOverflowException`,
+`OperationCanceledException`) are still excluded — those indicate
+runtime / programmer fault, not bad data, and propagate verbatim.
+
+### Why translate rather than fix NPOI
+
+In a perfect world, NPOI's parsers would also throw a typed exception
+for "input doesn't match my schema." They don't, consistently. We can
+either:
+
+1. File NPOI bugs and wait (months/years; the project moves at its
+   own pace).
+2. Translate at our boundary.
+
+Option 2 is the right v1.x posture — we own the surface, the
+contract belongs to us, and the translation cost is one extra `or`
+clause. The fuzz harness will keep finding new leaks; each one is a
+small addition to the same filter.
+
+### Harness design choices
+
+**xUnit, not a separate fuzzer binary.** SharpFuzz / libFuzzer would
+get more coverage per CPU-second, but they require an external
+fuzzer process and a corpus directory checked in. The xUnit
+harness sits in the same test infrastructure as everything else —
+runs locally without setup, runs in CI with one extra line, and
+the assertions are testable by code review.
+
+**Opt-in via trait, not separate solution.** `[Trait("Category", "Fuzz")]`
+lets CI gate the slow bulk-sweep test (100 iterations × up to 2s
+each = up to 200s) on a nightly cadence while keeping the
+fast-finding tests (theory matrix of bit-flip seeds, etc.) in the
+default unit-test run. Lower friction than a separate solution and
+CI workflow.
+
+**Deterministic seeds for the bit-flip theory.** `Random(seed)` with
+literal-int seeds in `[InlineData]` makes any future failure
+reproducible by re-running that exact test case. The bulk sweep uses
+`new Random(42)` for the same reason — sweep is deterministic across
+runs, so a new finding bisects cleanly to a specific iteration index.
+
+### What the harness will likely find next
+
+Educated guesses for future findings (each is a one-line addition to
+the filter when it surfaces):
+
+- Specific NPOI-internal exceptions that aren't yet in the
+  `"NPOI."` prefix match (some are nested types with weird
+  full-name shapes).
+- `ICSharpCode.SharpZipLib.Zip.ZipException` — currently caught via
+  the namespace prefix, but specific subclasses might have surprising
+  shapes.
+- `System.Threading.ThreadAbortException` if a thread-pool worker
+  gets canned mid-parse.
+
+When any of these show up, the fix is the same shape: extend
+`IsKnownMalformedOpenException`, add a regression test, write a
+note here.
+
+---
+
 ## Future entries
 
 Add a dated section per substantive implementation milestone. After

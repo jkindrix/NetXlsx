@@ -237,7 +237,7 @@ is in flight as part of the post-features push.
       (decision #43). Default false (single-threaded callers don't pay
       the lock cost); when true, takes a per-workbook Monitor lock on
       every mutating path.
-- [ ] **Fuzz harness for the open path** (SharpFuzz or libFuzzer). The
+- [x] **Fuzz harness for the open path** — landed post-v1.1-features as `tests/NetXlsx.Fuzz/` (xUnit-based corpus harness, not SharpFuzz — see `implementation-notes.md` for rationale). Found and fixed `IndexOutOfRangeException` leak from NPOI's parser on first run (decision I-60). Original entry:
       design's "bounded-resource parsing" claim (decision #20,
       `ReadMaxSheets` + `ReadMaxUncompressedBytes`) is enforced by a
       handful of explicit checks. A fuzz harness against

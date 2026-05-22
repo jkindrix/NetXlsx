@@ -130,10 +130,22 @@ public static class Workbook
         if (typeName.StartsWith("ICSharpCode.SharpZipLib.", StringComparison.Ordinal)) return true;
 
         // BCL exceptions consistent with bad-input on this code path.
+        // The IndexOutOfRange / NullReference / Overflow / Argument*
+        // additions are post-v1.0 hardening (decision I-60) — surfaced
+        // by the fuzz harness when NPOI's parsers index into truncated
+        // arrays / dereference uninitialized parts / overflow length
+        // computations on adversarial input. These are still bugs in
+        // NPOI ideally, but on the open path the right user-visible
+        // contract is "this file is malformed", not a leaked runtime
+        // exception. Captured in implementation-notes.md.
         return ex is System.IO.InvalidDataException
             or System.IO.IOException
             or System.IO.EndOfStreamException
             or System.Xml.XmlException
+            or System.IndexOutOfRangeException
+            or System.NullReferenceException
+            or System.OverflowException
+            or System.ArgumentOutOfRangeException
             or FormatException;
     }
 
