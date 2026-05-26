@@ -41,6 +41,20 @@ Coverage: 7 new tests in `tests/NetXlsx.Tests/SplitPaneTests.cs`.
 
 Decision added: I-70.
 
+### Grouping / outlining (I-71)
+
+Adds row and column grouping (Excel's outline feature):
+- `ISheet.GroupRows(startRow, endRow)` / `UngroupRows`
+- `ISheet.GroupColumns(startCol, endCol)` / `UngroupColumns`
+- `ISheet.SetRowGroupCollapsed(row, collapsed)`
+
+Nested groups supported (NPOI increments outline level per nesting).
+All indices are 1-based per NetXlsx convention.
+
+Coverage: 12 new tests in `tests/NetXlsx.Tests/GroupingTests.cs`.
+
+Decision added: I-71.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments

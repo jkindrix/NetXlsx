@@ -92,6 +92,11 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "HasAutoFilter", (Action<ISheet>)(s => { var _ = s.HasAutoFilter; }) };
         yield return new object[] { "AutoFilterRange", (Action<ISheet>)(s => { var _ = s.AutoFilterRange; }) };
         yield return new object[] { "CreateSplitPane", (Action<ISheet>)(s => s.CreateSplitPane(2000, 3000)) };
+        yield return new object[] { "GroupRows", (Action<ISheet>)(s => s.GroupRows(1, 2)) };
+        yield return new object[] { "UngroupRows", (Action<ISheet>)(s => s.UngroupRows(1, 2)) };
+        yield return new object[] { "GroupColumns", (Action<ISheet>)(s => s.GroupColumns(1, 2)) };
+        yield return new object[] { "UngroupColumns", (Action<ISheet>)(s => s.UngroupColumns(1, 2)) };
+        yield return new object[] { "SetRowGroupCollapsed", (Action<ISheet>)(s => s.SetRowGroupCollapsed(1, true)) };
         yield return new object[] { "SetAutoFilterColumn", (Action<ISheet>)(s => s.SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"))) };
         yield return new object[] { "ClearAutoFilterColumn", (Action<ISheet>)(s => s.ClearAutoFilterColumn(0)) };
     }

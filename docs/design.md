@@ -380,7 +380,24 @@ bool IsMacroEnabled { get; }
 
 **What this is NOT:** NetXlsx does not read, write, inspect, or execute VBA. The macro content is passthrough only — VBA project parts survive `Open → Save` untouched via NPOI's OPC-part preservation (decision #44). Callers who need to inject or extract VBA reach through `.Underlying` or use a dedicated VBA library.
 
-### 6.2.8 Split panes — I-70
+### 6.2.8 Grouping / outlining — I-71
+
+```csharp
+// On ISheet:
+void GroupRows(int startRow, int endRow);
+void UngroupRows(int startRow, int endRow);
+void GroupColumns(int startCol, int endCol);
+void UngroupColumns(int startCol, int endCol);
+void SetRowGroupCollapsed(int row, bool collapsed);
+```
+
+**I-71 (added 2026-05-26):** Row and column grouping (Excel's "Group" / outline feature). Delegates to NPOI's `GroupRow`, `UngroupRow`, `GroupColumn`, `UngroupColumn`, and `SetRowGroupCollapsed`. All indices are 1-based per NetXlsx convention (converted to 0-based for NPOI).
+
+Nested groups are supported — NPOI increments the outline level on each nested `GroupRow`/`GroupColumn` call, up to Excel's 7-level limit. `SetRowGroupCollapsed` toggles the collapsed state of a group whose summary row is at the given index.
+
+**Column collapse** is not surfaced as a dedicated method in v1 — NPOI's column collapse behavior is less predictable than row collapse. Callers needing column collapse reach through `ISheet.Underlying`.
+
+### 6.2.9 Split panes — I-70
 
 ```csharp
 // On ISheet:

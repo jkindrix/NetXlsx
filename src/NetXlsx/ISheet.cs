@@ -105,6 +105,39 @@ public interface ISheet
     void FreezePane(int rows, int cols);
 
     /// <summary>
+    /// Groups (outlines) rows <paramref name="startRow"/> through
+    /// <paramref name="endRow"/> inclusive (decision I-71). Nested groups
+    /// are supported up to Excel's 7-level limit. Grouped rows can be
+    /// collapsed in the Excel UI via the outline controls.
+    /// </summary>
+    /// <param name="startRow">First row of the group (1-based).</param>
+    /// <param name="endRow">Last row of the group (1-based, inclusive).</param>
+    /// <exception cref="ArgumentOutOfRangeException">Either row index is less than 1 or start &gt; end.</exception>
+    void GroupRows(int startRow, int endRow);
+
+    /// <summary>Removes a row group. The range must exactly match a prior <see cref="GroupRows"/> call.</summary>
+    void UngroupRows(int startRow, int endRow);
+
+    /// <summary>
+    /// Groups (outlines) columns <paramref name="startCol"/> through
+    /// <paramref name="endCol"/> inclusive (decision I-71).
+    /// </summary>
+    /// <param name="startCol">First column of the group (1-based).</param>
+    /// <param name="endCol">Last column of the group (1-based, inclusive).</param>
+    /// <exception cref="ArgumentOutOfRangeException">Either column index is less than 1 or start &gt; end.</exception>
+    void GroupColumns(int startCol, int endCol);
+
+    /// <summary>Removes a column group.</summary>
+    void UngroupColumns(int startCol, int endCol);
+
+    /// <summary>
+    /// Collapses or expands a row group whose summary row is at
+    /// <paramref name="row"/> (1-based). The group must have been
+    /// created by a prior <see cref="GroupRows"/> call.
+    /// </summary>
+    void SetRowGroupCollapsed(int row, bool collapsed);
+
+    /// <summary>
     /// Creates a split (non-frozen) pane on this sheet (decision I-70).
     /// Unlike <see cref="FreezePane"/>, a split pane is draggable by the
     /// user in Excel. Replaces any prior freeze or split on this sheet.

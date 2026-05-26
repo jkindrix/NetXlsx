@@ -150,6 +150,49 @@ internal sealed partial class XssfSheet : ISheet
         _underlying.CreateFreezePane(cols, rows);
     }
 
+    public void GroupRows(int startRow, int endRow)
+    {
+        _workbook.ThrowIfDisposed();
+        if (startRow < 1) throw new ArgumentOutOfRangeException(nameof(startRow), startRow, "must be >= 1");
+        if (endRow < 1) throw new ArgumentOutOfRangeException(nameof(endRow), endRow, "must be >= 1");
+        if (startRow > endRow) throw new ArgumentOutOfRangeException(nameof(startRow), startRow, "startRow must be <= endRow");
+        _underlying.GroupRow(startRow - 1, endRow - 1);
+    }
+
+    public void UngroupRows(int startRow, int endRow)
+    {
+        _workbook.ThrowIfDisposed();
+        if (startRow < 1) throw new ArgumentOutOfRangeException(nameof(startRow), startRow, "must be >= 1");
+        if (endRow < 1) throw new ArgumentOutOfRangeException(nameof(endRow), endRow, "must be >= 1");
+        if (startRow > endRow) throw new ArgumentOutOfRangeException(nameof(startRow), startRow, "startRow must be <= endRow");
+        _underlying.UngroupRow(startRow - 1, endRow - 1);
+    }
+
+    public void GroupColumns(int startCol, int endCol)
+    {
+        _workbook.ThrowIfDisposed();
+        if (startCol < 1) throw new ArgumentOutOfRangeException(nameof(startCol), startCol, "must be >= 1");
+        if (endCol < 1) throw new ArgumentOutOfRangeException(nameof(endCol), endCol, "must be >= 1");
+        if (startCol > endCol) throw new ArgumentOutOfRangeException(nameof(startCol), startCol, "startCol must be <= endCol");
+        _underlying.GroupColumn(startCol - 1, endCol - 1);
+    }
+
+    public void UngroupColumns(int startCol, int endCol)
+    {
+        _workbook.ThrowIfDisposed();
+        if (startCol < 1) throw new ArgumentOutOfRangeException(nameof(startCol), startCol, "must be >= 1");
+        if (endCol < 1) throw new ArgumentOutOfRangeException(nameof(endCol), endCol, "must be >= 1");
+        if (startCol > endCol) throw new ArgumentOutOfRangeException(nameof(startCol), startCol, "startCol must be <= endCol");
+        _underlying.UngroupColumn(startCol - 1, endCol - 1);
+    }
+
+    public void SetRowGroupCollapsed(int row, bool collapsed)
+    {
+        _workbook.ThrowIfDisposed();
+        if (row < 1) throw new ArgumentOutOfRangeException(nameof(row), row, "must be >= 1");
+        _underlying.SetRowGroupCollapsed(row - 1, collapsed);
+    }
+
     public void CreateSplitPane(int xSplitTwips, int ySplitTwips)
     {
         _workbook.ThrowIfDisposed();

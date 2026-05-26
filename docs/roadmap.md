@@ -38,7 +38,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Split panes                             |      |      | [x]  |      |       |
 | Hidden rows / columns / sheets          | Yes  |      |      |      |       |
 | Auto-size columns                       | Yes  |      |      |      |       |
-| Grouping / outlining                    |      |      | Yes  |      |       |
+| Grouping / outlining                    |      |      | [x]  |      |       |
 | Named ranges                            | Yes  |      |      |      |       |
 | Tables (`ListObject`)                   |      | Yes  |      |      |       |
 | **Data features**                       |      |      |      |      |       |

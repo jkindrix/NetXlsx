@@ -1,4 +1,9 @@
 #nullable enable
 NetXlsx.ISheet.CreateSplitPane(int xSplitTwips, int ySplitTwips) -> void
+NetXlsx.ISheet.GroupColumns(int startCol, int endCol) -> void
+NetXlsx.ISheet.GroupRows(int startRow, int endRow) -> void
+NetXlsx.ISheet.SetRowGroupCollapsed(int row, bool collapsed) -> void
+NetXlsx.ISheet.UngroupColumns(int startCol, int endCol) -> void
+NetXlsx.ISheet.UngroupRows(int startRow, int endRow) -> void
 NetXlsx.IWorkbook.IsMacroEnabled.get -> bool
 static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
