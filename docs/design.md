@@ -433,7 +433,32 @@ Multiple rules per `AddConditionalFormatting` call are applied in order; Excel e
 
 **Out of scope:** data bars, icon sets, top/bottom N, unique/duplicate, text contains. All reachable via `Underlying`.
 
-### 6.2.10 Sorting helpers — I-72
+### 6.2.10 Drawings / shapes — I-74
+
+```csharp
+public enum ShapeType
+{
+    Rectangle = 5, RoundedRectangle = 26, Ellipse = 35,
+    Line = 1, Triangle = 3, Diamond = 6,
+}
+
+public interface IShape
+{
+    ISheet Sheet { get; }
+    ShapeType Type { get; }
+    XSSFSimpleShape Underlying { get; }
+}
+
+// On ISheet:
+IShape AddShape(ShapeType type, string startCell, string endCell,
+    Color? fillColor = null, Color? lineColor = null);
+```
+
+**I-74 (added 2026-05-26):** Minimal shape facade — covers the six most common shapes (rectangle, rounded rectangle, ellipse, line, triangle, diamond). Anchored between two cells. Fill and line colors are optional; no-fill is the default. Advanced shape properties (rotation, line width, gradient, text, etc.) reach through `IShape.Underlying`.
+
+Exotic shapes (arrows, callouts, stars, connectors, freeforms) are accessible via `ISheet.Underlying.CreateDrawingPatriarch()` which returns the `XSSFDrawing`.
+
+### 6.2.11 Sorting helpers — I-72
 
 ```csharp
 public sealed class SortKey

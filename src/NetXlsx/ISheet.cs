@@ -154,6 +154,19 @@ public interface ISheet
     void CreateSplitPane(int xSplitTwips, int ySplitTwips);
 
     /// <summary>
+    /// Adds a shape to this sheet anchored between two cells (decision
+    /// I-74). The shape spans from the top-left of <paramref name="startCell"/>
+    /// to the bottom-right of <paramref name="endCell"/>.
+    /// </summary>
+    /// <param name="type">The shape type to draw.</param>
+    /// <param name="startCell">Top-left anchor cell in A1 notation.</param>
+    /// <param name="endCell">Bottom-right anchor cell in A1 notation.</param>
+    /// <param name="fillColor">Optional fill color. Pass <c>null</c> for no fill.</param>
+    /// <param name="lineColor">Optional line/border color. Pass <c>null</c> for default black.</param>
+    /// <returns>The created shape — use <see cref="IShape.Underlying"/> for advanced properties.</returns>
+    IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null);
+
+    /// <summary>
     /// Adds one or more conditional formatting rules to the given range
     /// (decision I-73). Each rule is applied in order; Excel evaluates
     /// them top-to-bottom, stopping at the first match per cell.

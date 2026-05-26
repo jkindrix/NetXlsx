@@ -201,6 +201,31 @@ internal sealed partial class XssfSheet : ISheet
         _underlying.CreateSplitPane(xSplitTwips, ySplitTwips, 0, 0, NPOI.SS.UserModel.PanePosition.LowerRight);
     }
 
+    public IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(startCell);
+        ArgumentNullException.ThrowIfNull(endCell);
+
+        var (r1, c1) = CellAddress.Parse(startCell);
+        var (r2, c2) = CellAddress.Parse(endCell);
+
+        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)_underlying.CreateDrawingPatriarch();
+        var anchor = new NPOI.XSSF.UserModel.XSSFClientAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2, r2);
+        var shape = drawing.CreateSimpleShape(anchor);
+        shape.ShapeType = (int)type;
+
+        if (fillColor is { } fc)
+            shape.SetFillColor(fc.R, fc.G, fc.B);
+        else
+            shape.IsNoFill = true;
+
+        if (lineColor is { } lc)
+            shape.SetLineStyleColor(lc.R, lc.G, lc.B);
+
+        return new XssfShape(this, shape, type);
+    }
+
     public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules)
     {
         _workbook.ThrowIfDisposed();

@@ -59,7 +59,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Pivot tables (write)                    |      |      |      | Yes  |       |
 | Pivot tables (read)                     |      |      |      |      | No    |
 | Macros / VBA                            |      |      |      |      | No    |
-| Drawings / shapes                       |      |      | Yes  |      |       |
+| Drawings / shapes                       |      |      | [x]  |      |       |
 | Sparklines                              |      |      |      | Yes  |       |
 | **Output formats**                      |      |      |      |      |       |
 | `.xlsx`                                 | Yes  |      |      |      |       |

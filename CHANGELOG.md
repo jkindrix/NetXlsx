@@ -84,6 +84,18 @@ Coverage: 15 new tests in `tests/NetXlsx.Tests/ConditionalFormatTests.cs`.
 
 Decision added: I-73.
 
+### Drawings / shapes (I-74)
+
+Adds `ISheet.AddShape(type, startCell, endCell, fillColor?, lineColor?)`
+with `ShapeType` enum (Rectangle, RoundedRectangle, Ellipse, Line,
+Triangle, Diamond) and `IShape` interface. Shape anchors span between
+two cells. Exotic shapes and advanced properties (rotation, text,
+gradients) reach through `IShape.Underlying` or `ISheet.Underlying`.
+
+Coverage: 8 new tests in `tests/NetXlsx.Tests/ShapeTests.cs`.
+
+Decision added: I-74.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments
