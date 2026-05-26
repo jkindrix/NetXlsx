@@ -344,16 +344,16 @@ the natural home for both.
 
 ### v2.0 — Advanced styling & charts (target: TBD)
 
-- [ ] Conditional formatting
-- [ ] Themes / theme colors
+- [x] Conditional formatting — landed (I-73), post-v1.3
+- [ ] Themes / theme colors — **deferred**: NPOI 2.7.3 `GetTheme()` returns null on new workbooks; setting theme colors via XSSFFont throws NullReferenceException. Blocked on NPOI 3.x.
 - [ ] Charts
-- [ ] Modern threaded comments
-- [ ] `.xlsm` passthrough
-- [ ] Drawings / shapes
-- [ ] Split panes
-- [ ] Grouping / outlining
-- [ ] Sorting helpers
-- [ ] Streaming read
+- [ ] Modern threaded comments — **deferred**: NPOI 2.7.3 has no threaded comment types (only legacy XSSFComment). Blocked on NPOI 3.x.
+- [x] `.xlsm` passthrough — landed (I-69), post-v1.3
+- [ ] Drawings / shapes — accessible via NPOI (XSSFDrawing/XSSFSimpleShape), wide API surface, not yet wrapped
+- [x] Split panes — landed (I-70), post-v1.3
+- [x] Grouping / outlining — landed (I-71), post-v1.3
+- [x] Sorting helpers — landed (I-72), post-v1.3
+- [ ] Streaming read — **deferred**: NPOI 2.7.3 has no XSSFReader/SAX-style streaming parser. Would require custom XML SAX implementation over OPC parts.
 - [ ] Roslyn analyzers
 - [ ] Breaking-change review and migration guide
 
@@ -361,7 +361,7 @@ the natural home for both.
 
 - [ ] Pivot table writing
 - [ ] Sparklines
-- [ ] File-level encryption / password protection
+- [ ] File-level encryption / password protection — **deferred**: NPOI 2.7.3's AgileEncryptor throws NullReferenceException in CryptoFunctions.GetCipher. Blocked on NPOI 3.x or a third-party encryption library.
 - [ ] LINQ provider over sheets
 - [ ] Breaking-change review and migration guide
 
