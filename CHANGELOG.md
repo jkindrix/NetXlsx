@@ -55,6 +55,19 @@ Coverage: 12 new tests in `tests/NetXlsx.Tests/GroupingTests.cs`.
 
 Decision added: I-71.
 
+### Sorting helpers (I-72)
+
+Adds `ISheet.SortRange(a1Range, params SortKey[] keys)` — pure facade
+that physically reorders cell values and styles within a range. New
+`SortKey` type with `Asc(col)` / `Desc(col)` factories (1-based
+columns). Sort order matches Excel: numbers before strings, blanks
+last, case-insensitive string comparison. Multiple keys applied in
+declared order. No OOXML sortState metadata written.
+
+Coverage: 12 new tests in `tests/NetXlsx.Tests/SortTests.cs`.
+
+Decision added: I-72.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments

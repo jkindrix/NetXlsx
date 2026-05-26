@@ -72,6 +72,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.RichTextStyle",
             "NetXlsx.SheetNameException",
             "NetXlsx.SheetProtection",
+            "NetXlsx.SortKey",
             "NetXlsx.StreamingOptions",
             "NetXlsx.StylePoolDiagnostics",
             "NetXlsx.TableStyles",

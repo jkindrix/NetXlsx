@@ -201,6 +201,133 @@ internal sealed partial class XssfSheet : ISheet
         _underlying.CreateSplitPane(xSplitTwips, ySplitTwips, 0, 0, NPOI.SS.UserModel.PanePosition.LowerRight);
     }
 
+    public void SortRange(string a1Range, params SortKey[] keys)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(a1Range);
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Length == 0) throw new ArgumentException("At least one sort key is required.", nameof(keys));
+
+        var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
+
+        int rowCount = r2 - r1 + 1;
+        if (rowCount <= 1) return;
+
+        int colCount = c2 - c1 + 1;
+
+        // Snapshot all cell values + styles
+        var snapshot = new CellSnapshot[rowCount][];
+        for (int ri = 0; ri < rowCount; ri++)
+        {
+            snapshot[ri] = new CellSnapshot[colCount];
+            var npoiRow = _underlying.GetRow(r1 - 1 + ri);
+            for (int ci = 0; ci < colCount; ci++)
+            {
+                var npoiCell = npoiRow?.GetCell(c1 - 1 + ci);
+                snapshot[ri][ci] = CellSnapshot.Capture(npoiCell);
+            }
+        }
+
+        // Sort rows by keys
+        Array.Sort(snapshot, (a, b) =>
+        {
+            foreach (var key in keys)
+            {
+                int colIdx = key.Column - c1;
+                if (colIdx < 0 || colIdx >= colCount) continue;
+                int cmp = CellSnapshot.Compare(a[colIdx], b[colIdx]);
+                if (cmp != 0) return key.Ascending ? cmp : -cmp;
+            }
+            return 0;
+        });
+
+        // Write sorted values back
+        for (int ri = 0; ri < rowCount; ri++)
+        {
+            var npoiRow = _underlying.GetRow(r1 - 1 + ri) ?? _underlying.CreateRow(r1 - 1 + ri);
+            for (int ci = 0; ci < colCount; ci++)
+            {
+                var npoiCell = npoiRow.GetCell(c1 - 1 + ci) ?? npoiRow.CreateCell(c1 - 1 + ci);
+                snapshot[ri][ci].Apply(npoiCell);
+            }
+        }
+    }
+
+    private readonly struct CellSnapshot
+    {
+        public NPOI.SS.UserModel.CellType Type { get; init; }
+        public double NumericValue { get; init; }
+        public string? StringValue { get; init; }
+        public bool BoolValue { get; init; }
+        public NPOI.SS.UserModel.ICellStyle? Style { get; init; }
+        public string? Formula { get; init; }
+
+        public static CellSnapshot Capture(NPOI.SS.UserModel.ICell? cell)
+        {
+            if (cell == null)
+                return new CellSnapshot { Type = NPOI.SS.UserModel.CellType.Blank };
+
+            var type = cell.CellType;
+            return new CellSnapshot
+            {
+                Type = type,
+                NumericValue = type == NPOI.SS.UserModel.CellType.Numeric ? cell.NumericCellValue : 0,
+                StringValue = type == NPOI.SS.UserModel.CellType.String ? cell.StringCellValue : null,
+                BoolValue = type == NPOI.SS.UserModel.CellType.Boolean ? cell.BooleanCellValue : false,
+                Style = cell.CellStyle,
+                Formula = type == NPOI.SS.UserModel.CellType.Formula ? cell.CellFormula : null,
+            };
+        }
+
+        public void Apply(NPOI.SS.UserModel.ICell cell)
+        {
+            switch (Type)
+            {
+                case NPOI.SS.UserModel.CellType.Numeric:
+                    cell.SetCellValue(NumericValue);
+                    break;
+                case NPOI.SS.UserModel.CellType.String:
+                    cell.SetCellValue(StringValue ?? "");
+                    break;
+                case NPOI.SS.UserModel.CellType.Boolean:
+                    cell.SetCellValue(BoolValue);
+                    break;
+                case NPOI.SS.UserModel.CellType.Formula:
+                    cell.SetCellFormula(Formula);
+                    break;
+                default:
+                    cell.SetBlank();
+                    break;
+            }
+            if (Style != null) cell.CellStyle = Style;
+        }
+
+        public static int Compare(CellSnapshot a, CellSnapshot b)
+        {
+            // Blanks sort last
+            if (a.Type == NPOI.SS.UserModel.CellType.Blank && b.Type == NPOI.SS.UserModel.CellType.Blank) return 0;
+            if (a.Type == NPOI.SS.UserModel.CellType.Blank) return 1;
+            if (b.Type == NPOI.SS.UserModel.CellType.Blank) return -1;
+
+            // Numeric before string (Excel behavior)
+            if (a.Type == NPOI.SS.UserModel.CellType.Numeric && b.Type == NPOI.SS.UserModel.CellType.Numeric)
+                return a.NumericValue.CompareTo(b.NumericValue);
+
+            if (a.Type == NPOI.SS.UserModel.CellType.String && b.Type == NPOI.SS.UserModel.CellType.String)
+                return StringComparer.OrdinalIgnoreCase.Compare(a.StringValue, b.StringValue);
+
+            // Mixed: numbers sort before strings (Excel default)
+            if (a.Type == NPOI.SS.UserModel.CellType.Numeric) return -1;
+            if (b.Type == NPOI.SS.UserModel.CellType.Numeric) return 1;
+
+            // Booleans: FALSE < TRUE
+            if (a.Type == NPOI.SS.UserModel.CellType.Boolean && b.Type == NPOI.SS.UserModel.CellType.Boolean)
+                return a.BoolValue.CompareTo(b.BoolValue);
+
+            return 0;
+        }
+    }
+
     public void MergeCells(string a1Range)
     {
         _workbook.ThrowIfDisposed();

@@ -47,7 +47,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Data validation (drop-downs, ranges)    |      | Yes  |      |      |       |
 | Conditional formatting                  |      |      | Yes  |      |       |
 | AutoFilter                              |      | Yes  |      |      |       |
-| Sorting                                 |      |      | Yes  |      |       |
+| Sorting                                 |      |      | [x]  |      |       |
 | **Typed mapping**                       |      |      |      |      |       |
 | Source-gen `[Worksheet]` writer (ext.)  | Yes  |      |      |      |       |
 | Source-gen `[Worksheet]` reader (ext.)  | Yes  |      |      |      |       |

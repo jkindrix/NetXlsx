@@ -3,7 +3,13 @@ NetXlsx.ISheet.CreateSplitPane(int xSplitTwips, int ySplitTwips) -> void
 NetXlsx.ISheet.GroupColumns(int startCol, int endCol) -> void
 NetXlsx.ISheet.GroupRows(int startRow, int endRow) -> void
 NetXlsx.ISheet.SetRowGroupCollapsed(int row, bool collapsed) -> void
+NetXlsx.ISheet.SortRange(string! a1Range, params NetXlsx.SortKey![]! keys) -> void
 NetXlsx.ISheet.UngroupColumns(int startCol, int endCol) -> void
 NetXlsx.ISheet.UngroupRows(int startRow, int endRow) -> void
 NetXlsx.IWorkbook.IsMacroEnabled.get -> bool
+NetXlsx.SortKey
+NetXlsx.SortKey.Ascending.get -> bool
+NetXlsx.SortKey.Column.get -> int
+static NetXlsx.SortKey.Asc(int column) -> NetXlsx.SortKey!
+static NetXlsx.SortKey.Desc(int column) -> NetXlsx.SortKey!
 static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!

@@ -154,6 +154,25 @@ public interface ISheet
     void CreateSplitPane(int xSplitTwips, int ySplitTwips);
 
     /// <summary>
+    /// Sorts rows within <paramref name="a1Range"/> by the specified
+    /// <paramref name="keys"/> (decision I-72). The sort is performed
+    /// in-memory by physically reordering cell values — no OOXML
+    /// <c>sortState</c> metadata is written. Cell styles are moved with
+    /// their values.
+    /// <para>
+    /// The range's first row is <b>not</b> treated as a header; include
+    /// only the data rows in the range. Sort keys reference absolute
+    /// column indices (1-based), not offsets within the range.
+    /// </para>
+    /// </summary>
+    /// <param name="a1Range">The data range to sort (e.g. <c>"A2:D100"</c>).</param>
+    /// <param name="keys">One or more sort keys, applied in order.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Range"/> or <paramref name="keys"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="keys"/> is empty.</exception>
+    /// <exception cref="InvalidCellAddressException"><paramref name="a1Range"/> is not a valid range.</exception>
+    void SortRange(string a1Range, params SortKey[] keys);
+
+    /// <summary>
     /// Merges the cells in <paramref name="a1Range"/> (e.g. <c>"A1:C3"</c>).
     /// Pre-existing values in non-anchor cells are preserved in the file
     /// (OOXML semantics) but only the anchor (top-left) cell's value is

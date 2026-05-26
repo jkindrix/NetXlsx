@@ -397,7 +397,28 @@ Nested groups are supported — NPOI increments the outline level on each nested
 
 **Column collapse** is not surfaced as a dedicated method in v1 — NPOI's column collapse behavior is less predictable than row collapse. Callers needing column collapse reach through `ISheet.Underlying`.
 
-### 6.2.9 Split panes — I-70
+### 6.2.9 Sorting helpers — I-72
+
+```csharp
+public sealed class SortKey
+{
+    public int Column { get; }       // 1-based
+    public bool Ascending { get; }
+    public static SortKey Asc(int column);
+    public static SortKey Desc(int column);
+}
+
+// On ISheet:
+void SortRange(string a1Range, params SortKey[] keys);
+```
+
+**I-72 (added 2026-05-26):** Pure facade — physically reorders cell values and styles within a range by the specified sort keys. No OOXML `sortState` metadata is written; the sort is immediate and in-memory.
+
+Sort order matches Excel: numbers before strings, blanks last (ascending), case-insensitive string comparison. Multiple keys are applied in declared order (primary, then secondary, …). The range's first row is NOT treated as a header — include only data rows.
+
+Implementation snapshots all cell values/styles in the range, sorts the snapshot array, and writes sorted values back. Cell styles travel with their values.
+
+### 6.2.10 Split panes — I-70
 
 ```csharp
 // On ISheet:
