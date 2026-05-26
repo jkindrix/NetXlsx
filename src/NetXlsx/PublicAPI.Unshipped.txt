@@ -1,4 +1,11 @@
 #nullable enable
+NetXlsx.ChartType
+NetXlsx.ChartType.Area = 5 -> NetXlsx.ChartType
+NetXlsx.ChartType.Bar = 1 -> NetXlsx.ChartType
+NetXlsx.ChartType.Column = 2 -> NetXlsx.ChartType
+NetXlsx.ChartType.Line = 0 -> NetXlsx.ChartType
+NetXlsx.ChartType.Pie = 3 -> NetXlsx.ChartType
+NetXlsx.ChartType.Scatter = 4 -> NetXlsx.ChartType
 NetXlsx.ConditionalFormat
 static NetXlsx.ConditionalFormat.CellValueBetween(string! min, string! max, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
 static NetXlsx.ConditionalFormat.CellValueEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
@@ -10,10 +17,16 @@ static NetXlsx.ConditionalFormat.CellValueNotEqual(string! value, NetXlsx.CellSt
 static NetXlsx.ConditionalFormat.ColorScale(NetXlsx.Color min, NetXlsx.Color max) -> NetXlsx.ConditionalFormat!
 static NetXlsx.ConditionalFormat.ColorScale(NetXlsx.Color min, NetXlsx.Color mid, NetXlsx.Color max) -> NetXlsx.ConditionalFormat!
 static NetXlsx.ConditionalFormat.Formula(string! formula, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+NetXlsx.IChart
+NetXlsx.IChart.SetTitle(string! title) -> void
+NetXlsx.IChart.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IChart.Type.get -> NetXlsx.ChartType
+NetXlsx.IChart.Underlying.get -> NPOI.XSSF.UserModel.XSSFChart!
 NetXlsx.IShape
 NetXlsx.IShape.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IShape.Type.get -> NetXlsx.ShapeType
 NetXlsx.IShape.Underlying.get -> NPOI.XSSF.UserModel.XSSFSimpleShape!
+NetXlsx.ISheet.AddChart(NetXlsx.ChartType type, string! startCell, string! endCell, string! categoryRange, string! valueRange, string? title = null) -> NetXlsx.IChart!
 NetXlsx.ISheet.AddConditionalFormatting(string! a1Range, params NetXlsx.ConditionalFormat![]! rules) -> void
 NetXlsx.ISheet.AddShape(NetXlsx.ShapeType type, string! startCell, string! endCell, NetXlsx.Color? fillColor = null, NetXlsx.Color? lineColor = null) -> NetXlsx.IShape!
 NetXlsx.ISheet.ConditionalFormattingCount.get -> int

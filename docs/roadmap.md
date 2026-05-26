@@ -55,7 +55,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | LINQ provider over sheets               |      |      |      | Yes  |       |
 | **Advanced features**                   |      |      |      |      |       |
 | Images (PNG/JPEG embed)                 |      | Yes  |      |      |       |
-| Charts                                  |      |      | Yes  |      |       |
+| Charts                                  |      |      | [x]  |      |       |
 | Pivot tables (write)                    |      |      |      | Yes  |       |
 | Pivot tables (read)                     |      |      |      |      | No    |
 | Macros / VBA                            |      |      |      |      | No    |
@@ -346,7 +346,7 @@ the natural home for both.
 
 - [x] Conditional formatting — landed (I-73), post-v1.3
 - [ ] Themes / theme colors — **deferred**: NPOI 2.7.3 `GetTheme()` returns null on new workbooks; setting theme colors via XSSFFont throws NullReferenceException. Blocked on NPOI 3.x.
-- [ ] Charts
+- [x] Charts — landed (I-75), post-v1.3
 - [ ] Modern threaded comments — **deferred**: NPOI 2.7.3 has no threaded comment types (only legacy XSSFComment). Blocked on NPOI 3.x.
 - [x] `.xlsm` passthrough — landed (I-69), post-v1.3
 - [ ] Drawings / shapes — accessible via NPOI (XSSFDrawing/XSSFSimpleShape), wide API surface, not yet wrapped

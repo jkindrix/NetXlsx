@@ -154,6 +154,21 @@ public interface ISheet
     void CreateSplitPane(int xSplitTwips, int ySplitTwips);
 
     /// <summary>
+    /// Adds a chart to this sheet (decision I-75). The chart is anchored
+    /// between <paramref name="startCell"/> and <paramref name="endCell"/>,
+    /// with data sourced from <paramref name="categoryRange"/> (labels/X)
+    /// and <paramref name="valueRange"/> (values/Y).
+    /// </summary>
+    /// <param name="type">The chart type to create.</param>
+    /// <param name="startCell">Top-left anchor cell (e.g. <c>"D1"</c>).</param>
+    /// <param name="endCell">Bottom-right anchor cell (e.g. <c>"K15"</c>).</param>
+    /// <param name="categoryRange">Range containing category labels (e.g. <c>"A2:A10"</c>).</param>
+    /// <param name="valueRange">Range containing numeric values (e.g. <c>"B2:B10"</c>).</param>
+    /// <param name="title">Optional chart title.</param>
+    /// <returns>The created chart — use <see cref="IChart.Underlying"/> for advanced customization.</returns>
+    IChart AddChart(ChartType type, string startCell, string endCell, string categoryRange, string valueRange, string? title = null);
+
+    /// <summary>
     /// Adds a shape to this sheet anchored between two cells (decision
     /// I-74). The shape spans from the top-left of <paramref name="startCell"/>
     /// to the bottom-right of <paramref name="endCell"/>.

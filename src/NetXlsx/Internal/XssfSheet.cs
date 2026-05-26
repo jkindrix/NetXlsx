@@ -201,6 +201,72 @@ internal sealed partial class XssfSheet : ISheet
         _underlying.CreateSplitPane(xSplitTwips, ySplitTwips, 0, 0, NPOI.SS.UserModel.PanePosition.LowerRight);
     }
 
+    public IChart AddChart(ChartType type, string startCell, string endCell, string categoryRange, string valueRange, string? title = null)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(startCell);
+        ArgumentNullException.ThrowIfNull(endCell);
+        ArgumentNullException.ThrowIfNull(categoryRange);
+        ArgumentNullException.ThrowIfNull(valueRange);
+
+        var (r1, c1) = CellAddress.Parse(startCell);
+        var (r2, c2) = CellAddress.Parse(endCell);
+        var (cr1, cc1, cr2, cc2) = CellAddress.ParseRange(categoryRange);
+        var (vr1, vc1, vr2, vc2) = CellAddress.ParseRange(valueRange);
+
+        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)_underlying.CreateDrawingPatriarch();
+        var anchor = drawing.CreateAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2, r2);
+        var chart = (NPOI.XSSF.UserModel.XSSFChart)drawing.CreateChart(anchor);
+
+        var catSource = NPOI.SS.UserModel.Charts.DataSources.FromStringCellRange(
+            _underlying, new NPOI.SS.Util.CellRangeAddress(cr1 - 1, cr2 - 1, cc1 - 1, cc2 - 1));
+        var valSource = NPOI.SS.UserModel.Charts.DataSources.FromNumericCellRange(
+            _underlying, new NPOI.SS.Util.CellRangeAddress(vr1 - 1, vr2 - 1, vc1 - 1, vc2 - 1));
+
+        var bottomAxis = chart.ChartAxisFactory.CreateCategoryAxis(NPOI.SS.UserModel.Charts.AxisPosition.Bottom);
+        var leftAxis = chart.ChartAxisFactory.CreateValueAxis(NPOI.SS.UserModel.Charts.AxisPosition.Left);
+
+        switch (type)
+        {
+            case ChartType.Line:
+                var lineData = chart.ChartDataFactory.CreateLineChartData<string, double>();
+                lineData.AddSeries(catSource, valSource);
+                chart.Plot(lineData, bottomAxis, leftAxis);
+                break;
+            case ChartType.Bar:
+                var barData = chart.ChartDataFactory.CreateBarChartData<string, double>();
+                barData.AddSeries(catSource, valSource);
+                chart.Plot(barData, bottomAxis, leftAxis);
+                break;
+            case ChartType.Column:
+                var colData = chart.ChartDataFactory.CreateColumnChartData<string, double>();
+                colData.AddSeries(catSource, valSource);
+                chart.Plot(colData, bottomAxis, leftAxis);
+                break;
+            case ChartType.Area:
+                var areaData = chart.ChartDataFactory.CreateAreaChartData<string, double>();
+                areaData.AddSeries(catSource, valSource);
+                chart.Plot(areaData, bottomAxis, leftAxis);
+                break;
+            case ChartType.Pie:
+                var pieData = chart.ChartDataFactory.CreatePieChartData<string, double>();
+                pieData.AddSeries(catSource, valSource);
+                chart.Plot(pieData, bottomAxis, leftAxis);
+                break;
+            case ChartType.Scatter:
+                var numCatSource = NPOI.SS.UserModel.Charts.DataSources.FromNumericCellRange(
+                    _underlying, new NPOI.SS.Util.CellRangeAddress(cr1 - 1, cr2 - 1, cc1 - 1, cc2 - 1));
+                var scatterData = chart.ChartDataFactory.CreateScatterChartData<double, double>();
+                scatterData.AddSeries(numCatSource, valSource);
+                chart.Plot(scatterData, bottomAxis, leftAxis);
+                break;
+        }
+
+        if (title != null) chart.SetTitle(title);
+
+        return new XssfChart(this, chart, type);
+    }
+
     public IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null)
     {
         _workbook.ThrowIfDisposed();

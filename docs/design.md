@@ -433,7 +433,31 @@ Multiple rules per `AddConditionalFormatting` call are applied in order; Excel e
 
 **Out of scope:** data bars, icon sets, top/bottom N, unique/duplicate, text contains. All reachable via `Underlying`.
 
-### 6.2.10 Drawings / shapes — I-74
+### 6.2.10 Charts — I-75
+
+```csharp
+public enum ChartType { Line, Bar, Column, Pie, Scatter, Area }
+
+public interface IChart
+{
+    ISheet Sheet { get; }
+    ChartType Type { get; }
+    void SetTitle(string title);
+    XSSFChart Underlying { get; }
+}
+
+// On ISheet:
+IChart AddChart(ChartType type, string startCell, string endCell,
+    string categoryRange, string valueRange, string? title = null);
+```
+
+**I-75 (added 2026-05-26):** Single-series chart facade covering the six chart types NPOI 2.7.3 exposes via `IChartDataFactory`: line, bar, column, pie, scatter, area. The chart is anchored between two cells, with data sourced from a category range (labels/X-axis) and a value range (Y-axis).
+
+**Multi-series charts** are not directly supported — the single-series facade covers the most-common use case. Callers needing multiple series, secondary axes, custom formatting, or chart-type combinations reach through `IChart.Underlying` to access the full `XSSFChart` / `CT_ChartSpace` API.
+
+**Scatter charts** use `FromNumericCellRange` for both axes (X must be numeric); all other chart types use `FromStringCellRange` for categories.
+
+### 6.2.11 Drawings / shapes — I-74
 
 ```csharp
 public enum ShapeType

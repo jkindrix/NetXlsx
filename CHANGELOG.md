@@ -96,6 +96,18 @@ Coverage: 8 new tests in `tests/NetXlsx.Tests/ShapeTests.cs`.
 
 Decision added: I-74.
 
+### Charts (I-75)
+
+Adds `ISheet.AddChart(type, startCell, endCell, categoryRange,
+valueRange, title?)` with `ChartType` enum (Line, Bar, Column, Pie,
+Scatter, Area) and `IChart` interface. Single-series charts backed
+by NPOI's `IChartDataFactory`. Multi-series and advanced customization
+reach through `IChart.Underlying`.
+
+Coverage: 10 new tests in `tests/NetXlsx.Tests/ChartTests.cs`.
+
+Decision added: I-75.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments
