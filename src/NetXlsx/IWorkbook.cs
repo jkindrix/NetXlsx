@@ -140,6 +140,14 @@ public interface IWorkbook : IDisposable
     bool IsProtected { get; }
 
     /// <summary>
+    /// Whether this workbook is macro-enabled (<c>.xlsm</c>) per decision
+    /// I-69. A macro-enabled workbook preserves VBA project parts across
+    /// open/save; NetXlsx does not read, write, or execute VBA — the
+    /// macro content is passthrough only.
+    /// </summary>
+    bool IsMacroEnabled { get; }
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI <c>XSSFWorkbook</c>
     /// per decision #32. Direct mutation is supported but is not synchronized
     /// with wrapper state; callers using this hatch own the consequences.

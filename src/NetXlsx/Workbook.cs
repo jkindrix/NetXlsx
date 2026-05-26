@@ -33,6 +33,24 @@ public static class Workbook
     }
 
     /// <summary>
+    /// Creates a new, empty macro-enabled (<c>.xlsm</c>) workbook with no
+    /// sheets (decision I-69). The resulting workbook is structurally
+    /// identical to <see cref="Create"/> but uses the macro-enabled OOXML
+    /// content type, so it can carry VBA project parts through open/save
+    /// round-trips. NetXlsx does not read, write, or execute VBA — the
+    /// macro content is passthrough only.
+    /// </summary>
+    /// <param name="options">
+    /// Per-workbook configuration. When <c>null</c>, uses
+    /// <see cref="WorkbookOptions"/> defaults.
+    /// </param>
+    public static IWorkbook CreateMacroEnabled(WorkbookOptions? options = null)
+    {
+        var underlying = new XSSFWorkbook(XSSFWorkbookType.XLSM);
+        return new XssfWorkbook(underlying, options ?? new WorkbookOptions());
+    }
+
+    /// <summary>
     /// Creates a new, empty <b>streaming</b> workbook backed by NPOI's
     /// SXSSF writer. Use when writing more than ~30k rows — past that
     /// threshold an in-memory <see cref="Create"/> workbook exceeds the
@@ -45,9 +63,9 @@ public static class Workbook
         return new SxssfWorkbook(options ?? new StreamingOptions());
     }
 
-    /// <summary>Opens an existing <c>.xlsx</c> workbook from a file path.</summary>
+    /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a file path.</summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
-    /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> workbook.</exception>
+    /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>
     public static IWorkbook Open(string path, WorkbookOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(path);
@@ -76,11 +94,11 @@ public static class Workbook
         }
     }
 
-    /// <summary>Opens an existing <c>.xlsx</c> workbook from a stream.</summary>
+    /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a stream.</summary>
     /// <param name="stream">Readable, seekable stream positioned at 0 (decisions #50 / I14).</param>
     /// <param name="leaveOpen">If <c>false</c>, the stream is disposed after the workbook is read. Default <c>true</c> per BCL convention.</param>
     /// <exception cref="ArgumentException">The stream is not readable or not seekable.</exception>
-    /// <exception cref="MalformedFileException">The stream content is not a valid <c>.xlsx</c> workbook.</exception>
+    /// <exception cref="MalformedFileException">The stream content is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>
     public static IWorkbook Open(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(stream);

@@ -362,6 +362,24 @@ Rehydration is triggered lazily from the `NamedStyles` property getter, which `G
 - Excel's "Cell Styles" panel will show the named styles after open. Cells styled via `ApplyNamedStyle` do **not** carry a `xfId` reference to the named-style XF — they get an explicit cellXfs entry instead. The visual outcome is identical; the UI distinction (whether the cell shows as "Header" in the Cell Styles ribbon group) is not preserved across round-trip. Closing that gap fully would require the cellXfs entry to carry an `xfId` attribute pointing at the cellStyleXfs entry — deferred to a future slice if a user surfaces it as a need.
 - Materializing the cellStyleXfs entry as a cellXfs entry at read time produces one duplicate cellXfs row per named style. Cost is bounded (one per named style, not one per styled cell); acceptable.
 
+### 6.2.7 `.xlsm` macro-enabled passthrough — I-69
+
+```csharp
+// Entry point:
+public static IWorkbook CreateMacroEnabled(WorkbookOptions? options = null);
+
+// On IWorkbook:
+bool IsMacroEnabled { get; }
+```
+
+**I-69 (added 2026-05-26):** NetXlsx is `.xlsx`-focused (decision #6) but many real-world workbooks carry VBA macros (`.xlsm`). The passthrough feature adds:
+
+1. **`Workbook.CreateMacroEnabled(options?)`** — creates an `XSSFWorkbook(XSSFWorkbookType.XLSM)`. The resulting workbook uses the macro-enabled OOXML content type (`application/vnd.ms-excel.sheet.macroEnabled.main+xml`) so that VBA project parts can be added through `.Underlying` and survive round-trip.
+2. **`IWorkbook.IsMacroEnabled`** — read-only boolean, delegates to NPOI's `XSSFWorkbook.IsMacroEnabled()`. True for workbooks created via `CreateMacroEnabled` or opened from `.xlsm` files.
+3. **`Workbook.Open` transparently handles `.xlsm`.** No code change needed — NPOI's `XSSFWorkbook(Stream)` constructor detects the OOXML content type and preserves it. The open-path error messages were updated to mention `.xlsm` alongside `.xlsx`.
+
+**What this is NOT:** NetXlsx does not read, write, inspect, or execute VBA. The macro content is passthrough only — VBA project parts survive `Open → Save` untouched via NPOI's OPC-part preservation (decision #44). Callers who need to inject or extract VBA reach through `.Underlying` or use a dedicated VBA library.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

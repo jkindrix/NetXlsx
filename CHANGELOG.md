@@ -9,6 +9,27 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### `.xlsm` macro-enabled passthrough (I-69)
+
+Adds `Workbook.CreateMacroEnabled(options?)` to create macro-enabled
+workbooks and `IWorkbook.IsMacroEnabled` to detect them. NPOI 2.7.3's
+`XSSFWorkbook(XSSFWorkbookType.XLSM)` constructor handles the OOXML
+content-type switch cleanly; `Workbook.Open` already handles `.xlsm`
+files transparently (NPOI detects the content type).
+
+- New `Workbook.CreateMacroEnabled(WorkbookOptions? options = null)`.
+- New `IWorkbook.IsMacroEnabled` read-only property.
+- `Workbook.Open` doc-comments updated to mention `.xlsm`.
+- NetXlsx does not read, write, or execute VBA — macro content is
+  passthrough only (VBA project parts survive round-trip via NPOI's
+  OPC-part preservation, decision #44).
+
+Coverage: 8 new tests in `tests/NetXlsx.Tests/XlsmPassthroughTests.cs`
+— create, open, stream round-trip, file round-trip, double round-trip,
+options forwarding, regular `.xlsx` negative check.
+
+Decision added: I-69.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments

@@ -63,7 +63,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Sparklines                              |      |      |      | Yes  |       |
 | **Output formats**                      |      |      |      |      |       |
 | `.xlsx`                                 | Yes  |      |      |      |       |
-| `.xlsm` (macro-enabled, passthrough)    |      |      | Yes  |      |       |
+| `.xlsm` (macro-enabled, passthrough)    |      |      | [x]  |      |       |
 | `.xlsb` (binary)                        |      |      |      |      | No    |
 | **Protection / security**               |      |      |      |      |       |
 | Sheet protection (basic)                |      | Yes  |      |      |       |

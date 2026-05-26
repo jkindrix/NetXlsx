@@ -305,6 +305,11 @@ internal sealed partial class XssfWorkbook : IWorkbook
         }
     }
 
+    public bool IsMacroEnabled
+    {
+        get { ThrowIfDisposed(); return _underlying.IsMacroEnabled(); }
+    }
+
     public XSSFWorkbook Underlying
     {
         get { ThrowIfDisposed(); return _underlying; }

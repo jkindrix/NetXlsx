@@ -1,1 +1,3 @@
 #nullable enable
+NetXlsx.IWorkbook.IsMacroEnabled.get -> bool
+static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!

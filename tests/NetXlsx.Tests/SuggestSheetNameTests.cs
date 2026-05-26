@@ -153,6 +153,7 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
     public IReadOnlyCollection<string> RegisteredStyleNames => Array.Empty<string>();
     public StylePoolDiagnostics GetStylePoolDiagnostics() => default;
 
+    public bool IsMacroEnabled => false;
     public NPOI.XSSF.UserModel.XSSFWorkbook Underlying => throw new NotImplementedException();
 
     public void Dispose() { }
