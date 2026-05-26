@@ -1,3 +1,4 @@
 #nullable enable
+NetXlsx.ISheet.CreateSplitPane(int xSplitTwips, int ySplitTwips) -> void
 NetXlsx.IWorkbook.IsMacroEnabled.get -> bool
 static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!

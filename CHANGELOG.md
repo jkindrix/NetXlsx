@@ -30,6 +30,17 @@ options forwarding, regular `.xlsx` negative check.
 
 Decision added: I-69.
 
+### Split panes (I-70)
+
+Adds `ISheet.CreateSplitPane(xSplitTwips, ySplitTwips)` — a
+draggable (non-frozen) pane split. Parameters are in twips (1/20th
+of a point), matching NPOI and OOXML's coordinate system. Replaces
+any prior freeze or split on the sheet.
+
+Coverage: 7 new tests in `tests/NetXlsx.Tests/SplitPaneTests.cs`.
+
+Decision added: I-70.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments

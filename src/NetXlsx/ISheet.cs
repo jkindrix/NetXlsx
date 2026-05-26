@@ -105,6 +105,22 @@ public interface ISheet
     void FreezePane(int rows, int cols);
 
     /// <summary>
+    /// Creates a split (non-frozen) pane on this sheet (decision I-70).
+    /// Unlike <see cref="FreezePane"/>, a split pane is draggable by the
+    /// user in Excel. Replaces any prior freeze or split on this sheet.
+    /// <para>
+    /// <paramref name="xSplitTwips"/> is the horizontal split position in
+    /// twips (1/20th of a point). <paramref name="ySplitTwips"/> is the
+    /// vertical split position in twips. Pass 0 for either dimension to
+    /// split in one direction only.
+    /// </para>
+    /// </summary>
+    /// <param name="xSplitTwips">Horizontal split position in twips (0 = no horizontal split).</param>
+    /// <param name="ySplitTwips">Vertical split position in twips (0 = no vertical split).</param>
+    /// <exception cref="ArgumentOutOfRangeException">Either value is negative.</exception>
+    void CreateSplitPane(int xSplitTwips, int ySplitTwips);
+
+    /// <summary>
     /// Merges the cells in <paramref name="a1Range"/> (e.g. <c>"A1:C3"</c>).
     /// Pre-existing values in non-anchor cells are preserved in the file
     /// (OOXML semantics) but only the anchor (top-left) cell's value is

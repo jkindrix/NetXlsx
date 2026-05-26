@@ -380,6 +380,17 @@ bool IsMacroEnabled { get; }
 
 **What this is NOT:** NetXlsx does not read, write, inspect, or execute VBA. The macro content is passthrough only — VBA project parts survive `Open → Save` untouched via NPOI's OPC-part preservation (decision #44). Callers who need to inject or extract VBA reach through `.Underlying` or use a dedicated VBA library.
 
+### 6.2.8 Split panes — I-70
+
+```csharp
+// On ISheet:
+void CreateSplitPane(int xSplitTwips, int ySplitTwips);
+```
+
+**I-70 (added 2026-05-26):** Complements the existing `FreezePane` (decision §6.4) with a draggable split. Unlike freeze panes, split panes allow the user to resize the split interactively in Excel. Parameters are in twips (1/20th of a point), matching NPOI's `CreateSplitPane` and the OOXML `<pane>` element's coordinate system.
+
+`CreateSplitPane` replaces any prior freeze or split on the sheet. The active pane defaults to `LowerRight`. Callers needing a specific active pane or the leftmostColumn / topRow hints reach through `ISheet.Underlying.CreateSplitPane(x, y, leftCol, topRow, activePane)`.
+
 ### 6.3 Streaming workbook (write-only)
 
 A deliberately narrower contract than `IWorkbook`. Random-access members are absent — once a row is flushed, it cannot be revisited.

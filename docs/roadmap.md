@@ -35,7 +35,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Multiple sheets, rename/reorder/delete  | Yes  |      |      |      |       |
 | Merge cells                             | Yes  |      |      |      |       |
 | Freeze panes                            | Yes  |      |      |      |       |
-| Split panes                             |      |      | Yes  |      |       |
+| Split panes                             |      |      | [x]  |      |       |
 | Hidden rows / columns / sheets          | Yes  |      |      |      |       |
 | Auto-size columns                       | Yes  |      |      |      |       |
 | Grouping / outlining                    |      |      | Yes  |      |       |

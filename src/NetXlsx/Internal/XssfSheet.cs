@@ -150,6 +150,14 @@ internal sealed partial class XssfSheet : ISheet
         _underlying.CreateFreezePane(cols, rows);
     }
 
+    public void CreateSplitPane(int xSplitTwips, int ySplitTwips)
+    {
+        _workbook.ThrowIfDisposed();
+        if (xSplitTwips < 0) throw new ArgumentOutOfRangeException(nameof(xSplitTwips), xSplitTwips, "must be >= 0");
+        if (ySplitTwips < 0) throw new ArgumentOutOfRangeException(nameof(ySplitTwips), ySplitTwips, "must be >= 0");
+        _underlying.CreateSplitPane(xSplitTwips, ySplitTwips, 0, 0, NPOI.SS.UserModel.PanePosition.LowerRight);
+    }
+
     public void MergeCells(string a1Range)
     {
         _workbook.ThrowIfDisposed();
