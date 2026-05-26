@@ -397,7 +397,43 @@ Nested groups are supported — NPOI increments the outline level on each nested
 
 **Column collapse** is not surfaced as a dedicated method in v1 — NPOI's column collapse behavior is less predictable than row collapse. Callers needing column collapse reach through `ISheet.Underlying`.
 
-### 6.2.9 Sorting helpers — I-72
+### 6.2.9 Conditional formatting — I-73
+
+```csharp
+public sealed class ConditionalFormat
+{
+    // Cell-value conditions
+    public static ConditionalFormat CellValueGreaterThan(string value, CellStyle style);
+    public static ConditionalFormat CellValueLessThan(string value, CellStyle style);
+    public static ConditionalFormat CellValueBetween(string min, string max, CellStyle style);
+    public static ConditionalFormat CellValueEqual(string value, CellStyle style);
+    public static ConditionalFormat CellValueNotEqual(string value, CellStyle style);
+    public static ConditionalFormat CellValueGreaterThanOrEqual(string value, CellStyle style);
+    public static ConditionalFormat CellValueLessThanOrEqual(string value, CellStyle style);
+    // Formula-based
+    public static ConditionalFormat Formula(string formula, CellStyle style);
+    // Color scales
+    public static ConditionalFormat ColorScale(Color min, Color max);
+    public static ConditionalFormat ColorScale(Color min, Color mid, Color max);
+}
+
+// On ISheet:
+void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules);
+int ConditionalFormattingCount { get; }
+void RemoveConditionalFormatting(int index);
+```
+
+**I-73 (added 2026-05-26):** Exposes NPOI's `SheetConditionalFormatting` through a factory-based API matching the established `DataValidation` and `FilterCriteria` patterns. Three rule types:
+
+1. **Cell-value conditions** — highlight cells based on comparison operators. The `style` parameter applies bold/italic font formatting and/or fill background. Font color in CF rules is limited by NPOI 2.7.3's `IFontFormatting` surface; callers needing full color control reach through `ISheet.Underlying.SheetConditionalFormatting`.
+2. **Formula-based** — highlight cells where an arbitrary formula evaluates to TRUE.
+3. **Color scale** — 2-color or 3-color gradient. Colors set via XSSF's RGB path.
+
+Multiple rules per `AddConditionalFormatting` call are applied in order; Excel evaluates top-to-bottom. Multiple calls produce separate CF groups.
+
+**Out of scope:** data bars, icon sets, top/bottom N, unique/duplicate, text contains. All reachable via `Underlying`.
+
+### 6.2.10 Sorting helpers — I-72
 
 ```csharp
 public sealed class SortKey

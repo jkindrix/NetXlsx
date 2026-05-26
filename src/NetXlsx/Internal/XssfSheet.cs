@@ -201,6 +201,39 @@ internal sealed partial class XssfSheet : ISheet
         _underlying.CreateSplitPane(xSplitTwips, ySplitTwips, 0, 0, NPOI.SS.UserModel.PanePosition.LowerRight);
     }
 
+    public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(a1Range);
+        ArgumentNullException.ThrowIfNull(rules);
+        if (rules.Length == 0) throw new ArgumentException("At least one rule is required.", nameof(rules));
+
+        var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
+        var region = new NPOI.SS.Util.CellRangeAddress(r1 - 1, r2 - 1, c1 - 1, c2 - 1);
+        var scf = _underlying.SheetConditionalFormatting;
+
+        var npoiRules = new NPOI.SS.UserModel.IConditionalFormattingRule[rules.Length];
+        for (int i = 0; i < rules.Length; i++)
+            npoiRules[i] = rules[i].CreateNpoiRule(scf);
+
+        scf.AddConditionalFormatting(new[] { region }, npoiRules);
+    }
+
+    public int ConditionalFormattingCount
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            return _underlying.SheetConditionalFormatting.NumConditionalFormattings;
+        }
+    }
+
+    public void RemoveConditionalFormatting(int index)
+    {
+        _workbook.ThrowIfDisposed();
+        _underlying.SheetConditionalFormatting.RemoveConditionalFormatting(index);
+    }
+
     public void SortRange(string a1Range, params SortKey[] keys)
     {
         _workbook.ThrowIfDisposed();

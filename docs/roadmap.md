@@ -45,7 +45,7 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | Formulas (write only — Excel evaluates) | Yes  |      |      |      |       |
 | Formula evaluation                      |      |      |      |      | No    |
 | Data validation (drop-downs, ranges)    |      | Yes  |      |      |       |
-| Conditional formatting                  |      |      | Yes  |      |       |
+| Conditional formatting                  |      |      | [x]  |      |       |
 | AutoFilter                              |      | Yes  |      |      |       |
 | Sorting                                 |      |      | [x]  |      |       |
 | **Typed mapping**                       |      |      |      |      |       |

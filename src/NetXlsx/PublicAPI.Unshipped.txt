@@ -1,7 +1,21 @@
 #nullable enable
+NetXlsx.ConditionalFormat
+static NetXlsx.ConditionalFormat.CellValueBetween(string! min, string! max, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueGreaterThan(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueGreaterThanOrEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueLessThan(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueLessThanOrEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueNotEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.ColorScale(NetXlsx.Color min, NetXlsx.Color max) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.ColorScale(NetXlsx.Color min, NetXlsx.Color mid, NetXlsx.Color max) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.Formula(string! formula, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+NetXlsx.ISheet.AddConditionalFormatting(string! a1Range, params NetXlsx.ConditionalFormat![]! rules) -> void
+NetXlsx.ISheet.ConditionalFormattingCount.get -> int
 NetXlsx.ISheet.CreateSplitPane(int xSplitTwips, int ySplitTwips) -> void
 NetXlsx.ISheet.GroupColumns(int startCol, int endCol) -> void
 NetXlsx.ISheet.GroupRows(int startRow, int endRow) -> void
+NetXlsx.ISheet.RemoveConditionalFormatting(int index) -> void
 NetXlsx.ISheet.SetRowGroupCollapsed(int row, bool collapsed) -> void
 NetXlsx.ISheet.SortRange(string! a1Range, params NetXlsx.SortKey![]! keys) -> void
 NetXlsx.ISheet.UngroupColumns(int startCol, int endCol) -> void

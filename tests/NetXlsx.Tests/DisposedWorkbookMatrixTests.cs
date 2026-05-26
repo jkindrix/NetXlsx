@@ -98,6 +98,9 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "UngroupColumns", (Action<ISheet>)(s => s.UngroupColumns(1, 2)) };
         yield return new object[] { "SetRowGroupCollapsed", (Action<ISheet>)(s => s.SetRowGroupCollapsed(1, true)) };
         yield return new object[] { "SortRange", (Action<ISheet>)(s => s.SortRange("A1:B2", SortKey.Asc(1))) };
+        yield return new object[] { "AddConditionalFormatting", (Action<ISheet>)(s => s.AddConditionalFormatting("A1:A5", ConditionalFormat.CellValueGreaterThan("50", new CellStyle { Bold = true }))) };
+        yield return new object[] { "ConditionalFormattingCount", (Action<ISheet>)(s => { var _ = s.ConditionalFormattingCount; }) };
+        yield return new object[] { "RemoveConditionalFormatting", (Action<ISheet>)(s => s.RemoveConditionalFormatting(0)) };
         yield return new object[] { "SetAutoFilterColumn", (Action<ISheet>)(s => s.SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"))) };
         yield return new object[] { "ClearAutoFilterColumn", (Action<ISheet>)(s => s.ClearAutoFilterColumn(0)) };
     }

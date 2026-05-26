@@ -68,6 +68,22 @@ Coverage: 12 new tests in `tests/NetXlsx.Tests/SortTests.cs`.
 
 Decision added: I-72.
 
+### Conditional formatting (I-73)
+
+Adds `ISheet.AddConditionalFormatting(a1Range, params ConditionalFormat[]
+rules)` with factories for cell-value conditions (7 operators),
+formula-based rules, and 2/3-color gradient scales. Also
+`ConditionalFormattingCount` and `RemoveConditionalFormatting(index)`.
+
+Style application supports bold/italic font formatting and fill
+background color via XSSF's RGB path. Font color in CF rules deferred
+(NPOI 2.7.3 limitation). Data bars, icon sets, top/bottom N reach
+through `ISheet.Underlying.SheetConditionalFormatting`.
+
+Coverage: 15 new tests in `tests/NetXlsx.Tests/ConditionalFormatTests.cs`.
+
+Decision added: I-73.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments

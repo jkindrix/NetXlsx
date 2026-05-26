@@ -154,6 +154,23 @@ public interface ISheet
     void CreateSplitPane(int xSplitTwips, int ySplitTwips);
 
     /// <summary>
+    /// Adds one or more conditional formatting rules to the given range
+    /// (decision I-73). Each rule is applied in order; Excel evaluates
+    /// them top-to-bottom, stopping at the first match per cell.
+    /// </summary>
+    /// <param name="a1Range">The range to apply formatting to (e.g. <c>"A1:D100"</c>).</param>
+    /// <param name="rules">One or more conditional formatting rules.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Range"/> or <paramref name="rules"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="rules"/> is empty.</exception>
+    void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules);
+
+    /// <summary>Number of conditional formatting groups on this sheet.</summary>
+    int ConditionalFormattingCount { get; }
+
+    /// <summary>Removes the conditional formatting group at <paramref name="index"/> (0-based).</summary>
+    void RemoveConditionalFormatting(int index);
+
+    /// <summary>
     /// Sorts rows within <paramref name="a1Range"/> by the specified
     /// <paramref name="keys"/> (decision I-72). The sort is performed
     /// in-memory by physically reordering cell values — no OOXML
