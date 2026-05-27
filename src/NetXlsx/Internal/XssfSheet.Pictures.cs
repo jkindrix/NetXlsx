@@ -52,7 +52,7 @@ internal sealed partial class XssfSheet
         int pictureIdx = _workbook.Underlying.AddPicture(data, (int)npoiPictureType);
 
         var drawing = (XSSFDrawing)_underlying.CreateDrawingPatriarch();
-        var anchor = new XSSFClientAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2, r2);
+        var anchor = new XSSFClientAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2 - 1, r2 - 1);
         var picture = (XSSFPicture)drawing.CreatePicture(anchor, pictureIdx);
         return new XssfPicture(_workbook, this, picture, format);
     }
@@ -80,7 +80,7 @@ internal sealed partial class XssfSheet
         int pictureIdx = _workbook.Underlying.AddPicture(data, (int)npoiPictureType);
 
         var drawing = (XSSFDrawing)_underlying.CreateDrawingPatriarch();
-        var anchor = new XSSFClientAnchor(dx1, dy1, dx2, dy2, c1 - 1, r1 - 1, c2, r2);
+        var anchor = new XSSFClientAnchor(dx1, dy1, dx2, dy2, c1 - 1, r1 - 1, c2 - 1, r2 - 1);
         var picture = (XSSFPicture)drawing.CreatePicture(anchor, pictureIdx);
         return new XssfPicture(_workbook, this, picture, format);
     }
