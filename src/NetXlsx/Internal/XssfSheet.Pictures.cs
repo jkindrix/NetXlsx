@@ -66,6 +66,25 @@ internal sealed partial class XssfSheet
         return AddPicture(startCell, endCell, data, DetectImageFormat(data));
     }
 
+    public IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format,
+        int dx1, int dy1, int dx2, int dy2)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(startCell);
+        ArgumentNullException.ThrowIfNull(endCell);
+        ArgumentNullException.ThrowIfNull(data);
+
+        var (r1, c1) = CellAddress.Parse(startCell);
+        var (r2, c2) = CellAddress.Parse(endCell);
+        var npoiPictureType = ToNpoiPictureType(format);
+        int pictureIdx = _workbook.Underlying.AddPicture(data, (int)npoiPictureType);
+
+        var drawing = (XSSFDrawing)_underlying.CreateDrawingPatriarch();
+        var anchor = new XSSFClientAnchor(dx1, dy1, dx2, dy2, c1 - 1, r1 - 1, c2, r2);
+        var picture = (XSSFPicture)drawing.CreatePicture(anchor, pictureIdx);
+        return new XssfPicture(_workbook, this, picture, format);
+    }
+
     private static PictureType ToNpoiPictureType(ImageFormat f) => f switch
     {
         ImageFormat.Png => PictureType.PNG,

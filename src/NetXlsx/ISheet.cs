@@ -388,6 +388,22 @@ public interface ISheet
     IPicture AddPicture(string startCell, string endCell, byte[] data);
 
     /// <summary>
+    /// Embeds an image with a two-cell anchor and explicit EMU (English
+    /// Metric Unit) offsets within the anchor cells (decision I-77). Use
+    /// this overload when you need precise image positioning with padding
+    /// inside the anchor region.
+    /// <para>
+    /// EMU offsets: <paramref name="dx1"/>/<paramref name="dy1"/> are the
+    /// offset from the top-left corner of <paramref name="startCell"/>;
+    /// <paramref name="dx2"/>/<paramref name="dy2"/> are the offset from
+    /// the top-left corner of <paramref name="endCell"/>. Negative values
+    /// for dx2/dy2 inset from the end cell boundary. 1 inch = 914400 EMU.
+    /// </para>
+    /// </summary>
+    IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format,
+        int dx1, int dy1, int dx2, int dy2);
+
+    /// <summary>
     /// Protects this sheet against UI editing (decision I-53). When
     /// <paramref name="password"/> is non-null, Excel requires it to
     /// unprotect — but the password is hashed with a weak algorithm,
