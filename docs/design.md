@@ -457,7 +457,24 @@ IChart AddChart(ChartType type, string startCell, string endCell,
 
 **Scatter charts** use `FromNumericCellRange` for both axes (X must be numeric); all other chart types use `FromStringCellRange` for categories.
 
-### 6.2.11 Drawings / shapes — I-74
+### 6.2.11 Row height + two-cell image anchoring — I-76
+
+```csharp
+// On IRow:
+float HeightInPoints { get; set; }
+
+// On ISheet (new overloads):
+IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format);
+IPicture AddPicture(string startCell, string endCell, byte[] data);
+```
+
+**I-76 (added 2026-05-27):** Two gaps closed for form-layout reproduction:
+
+1. **`IRow.HeightInPoints`** — get/set row height in points. Delegates to NPOI's `IRow.HeightInPoints`. Enables precise vertical layout control for form-style sheets where different rows have different heights.
+
+2. **Two-cell `AddPicture` overload** — anchors an image between `startCell` (top-left) and `endCell` (bottom-right), stretching to fill the anchor region. Unlike the single-cell overload (I-52) which renders at natural pixel size, this variant gives layout control when the anchor position matters more than pixel fidelity.
+
+### 6.2.12 Drawings / shapes — I-74
 
 ```csharp
 public enum ShapeType

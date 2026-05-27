@@ -140,6 +140,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Set(1, TimeOnly)", (Action<IRow>)(r => r.Set(1, new TimeOnly(12, 0))) };
         yield return new object[] { "Set(1, TimeSpan)", (Action<IRow>)(r => r.Set(1, TimeSpan.FromHours(1))) };
         yield return new object[] { "Underlying", (Action<IRow>)(r => { var _ = r.Underlying; }) };
+        yield return new object[] { "HeightInPoints get", (Action<IRow>)(r => { var _ = r.HeightInPoints; }) };
+        yield return new object[] { "HeightInPoints set", (Action<IRow>)(r => { r.HeightInPoints = 20f; }) };
         yield return new object[] { "Hidden get", (Action<IRow>)(r => { var _ = r.Hidden; }) };
         yield return new object[] { "Hidden set", (Action<IRow>)(r => { r.Hidden = true; }) };
     }

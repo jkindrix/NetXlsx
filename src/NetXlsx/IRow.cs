@@ -57,6 +57,13 @@ public interface IRow
     /// <exception cref="ArgumentOutOfRangeException">Negative <paramref name="value"/> (decision I15).</exception>
     IRow Set(int column, TimeSpan value);
 
+    /// <summary>
+    /// Row height in points. Setting overrides Excel's default row
+    /// height for this row. Getting returns the current height (which
+    /// may be the sheet default if never explicitly set).
+    /// </summary>
+    float HeightInPoints { get; set; }
+
     /// <summary>Whether this row is hidden in Excel.</summary>
     bool Hidden { get; set; }
 

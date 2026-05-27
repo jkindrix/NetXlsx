@@ -26,6 +26,10 @@ NetXlsx.IShape
 NetXlsx.IShape.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IShape.Type.get -> NetXlsx.ShapeType
 NetXlsx.IShape.Underlying.get -> NPOI.XSSF.UserModel.XSSFSimpleShape!
+NetXlsx.IRow.HeightInPoints.get -> float
+NetXlsx.IRow.HeightInPoints.set -> void
+NetXlsx.ISheet.AddPicture(string! startCell, string! endCell, byte[]! data, NetXlsx.ImageFormat format) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddPicture(string! startCell, string! endCell, byte[]! data) -> NetXlsx.IPicture!
 NetXlsx.ISheet.AddChart(NetXlsx.ChartType type, string! startCell, string! endCell, string! categoryRange, string! valueRange, string? title = null) -> NetXlsx.IChart!
 NetXlsx.ISheet.AddConditionalFormatting(string! a1Range, params NetXlsx.ConditionalFormat![]! rules) -> void
 NetXlsx.ISheet.AddShape(NetXlsx.ShapeType type, string! startCell, string! endCell, NetXlsx.Color? fillColor = null, NetXlsx.Color? lineColor = null) -> NetXlsx.IShape!

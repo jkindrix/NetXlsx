@@ -370,6 +370,24 @@ public interface ISheet
     IPicture AddPicture(string a1Cell, byte[] data);
 
     /// <summary>
+    /// Embeds an image anchored between two cells (decision I-76). Unlike
+    /// the single-cell overload which renders at natural pixel size, this
+    /// overload stretches or shrinks the image to fill the anchor region.
+    /// Use for layout-controlled images where the anchor position matters
+    /// more than pixel fidelity.
+    /// </summary>
+    /// <param name="startCell">Top-left anchor cell (e.g. <c>"B7"</c>).</param>
+    /// <param name="endCell">Bottom-right anchor cell (e.g. <c>"C9"</c>).</param>
+    /// <param name="data">Image bytes (PNG or JPEG).</param>
+    /// <param name="format">The image format.</param>
+    IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format);
+
+    /// <summary>
+    /// Embeds an image anchored between two cells with auto-detected format.
+    /// </summary>
+    IPicture AddPicture(string startCell, string endCell, byte[] data);
+
+    /// <summary>
     /// Protects this sheet against UI editing (decision I-53). When
     /// <paramref name="password"/> is non-null, Excel requires it to
     /// unprotect — but the password is hashed with a weak algorithm,

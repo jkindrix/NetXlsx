@@ -67,6 +67,12 @@ internal sealed class XssfRow : IRow
     public IRow Set(int column, TimeOnly value) { Cell(column).SetTime(value);     return this; }
     public IRow Set(int column, TimeSpan value) { Cell(column).SetDuration(value); return this; }
 
+    public float HeightInPoints
+    {
+        get { _workbook.ThrowIfDisposed(); return _underlying.HeightInPoints; }
+        set { _workbook.ThrowIfDisposed(); _underlying.HeightInPoints = value; }
+    }
+
     public bool Hidden
     {
         get { _workbook.ThrowIfDisposed(); return _underlying.ZeroHeight; }

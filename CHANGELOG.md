@@ -108,6 +108,24 @@ Coverage: 10 new tests in `tests/NetXlsx.Tests/ChartTests.cs`.
 
 Decision added: I-75.
 
+### Row height + two-cell image anchoring (I-76)
+
+Closes two gaps identified when analyzing a form-layout xlsx file:
+
+- `IRow.HeightInPoints` — get/set row height in points. Enables
+  precise vertical layout for form-style sheets with varying row
+  heights (e.g. 5.25pt spacers, 24.95pt data rows, 80pt description
+  rows).
+- `ISheet.AddPicture(startCell, endCell, data, format)` — two-cell
+  anchor overload that stretches/shrinks the image to fill the anchor
+  region. Unlike the single-cell overload (I-52) which renders at
+  natural pixel size, this gives layout control for positioned images.
+
+Coverage: 7 new tests in
+`tests/NetXlsx.Tests/RowHeightAndPictureAnchorTests.cs`.
+
+Decision added: I-76.
+
 ## [1.3.0] — 2026-05-22
 
 v1.3 ships two slices that close the remaining v1.2 deferments
