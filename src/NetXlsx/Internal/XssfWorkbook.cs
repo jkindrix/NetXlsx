@@ -55,6 +55,12 @@ internal sealed partial class XssfWorkbook : IWorkbook
             defaultFont.FontHeightInPoints = (short)_options.DefaultFontSize;
         }
 
+        // Ensure the "Normal" built-in cellStyle exists in styles.xml.
+        // NPOI 2.7.3 omits <cellStyle name="Normal" builtinId="0"/>,
+        // which breaks Excel's Normal style → font → Maximum Digit Width
+        // → default column width calculation chain (decision I-78).
+        EnsureNormalCellStyle();
+
         // Read-side safety checks (zip-bomb defense + sheet-count cap).
         // These run on the Open path (NumberOfSheets > 0 means the
         // underlying workbook was constructed from an existing file).
@@ -150,6 +156,33 @@ internal sealed partial class XssfWorkbook : IWorkbook
         return count;
     }
 
+    private void EnsureNormalCellStyle()
+    {
+        var ct = NpoiInternals.GetStylesheet(_underlying.GetStylesSource());
+        if (ct == null) return;
+
+        if (ct.cellStyles == null)
+            ct.cellStyles = new NPOI.OpenXmlFormats.Spreadsheet.CT_CellStyles();
+
+        bool hasNormal = false;
+        if (ct.cellStyles.cellStyle != null)
+            foreach (var cs in ct.cellStyles.cellStyle)
+                if (cs.builtinId == 0) { hasNormal = true; break; }
+
+        if (!hasNormal)
+        {
+            var normal = new NPOI.OpenXmlFormats.Spreadsheet.CT_CellStyle
+            {
+                name = "Normal",
+                xfId = 0,
+                builtinId = 0,
+            };
+            ct.cellStyles.cellStyle ??= new System.Collections.Generic.List<NPOI.OpenXmlFormats.Spreadsheet.CT_CellStyle>();
+            ct.cellStyles.cellStyle.Add(normal);
+            ct.cellStyles.count = (uint)ct.cellStyles.cellStyle.Count;
+        }
+    }
+
     public int SheetCount
     {
         get { ThrowIfDisposed(); return _sheetsByIndex.Count; }
@@ -186,6 +219,17 @@ internal sealed partial class XssfWorkbook : IWorkbook
             throw new SheetNameException(name, "a sheet with this name already exists (case-insensitive)");
 
         var npoiSheet = (XSSFSheet)_underlying.CreateSheet(name);
+
+        // NPOI writes defaultColWidth="8.43" into <sheetFormatPr>, but
+        // Excel-authored files omit it. When present, Excel uses the
+        // literal float value (which rounds differently than the font-
+        // derived value), displaying columns at 7.71 instead of 8.43.
+        // Setting to 0 suppresses the attribute in NPOI's serialization,
+        // letting Excel derive the width from the Normal style's font
+        // metrics — matching native Excel behavior (decision I-78).
+        var sfp = npoiSheet.GetCTWorksheet()?.sheetFormatPr;
+        if (sfp != null) sfp.defaultColWidth = 0;
+
         var wrapper = new XssfSheet(this, npoiSheet);
         _sheetsByIndex.Add(wrapper);
         _sheetsByName[name] = wrapper;

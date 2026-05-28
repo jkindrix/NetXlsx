@@ -57,3 +57,5 @@ NetXlsx.SortKey.Column.get -> int
 static NetXlsx.SortKey.Asc(int column) -> NetXlsx.SortKey!
 static NetXlsx.SortKey.Desc(int column) -> NetXlsx.SortKey!
 static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+NetXlsx.ISheet.DefaultColumnWidth.get -> double?
+NetXlsx.ISheet.DefaultColumnWidth.set -> void

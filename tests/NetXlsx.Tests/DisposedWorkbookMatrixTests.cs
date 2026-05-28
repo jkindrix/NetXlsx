@@ -73,6 +73,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Hidden set", (Action<ISheet>)(s => { s.Hidden = true; }) };
         yield return new object[] { "ShowGridlines get", (Action<ISheet>)(s => { var _ = s.ShowGridlines; }) };
         yield return new object[] { "ShowGridlines set", (Action<ISheet>)(s => { s.ShowGridlines = false; }) };
+        yield return new object[] { "DefaultColumnWidth get", (Action<ISheet>)(s => { var _ = s.DefaultColumnWidth; }) };
+        yield return new object[] { "DefaultColumnWidth set", (Action<ISheet>)(s => { s.DefaultColumnWidth = 10.0; }) };
         yield return new object[] { "Range(string)", (Action<ISheet>)(s => s.Range("A1:B2")) };
         yield return new object[] { "Range(r,c,r,c)", (Action<ISheet>)(s => s.Range(1, 1, 2, 2)) };
         yield return new object[] { "Column(int)", (Action<ISheet>)(s => s.Column(1)) };

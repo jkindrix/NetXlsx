@@ -144,4 +144,36 @@ internal static class NpoiInternals
         var result = s_putCellXf.Invoke(styles, new object[] { xf });
         return (int)(result ?? 0);
     }
+
+    // ---- StylesTable.doc (StyleSheetDocument) ---------------------------
+    //
+    // Private upstream. Provides access to the CT_Stylesheet for
+    // ensuring the "Normal" cellStyle entry exists (I-78).
+
+    private static readonly FieldInfo s_stylesDoc = typeof(StylesTable).GetField(
+        name: "doc",
+        bindingAttr: BindingFlags.Instance | BindingFlags.NonPublic)
+        ?? throw new InvalidOperationException(
+            "NPOI 2.7.3 internal change: StylesTable.doc field is no longer accessible " +
+            "via reflection. Update src/NetXlsx/Internal/NpoiInternals.cs.");
+
+    private static readonly MethodInfo s_getStyleSheet;
+
+    static NpoiInternals()
+    {
+        // StyleSheetDocument.GetStyleSheet() — resolve the method once
+        // at class-init since the type isn't directly referenceable.
+        var docType = s_stylesDoc.FieldType;
+        s_getStyleSheet = docType.GetMethod("GetStyleSheet", BindingFlags.Public | BindingFlags.Instance)
+            ?? throw new InvalidOperationException(
+                "NPOI 2.7.3 internal change: StyleSheetDocument.GetStyleSheet() is no longer " +
+                "accessible. Update src/NetXlsx/Internal/NpoiInternals.cs.");
+    }
+
+    internal static CT_Stylesheet? GetStylesheet(StylesTable styles)
+    {
+        var doc = s_stylesDoc.GetValue(styles);
+        if (doc == null) return null;
+        return s_getStyleSheet.Invoke(doc, null) as CT_Stylesheet;
+    }
 }

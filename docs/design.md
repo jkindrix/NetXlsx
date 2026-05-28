@@ -457,7 +457,22 @@ IChart AddChart(ChartType type, string startCell, string endCell,
 
 **Scatter charts** use `FromNumericCellRange` for both axes (X must be numeric); all other chart types use `FromStringCellRange` for categories.
 
-### 6.2.11 Row height + two-cell image anchoring — I-76
+### 6.2.11 Excel-correct defaults + DefaultColumnWidth — I-78
+
+```csharp
+// On ISheet:
+double? DefaultColumnWidth { get; set; }
+```
+
+**I-78 (added 2026-05-27):** Two internal fixes to match Excel's native workbook output, plus a new public property:
+
+1. **Normal cellStyle entry.** NPOI 2.7.3 omits `<cellStyle name="Normal" builtinId="0"/>` from styles.xml. Without it, Excel cannot resolve the Normal style → font index 0 → Maximum Digit Width chain, causing default column widths to display incorrectly. `Workbook.Create()` now ensures this entry exists via `NpoiInternals.GetStylesheet()`.
+
+2. **Suppress `defaultColWidth`.** NPOI writes `defaultColWidth="8.43"` into `<sheetFormatPr>`, but Excel-authored files omit it. When present, Excel uses the literal float value (which rounds differently than the font-derived value), displaying columns at 7.71 instead of 8.43. `AddSheet()` now sets `defaultColWidth = 0` on new sheets, which NPOI serializes as absent.
+
+3. **`ISheet.DefaultColumnWidth`** — nullable double property. `null` (default) means "omit from XML, let Excel derive from font." Non-null writes the attribute explicitly.
+
+### 6.2.12 Row height + two-cell image anchoring — I-76
 
 ```csharp
 // On IRow:

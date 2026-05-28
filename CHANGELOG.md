@@ -108,6 +108,26 @@ Coverage: 10 new tests in `tests/NetXlsx.Tests/ChartTests.cs`.
 
 Decision added: I-75.
 
+### Excel-correct defaults + DefaultColumnWidth (I-78)
+
+Fixes two NPOI 2.7.3 defaults that cause every consumer's workbooks
+to display incorrect column widths in Excel:
+
+- **Normal cellStyle entry:** `Workbook.Create()` now ensures
+  `<cellStyle name="Normal" builtinId="0"/>` exists in styles.xml.
+  Without it, Excel cannot resolve the Normal style → font → Maximum
+  Digit Width chain for default column width calculation.
+- **Suppress `defaultColWidth`:** new sheets no longer emit
+  `defaultColWidth="8.43"` in `<sheetFormatPr>`. When present, Excel
+  uses the literal float (which rounds to 7.71 display). When absent,
+  Excel derives the width from font metrics (correct 8.43 display).
+- **`ISheet.DefaultColumnWidth`:** new nullable double property.
+  `null` (default) omits the attribute; non-null writes it explicitly.
+
+Coverage: 5 new tests in `DefaultColumnWidthTests.cs`.
+
+Decision added: I-78.
+
 ### Row height + two-cell image anchoring (I-76)
 
 Closes two gaps identified when analyzing a form-layout xlsx file:

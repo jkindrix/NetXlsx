@@ -539,6 +539,24 @@ internal sealed partial class XssfSheet : ISheet
         set { _workbook.ThrowIfDisposed(); _underlying.DisplayGridlines = value; }
     }
 
+    public double? DefaultColumnWidth
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            var sfp = _underlying.GetCTWorksheet()?.sheetFormatPr;
+            if (sfp == null || sfp.defaultColWidth == 0) return null;
+            return sfp.defaultColWidth;
+        }
+        set
+        {
+            _workbook.ThrowIfDisposed();
+            var sfp = _underlying.GetCTWorksheet()?.sheetFormatPr;
+            if (sfp == null) return;
+            sfp.defaultColWidth = value ?? 0;
+        }
+    }
+
     private static bool RangesOverlap(CellRangeAddress a, CellRangeAddress b) =>
         a.FirstRow <= b.LastRow && b.FirstRow <= a.LastRow
         && a.FirstColumn <= b.LastColumn && b.FirstColumn <= a.LastColumn;

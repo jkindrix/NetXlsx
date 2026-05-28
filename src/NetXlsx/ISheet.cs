@@ -248,6 +248,16 @@ public interface ISheet
     bool ShowGridlines { get; set; }
 
     /// <summary>
+    /// Default column width for columns without an explicit width set
+    /// (decision I-78). When <c>null</c> (the default), the OOXML
+    /// <c>defaultColWidth</c> attribute is omitted and Excel derives
+    /// the width from the Normal style's font metrics — matching native
+    /// Excel behavior. When set to a positive value, Excel uses that
+    /// literal value instead of calculating from fonts.
+    /// </summary>
+    double? DefaultColumnWidth { get; set; }
+
+    /// <summary>
     /// Adds an Excel table (<c>ListObject</c>) over <paramref name="a1Range"/>
     /// with header row, codename <paramref name="name"/>, and optional
     /// <paramref name="style"/> (decision I-51).
