@@ -101,22 +101,44 @@ public class StrictConcurrencyTests
     }
 
     [Fact]
-    public void Strict_Mode_Error_Message_Mentions_Option_In_Default_Path()
+    public async Task Default_Mode_Concurrent_Mutation_Throws_With_Discoverable_Message()
     {
-        // The default-mode error message should hint at the new option
-        // so users discover it when they hit the throw.
-        using var wb = Workbook.Create();
-        // Force a contrived reentrant mutation: AddSheet from inside
-        // a NamedRange-creation path is not directly callable, but the
-        // counter trips on any same-process reentry. Instead, inspect
-        // the message text directly by forcing the throw via reflection
-        // would be overkill; the simpler check is that the literal
-        // option name appears in the assembly text. (Done indirectly:
-        // a smoke string assertion against the documented error.)
-        wb.GetType().Assembly.GetName().Name.Should().Be("NetXlsx");
-        // The error string is asserted at the source level — see
-        // XssfWorkbook.EnterMutation. This test serves as a marker
-        // that the option name is part of the developer-visible
-        // discoverability surface.
+        // When the default opportunistic counter trips, the thrown message
+        // must point users at the strict-mode option (discoverability) and
+        // state that workbooks aren't thread-safe. Several threads hammer
+        // AddSheet on one workbook (unique names, so the only
+        // InvalidOperationException is the concurrency guard, not a name
+        // clash); collisions are near-certain and captured fast. Default
+        // mode isn't thread-safe, so we don't assert final state here —
+        // only the discoverability of the message.
+        string? message = null;
+        using var wb = Workbook.Create();   // default: StrictConcurrencyDetection = false
+        const int n = 4;
+        using var barrier = new Barrier(n);
+        var tasks = new Task[n];
+        for (int t = 0; t < n; t++)
+        {
+            int tid = t;
+            tasks[t] = Task.Run(() =>
+            {
+                barrier.SignalAndWait();   // release all threads at once
+                for (int k = 0; k < 500 && Volatile.Read(ref message) is null; k++)
+                {
+                    try { wb.AddSheet($"S{tid}_{k}"); }
+                    catch (InvalidOperationException ex)
+                    {
+                        Interlocked.CompareExchange(ref message, ex.Message, null);
+                    }
+                    catch (SheetNameException) { /* unrelated to the concurrency guard */ }
+                }
+            });
+        }
+        await Task.WhenAll(tasks);
+
+        message.Should().NotBeNull(
+            "concurrent AddSheet on the default counter must surface InvalidOperationException");
+        message.Should().Contain("StrictConcurrencyDetection",
+            "the default-mode error must point users at the opt-in real-lock option (decision I-59)");
+        message.Should().Contain("not thread-safe");
     }
 }

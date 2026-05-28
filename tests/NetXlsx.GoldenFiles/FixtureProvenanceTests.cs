@@ -18,12 +18,14 @@ public class FixtureProvenanceTests
     public void Every_Xlsx_Fixture_Has_A_Sibling_Provenance_Doc()
     {
         var fixturesDir = Path.Combine(AppContext.BaseDirectory, "Fixtures");
-        if (!Directory.Exists(fixturesDir))
-        {
-            // Scaffold: no fixtures yet. Test passes trivially until fixtures
-            // land. Once any .xlsx exists, the assertion below applies.
-            return;
-        }
+
+        // The Fixtures/ directory is copied to the test output by the
+        // csproj (it always contains at least README.md). If it's missing,
+        // the fixture-copy infrastructure is broken — fail loud rather than
+        // silently passing, which would let the provenance gate rot.
+        Directory.Exists(fixturesDir).Should().BeTrue(
+            "Fixtures/ must be copied to the test output dir (see NetXlsx.GoldenFiles.csproj). " +
+            "A missing directory means the governance gate is no longer running.");
 
         var xlsxFiles = Directory.EnumerateFiles(fixturesDir, "*.xlsx", SearchOption.AllDirectories);
         var missing = xlsxFiles
