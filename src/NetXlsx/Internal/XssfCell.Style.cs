@@ -61,6 +61,7 @@ internal sealed partial class XssfCell
         FontSize = overlay.FontSize ?? existing.FontSize,
         FontColor = overlay.FontColor ?? existing.FontColor,
         Background = overlay.Background ?? existing.Background,
+        BackgroundTheme = overlay.BackgroundTheme ?? existing.BackgroundTheme,
         NumberFormat = overlay.NumberFormat ?? existing.NumberFormat,
         HorizontalAlignment = overlay.HorizontalAlignment ?? existing.HorizontalAlignment,
         VerticalAlignment = overlay.VerticalAlignment ?? existing.VerticalAlignment,

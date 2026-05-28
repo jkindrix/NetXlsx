@@ -120,20 +120,22 @@ internal sealed class CellStylePool
         if (style.WrapText == true) s.WrapText = true;
 
         // Background fill — theme color takes precedence over RGB.
+        // FillPattern MUST be set before SetFillForegroundColor — NPOI
+        // drops a themed XSSFColor if the pattern isn't already solid.
         if (style.BackgroundTheme is { } bgTheme)
         {
             var xs = (XSSFCellStyle)s;
+            s.FillPattern = FillPattern.SolidForeground;
             var xc = new XSSFColor();
             xc.Theme = bgTheme.Index;
             if (bgTheme.Tint != 0) xc.Tint = bgTheme.Tint;
             xs.SetFillForegroundColor(xc);
-            s.FillPattern = FillPattern.SolidForeground;
         }
         else if (style.Background is { } bg)
         {
             var xs = (XSSFCellStyle)s;
-            xs.SetFillForegroundColor(ToXssfColor(bg));
             s.FillPattern = FillPattern.SolidForeground;
+            xs.SetFillForegroundColor(ToXssfColor(bg));
         }
 
         // Borders.

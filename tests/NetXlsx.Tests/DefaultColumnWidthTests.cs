@@ -80,3 +80,30 @@ public class DefaultColumnWidthTests
         npoi.Close();
     }
 }
+
+public class ThemeColorTests
+{
+    [Fact]
+    public void BackgroundTheme_Applies_Through_Style_Merge()
+    {
+        using var ms = new System.IO.MemoryStream();
+        using (var wb = Workbook.Create(new WorkbookOptions { DefaultFontName = "Calibri" }))
+        {
+            var s = wb.AddSheet("S");
+            s[1, 1].SetString("x");
+            s[1, 1].Style(new CellStyle { BackgroundTheme = new ThemeColor(3, 0.4) });
+            wb.Save(ms, leaveOpen: true);
+        }
+
+        ms.Position = 0;
+        var npoi = new NPOI.XSSF.UserModel.XSSFWorkbook(ms);
+        var cs = (NPOI.XSSF.UserModel.XSSFCellStyle)
+            ((NPOI.XSSF.UserModel.XSSFSheet)npoi.GetSheetAt(0)).GetRow(0).GetCell(0).CellStyle;
+        cs.FillPattern.Should().Be(NPOI.SS.UserModel.FillPattern.SolidForeground);
+        var fg = cs.FillForegroundXSSFColor;
+        fg.Should().NotBeNull();
+        fg!.Theme.Should().Be(3);
+        fg.Tint.Should().BeApproximately(0.4, 0.001);
+        npoi.Close();
+    }
+}
