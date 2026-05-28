@@ -292,6 +292,24 @@ internal sealed partial class XssfSheet : ISheet
         return new XssfShape(this, shape, type);
     }
 
+    public NPOI.XSSF.UserModel.XSSFConnector AddConnector(ConnectorType type, string startCell, string endCell, Color? lineColor = null)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(startCell);
+        ArgumentNullException.ThrowIfNull(endCell);
+
+        var (r1, c1) = CellAddress.Parse(startCell);
+        var (r2, c2) = CellAddress.Parse(endCell);
+
+        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)_underlying.CreateDrawingPatriarch();
+        var anchor = new NPOI.XSSF.UserModel.XSSFClientAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2 - 1, r2 - 1);
+        var connector = drawing.CreateConnector(anchor);
+        connector.ShapeType = (NPOI.OpenXmlFormats.Dml.ST_ShapeType)(int)type;
+        if (lineColor is { } lc)
+            connector.SetLineStyleColor(lc.R, lc.G, lc.B);
+        return connector;
+    }
+
     public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules)
     {
         _workbook.ThrowIfDisposed();
@@ -477,6 +495,18 @@ internal sealed partial class XssfSheet : ISheet
         }
 
         _underlying.AddMergedRegion(newRegion);
+    }
+
+    public void MergeCellsStyled(string a1Range, CellStyle style)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(a1Range);
+        ArgumentNullException.ThrowIfNull(style);
+        var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
+        for (int r = r1; r <= r2; r++)
+            for (int c = c1; c <= c2; c++)
+                this[r, c].Style(style);
+        if (r1 != r2 || c1 != c2) MergeCells(a1Range);
     }
 
     public void UnmergeCells(string a1Range)

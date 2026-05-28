@@ -34,6 +34,15 @@ public sealed record CellStyle
     /// <summary>Solid-fill background color. ARGB equality.</summary>
     public Color? Background { get; init; }
 
+    /// <summary>
+    /// Theme-based background color (decision I-79). When set, takes
+    /// precedence over <see cref="Background"/> and is applied via
+    /// <c>XSSFColor.Theme</c> + <c>Tint</c>. This preserves Excel's
+    /// exact color rendering when a theme is present, since explicit
+    /// RGB doesn't always match Excel's tint calculation.
+    /// </summary>
+    public ThemeColor? BackgroundTheme { get; init; }
+
     /// <summary>Excel number format string (e.g. <c>"$#,##0.00"</c>, <c>"yyyy-mm-dd"</c>). Pass-through bytes per §7.2.</summary>
     public string? NumberFormat { get; init; }
 
@@ -124,3 +133,17 @@ public enum UnderlineStyle
     /// <summary>Double accounting underline.</summary>
     DoubleAccounting,
 }
+
+/// <summary>
+/// A theme-based color reference (decision I-79). The <see cref="Index"/>
+/// references one of the workbook's theme colors (0–11: dark1, light1,
+/// dark2, light2, accent1–6, hyperlink, followedHyperlink). The optional
+/// <see cref="Tint"/> applies a lightening (positive) or darkening
+/// (negative) modifier in [-1.0, 1.0].
+/// <para>
+/// Use this when reproducing files that use Excel's theme colors —
+/// explicit RGB doesn't always match Excel's tint calculation, so theme
+/// references preserve exact rendering when the workbook has a theme.
+/// </para>
+/// </summary>
+public sealed record ThemeColor(int Index, double Tint = 0);

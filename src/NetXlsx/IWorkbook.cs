@@ -140,6 +140,21 @@ public interface IWorkbook : IDisposable
     bool IsProtected { get; }
 
     /// <summary>
+    /// Injects an OOXML theme part (<c>xl/theme/theme1.xml</c>) into the
+    /// workbook (decision I-79). The theme defines color scheme, font
+    /// scheme, and effect scheme that Excel uses to resolve theme-based
+    /// references in cell styles. Without a theme, Excel falls back to
+    /// defaults that may not match Excel-authored files for column widths
+    /// (font metric resolution) and theme-indexed colors.
+    /// <para>
+    /// The byte content should be a complete theme1.xml document. NetXlsx
+    /// creates the OPC part and the workbook→theme relationship.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="themeXml"/> is null.</exception>
+    void SetThemeXml(byte[] themeXml);
+
+    /// <summary>
     /// Whether this workbook is macro-enabled (<c>.xlsm</c>) per decision
     /// I-69. A macro-enabled workbook preserves VBA project parts across
     /// open/save; NetXlsx does not read, write, or execute VBA — the

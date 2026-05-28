@@ -119,8 +119,17 @@ internal sealed class CellStylePool
         // Wrap text.
         if (style.WrapText == true) s.WrapText = true;
 
-        // Background fill.
-        if (style.Background is { } bg)
+        // Background fill — theme color takes precedence over RGB.
+        if (style.BackgroundTheme is { } bgTheme)
+        {
+            var xs = (XSSFCellStyle)s;
+            var xc = new XSSFColor();
+            xc.Theme = bgTheme.Index;
+            if (bgTheme.Tint != 0) xc.Tint = bgTheme.Tint;
+            xs.SetFillForegroundColor(xc);
+            s.FillPattern = FillPattern.SolidForeground;
+        }
+        else if (style.Background is { } bg)
         {
             var xs = (XSSFCellStyle)s;
             xs.SetFillForegroundColor(ToXssfColor(bg));

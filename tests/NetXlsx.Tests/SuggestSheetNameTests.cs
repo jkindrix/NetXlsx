@@ -154,6 +154,7 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
     public StylePoolDiagnostics GetStylePoolDiagnostics() => default;
 
     public bool IsMacroEnabled => false;
+    public void SetThemeXml(byte[] themeXml) { }
     public NPOI.XSSF.UserModel.XSSFWorkbook Underlying => throw new NotImplementedException();
 
     public void Dispose() { }

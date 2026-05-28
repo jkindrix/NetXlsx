@@ -349,6 +349,31 @@ internal sealed partial class XssfWorkbook : IWorkbook
         }
     }
 
+    public void SetThemeXml(byte[] themeXml)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(themeXml);
+        var pkg = _underlying.Package;
+        var partName = NPOI.OpenXml4Net.OPC.PackagingUriHelper.CreatePartName("/xl/theme/theme1.xml");
+        var contentType = "application/vnd.openxmlformats-officedocument.theme+xml";
+        var relType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
+
+        NPOI.OpenXml4Net.OPC.PackagePart part;
+        try { part = pkg.GetPart(partName); }
+        catch { part = pkg.CreatePart(partName, contentType); }
+
+        using (var os = part.GetOutputStream())
+            os.Write(themeXml, 0, themeXml.Length);
+
+        var wbPartName = NPOI.OpenXml4Net.OPC.PackagingUriHelper.CreatePartName("/xl/workbook.xml");
+        var wbPart = pkg.GetPart(wbPartName);
+        bool hasRel = false;
+        foreach (var r in wbPart.Relationships)
+            if (r.RelationshipType == relType) { hasRel = true; break; }
+        if (!hasRel)
+            wbPart.AddRelationship(partName, NPOI.OpenXml4Net.OPC.TargetMode.Internal, relType);
+    }
+
     public bool IsMacroEnabled
     {
         get { ThrowIfDisposed(); return _underlying.IsMacroEnabled(); }

@@ -59,3 +59,18 @@ static NetXlsx.SortKey.Desc(int column) -> NetXlsx.SortKey!
 static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 NetXlsx.ISheet.DefaultColumnWidth.get -> double?
 NetXlsx.ISheet.DefaultColumnWidth.set -> void
+NetXlsx.IWorkbook.SetThemeXml(byte[]! themeXml) -> void
+NetXlsx.CellStyle.BackgroundTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellStyle.BackgroundTheme.init -> void
+NetXlsx.ThemeColor
+NetXlsx.ThemeColor.Index.get -> int
+NetXlsx.ThemeColor.Index.init -> void
+NetXlsx.ThemeColor.Tint.get -> double
+NetXlsx.ThemeColor.Tint.init -> void
+NetXlsx.ThemeColor.ThemeColor(int Index, double Tint = 0) -> void
+NetXlsx.ISheet.MergeCellsStyled(string! a1Range, NetXlsx.CellStyle! style) -> void
+NetXlsx.ISheet.AddConnector(NetXlsx.ConnectorType type, string! startCell, string! endCell, NetXlsx.Color? lineColor = null) -> NPOI.XSSF.UserModel.XSSFConnector!
+NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Bent = 32 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Curved = 38 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Straight = 20 -> NetXlsx.ConnectorType

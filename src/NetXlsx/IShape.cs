@@ -41,3 +41,17 @@ public enum ShapeType
     /// <summary>A diamond.</summary>
     Diamond = 6,
 }
+
+/// <summary>
+/// Connector types for <see cref="ISheet.AddConnector"/> (decision I-79).
+/// Maps to NPOI's connector shape types.
+/// </summary>
+public enum ConnectorType
+{
+    /// <summary>A straight line connector.</summary>
+    Straight = 20,  // ShapeTypes.Line
+    /// <summary>A bent (right-angle) connector.</summary>
+    Bent = 32,
+    /// <summary>A curved connector.</summary>
+    Curved = 38,
+}

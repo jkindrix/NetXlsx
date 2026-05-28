@@ -182,6 +182,18 @@ public interface ISheet
     IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null);
 
     /// <summary>
+    /// Adds a connector (line or arrow) between two cells (decision I-79).
+    /// Connectors are typically used as standalone arrows or as visual
+    /// indicators in form-style sheets.
+    /// </summary>
+    /// <param name="type">Connector type (Straight, Bent, Curved). Arrows added via lineColor + arrowhead.</param>
+    /// <param name="startCell">Anchor's top-left cell.</param>
+    /// <param name="endCell">Anchor's bottom-right cell.</param>
+    /// <param name="lineColor">Line color (default black).</param>
+    /// <returns>The created connector; reach through <c>.Underlying</c> for arrowhead/style details.</returns>
+    NPOI.XSSF.UserModel.XSSFConnector AddConnector(ConnectorType type, string startCell, string endCell, Color? lineColor = null);
+
+    /// <summary>
     /// Adds one or more conditional formatting rules to the given range
     /// (decision I-73). Each rule is applied in order; Excel evaluates
     /// them top-to-bottom, stopping at the first match per cell.
@@ -226,6 +238,16 @@ public interface ISheet
     /// <exception cref="InvalidCellAddressException">Not a valid range.</exception>
     /// <exception cref="System.InvalidOperationException">The range overlaps an existing merged region.</exception>
     void MergeCells(string a1Range);
+
+    /// <summary>
+    /// Merges the cells in <paramref name="a1Range"/> AND applies
+    /// <paramref name="style"/> to every cell in the range (decision I-79).
+    /// This is needed for borders to render across the full merged area —
+    /// Excel renders merged-region borders from the boundary cells, not
+    /// just the top-left cell. Styling only the top-left cell leaves the
+    /// right/bottom edges of the merged region borderless.
+    /// </summary>
+    void MergeCellsStyled(string a1Range, CellStyle style);
 
     /// <summary>
     /// Unmerges the cells in <paramref name="a1Range"/>. No-op if the
