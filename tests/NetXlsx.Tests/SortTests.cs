@@ -59,6 +59,28 @@ public class SortTests
     }
 
     [Fact]
+    public void SortRange_Is_Stable_For_Tied_Rows()
+    {
+        // Rows tying on the sort key must keep their original relative
+        // order (Excel's sort is stable). Column B is a witness to the
+        // original order; it is not a sort key.
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("B"); s["B1"].SetNumber(1);
+        s["A2"].SetString("A"); s["B2"].SetNumber(2);
+        s["A3"].SetString("A"); s["B3"].SetNumber(3);
+        s["A4"].SetString("A"); s["B4"].SetNumber(4);
+
+        s.SortRange("A1:B4", SortKey.Asc(1));
+
+        // The three "A" rows keep original order (witnesses 2,3,4), then "B".
+        s["B1"].GetNumber().Should().Be(2);
+        s["B2"].GetNumber().Should().Be(3);
+        s["B3"].GetNumber().Should().Be(4);
+        s["B4"].GetNumber().Should().Be(1);
+    }
+
+    [Fact]
     public void SortRange_Preserves_Styles()
     {
         using var wb = Workbook.Create();

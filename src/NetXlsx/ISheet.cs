@@ -235,6 +235,17 @@ public interface ISheet
     /// only the data rows in the range. Sort keys reference absolute
     /// column indices (1-based), not offsets within the range.
     /// </para>
+    /// <para>
+    /// The sort is <b>stable</b>: rows that tie on every key keep their
+    /// original relative order (matching Excel).
+    /// </para>
+    /// <para>
+    /// <b>Formula caveat:</b> formula cells are moved verbatim — relative
+    /// references are <b>not</b> relocated as Excel would when sorting. A
+    /// sorted formula like <c>=A2*B2</c> keeps that exact text in its new
+    /// row, so it will reference different cells than before. Sort ranges
+    /// of literal values, or expect to re-point formulas yourself.
+    /// </para>
     /// </summary>
     /// <param name="a1Range">The data range to sort (e.g. <c>"A2:D100"</c>).</param>
     /// <param name="keys">One or more sort keys, applied in order.</param>

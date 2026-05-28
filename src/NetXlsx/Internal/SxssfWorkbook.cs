@@ -91,10 +91,22 @@ internal sealed class SxssfWorkbook : IStreamingWorkbook
     {
         if (_disposed) return;
         _disposed = true;
-        // SXSSFWorkbook.Dispose deletes temp files. Close handles flush.
-        _underlying.Dispose();
-        _underlying.Close();
-        _xssfBase.Close();
+
+        // Ordering is load-bearing: SXSSFWorkbook.Dispose() deletes the
+        // streaming temp files and MUST run before Close(). Calling Close()
+        // first makes the subsequent Dispose() throw ObjectDisposedException
+        // ("Cannot write to a closed TextWriter") in NPOI 2.7.3. Each step
+        // is best-effort via finally so a throw in one still releases the
+        // rest (temp files / package handles) rather than leaking them.
+        try
+        {
+            _underlying.Dispose();
+        }
+        finally
+        {
+            try { _underlying.Close(); }
+            finally { _xssfBase.Close(); }
+        }
     }
 
     public ValueTask DisposeAsync()

@@ -410,9 +410,16 @@ internal sealed partial class XssfSheet : ISheet
             }
         }
 
-        // Sort rows by keys
-        Array.Sort(snapshot, (a, b) =>
+        // Sort rows by keys. Excel's sort is stable, so we sort an index
+        // permutation and break full-key ties by the original row index —
+        // making the otherwise-unstable Array.Sort stable. Rows that tie
+        // on every key keep their relative order.
+        var order = new int[rowCount];
+        for (int i = 0; i < rowCount; i++) order[i] = i;
+        Array.Sort(order, (ia, ib) =>
         {
+            var a = snapshot[ia];
+            var b = snapshot[ib];
             foreach (var key in keys)
             {
                 int colIdx = key.Column - c1;
@@ -420,8 +427,11 @@ internal sealed partial class XssfSheet : ISheet
                 int cmp = CellSnapshot.Compare(a[colIdx], b[colIdx]);
                 if (cmp != 0) return key.Ascending ? cmp : -cmp;
             }
-            return 0;
+            return ia.CompareTo(ib);
         });
+        var sorted = new CellSnapshot[rowCount][];
+        for (int i = 0; i < rowCount; i++) sorted[i] = snapshot[order[i]];
+        snapshot = sorted;
 
         // Write sorted values back
         for (int ri = 0; ri < rowCount; ri++)
