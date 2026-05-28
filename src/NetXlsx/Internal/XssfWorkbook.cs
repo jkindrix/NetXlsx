@@ -61,6 +61,14 @@ internal sealed partial class XssfWorkbook : IWorkbook
         // → default column width calculation chain (decision I-78).
         EnsureNormalCellStyle();
 
+        // Apply the 1904 date system to NEW workbooks only (design #15).
+        // An opened workbook carries its own date1904 flag from the file —
+        // NPOI reads it during Open — so we must never clobber it here.
+        // NumberOfSheets == 0 reliably identifies the create path (a valid
+        // xlsx always has at least one sheet).
+        if (_underlying.NumberOfSheets == 0)
+            ApplyDateSystem(_underlying, _options.DateSystem);
+
         // Read-side safety checks (zip-bomb defense + sheet-count cap).
         // These run on the Open path (NumberOfSheets > 0 means the
         // underlying workbook was constructed from an existing file).
@@ -181,6 +189,18 @@ internal sealed partial class XssfWorkbook : IWorkbook
             ct.cellStyles.cellStyle.Add(normal);
             ct.cellStyles.count = (uint)ct.cellStyles.cellStyle.Count;
         }
+    }
+
+    // Sets the workbook's 1904 date epoch (design #15). 1900 is NPOI's
+    // default, so only 1904 needs an explicit flag. NPOI's date read/write
+    // (SetCellValue(DateTime) / DateCellValue) honor workbookPr/@date1904
+    // automatically, so this is the only place the epoch is configured.
+    // Shared by the SXSSF create path.
+    internal static void ApplyDateSystem(XSSFWorkbook underlying, DateSystem dateSystem)
+    {
+        if (dateSystem != DateSystem.Excel1904) return;
+        var ct = underlying.GetCTWorkbook();
+        (ct.workbookPr ?? ct.AddNewWorkbookPr()).date1904 = true;
     }
 
     public int SheetCount

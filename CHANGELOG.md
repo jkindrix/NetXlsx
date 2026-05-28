@@ -9,6 +9,17 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Fix: wire `WorkbookOptions.DateSystem` (1904 epoch)
+
+`WorkbookOptions.DateSystem` was declared and defaulted but read nowhere,
+so `DateSystem.Excel1904` silently did nothing — a spec-vs-code
+divergence against design decision #15. New workbooks created with
+`Excel1904` now set the `workbookPr/@date1904` flag, so dates serialize
+and read back against the 1904 epoch (random-access and streaming).
+Opening an existing file never overrides the file's own epoch.
+
+Coverage: `tests/NetXlsx.Tests/DateSystemTests.cs` (7 tests).
+
 ### Connector enhancements (I-80)
 
 Reworks the I-79 connector API for faithful reproduction of arrows and

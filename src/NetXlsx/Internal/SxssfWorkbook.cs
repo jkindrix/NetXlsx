@@ -21,6 +21,9 @@ internal sealed class SxssfWorkbook : IStreamingWorkbook
     {
         _options = options;
         _xssfBase = new XSSFWorkbook();
+        // Streaming workbooks are always newly created (write-only), so the
+        // 1904 epoch from options applies unconditionally (design #15).
+        XssfWorkbook.ApplyDateSystem(_xssfBase, options.DateSystem);
         _underlying = new SXSSFWorkbook(_xssfBase, options.RowAccessWindowSize)
         {
             CompressTempFiles = options.CompressTempFiles,
