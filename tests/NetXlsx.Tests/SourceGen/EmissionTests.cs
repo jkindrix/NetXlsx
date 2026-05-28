@@ -31,6 +31,35 @@ public partial class Row
     }
 
     [Fact]
+    public void Inherited_Public_Columns_Are_Mapped_Base_First()
+    {
+        // A [Worksheet] type that inherits mappable public properties from
+        // a base class must include them (previously they were silently
+        // dropped). Base columns lead the derived type's own.
+        const string src = @"
+using NetXlsx;
+namespace T;
+public abstract class Base
+{
+    [Column(""Id"")] public int Id { get; set; }
+}
+[Worksheet]
+public partial class Row : Base
+{
+    [Column(""Name"")] public string Name { get; set; } = """";
+}";
+        var output = GeneratorHarness.Run(src);
+        output.GeneratorDiagnostics.Should().NotContain(d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
+
+        var generated = string.Concat(output.GeneratedSources.Select(s => s.Source));
+        generated.Should().Contain("record.Id");
+        generated.Should().Contain("record.Name");
+        // Base property leads (column 1) before the derived one (column 2).
+        generated.IndexOf("record.Id", System.StringComparison.Ordinal)
+            .Should().BeLessThan(generated.IndexOf("record.Name", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Visibility_Public_Opts_Generated_Class_Public()
     {
         const string src = @"

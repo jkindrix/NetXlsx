@@ -101,6 +101,13 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         ConverterTypeFullName = converterTypeFullName;
     }
 
+    // Location is deliberately EXCLUDED from equality/hash. It carries
+    // file/line/column, which shift on any trivia edit (whitespace, a
+    // comment added above the property). Including it in the cache key
+    // would bust incrementality on edits that don't change generated
+    // output. The accepted trade-off: after a pure-trivia move the cached
+    // diagnostic squiggle for this property may point at the old location
+    // until some output-affecting change triggers a regen.
     public bool Equals(WorksheetProperty? other) =>
         other is not null
         && Name == other.Name
@@ -109,7 +116,6 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         && IsNullable == other.IsNullable
         && Equals(Column, other.Column)
         && IsIgnored == other.IsIgnored
-        && Location.Equals(other.Location)
         && TypeIsSupported == other.TypeIsSupported
         && ConverterTypeFullName == other.ConverterTypeFullName;
 
@@ -126,7 +132,6 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
             h = h * 31 + IsNullable.GetHashCode();
             h = h * 31 + (Column?.GetHashCode() ?? 0);
             h = h * 31 + IsIgnored.GetHashCode();
-            h = h * 31 + Location.GetHashCode();
             h = h * 31 + TypeIsSupported.GetHashCode();
             h = h * 31 + (ConverterTypeFullName?.GetHashCode() ?? 0);
             return h;

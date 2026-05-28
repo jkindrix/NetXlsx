@@ -9,6 +9,20 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Source generator: inheritance, incrementality, honest NXLS0006
+
+- `[Worksheet]` types now map public properties inherited from base
+  classes (base columns first), instead of silently dropping them.
+- `PropertyLocation` (file/line/column) is excluded from the cached
+  model's equality, so trivia-only edits no longer bust generator
+  incrementality.
+- NXLS0006's message no longer advertises `Nullable<T>` as a built-in
+  supported type (the generator rejects it); it now points to the custom
+  converter (`[Column(ConverterType = ...)]`) for unmodeled types.
+
+Coverage: new `Inherited_Public_Columns_Are_Mapped_Base_First` emission
+test.
+
 ### Fix: wire `WorkbookOptions.DateSystem` (1904 epoch)
 
 `WorkbookOptions.DateSystem` was declared and defaulted but read nowhere,

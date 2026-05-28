@@ -132,8 +132,23 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
     private static List<WorksheetProperty> BuildProperties(
         INamedTypeSymbol type, Compilation compilation, CancellationToken ct)
     {
+        // Walk the type and its base chain (excluding System.Object) so a
+        // [Worksheet] type that inherits mappable public properties picks
+        // them up instead of silently dropping them. Base-most first, so
+        // inherited columns lead the derived type's own (matching how the
+        // properties are declared top-to-bottom in the hierarchy). A
+        // property re-declared in a derived type (override or `new`) keeps
+        // its base column position but takes the most-derived metadata.
+        var chain = new List<INamedTypeSymbol>();
+        for (var t = type; t is not null && t.SpecialType != SpecialType.System_Object; t = t.BaseType)
+            chain.Add(t);
+        chain.Reverse();
+
         var result = new List<WorksheetProperty>();
-        foreach (var member in type.GetMembers().OfType<IPropertySymbol>())
+        var indexByName = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (var declaringType in chain)
+        foreach (var member in declaringType.GetMembers().OfType<IPropertySymbol>())
         {
             ct.ThrowIfCancellationRequested();
             if (member.DeclaredAccessibility != Accessibility.Public) continue;
@@ -188,7 +203,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             var locFrom = member.Locations.FirstOrDefault();
             var loc = LocationFrom(locFrom) ?? new PropertyLocation("<unknown>", 0, 0, 0);
 
-            result.Add(new WorksheetProperty(
+            var wp = new WorksheetProperty(
                 name: member.Name,
                 fullTypeName: member.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
                 underlyingSpecialType: underlying.SpecialType,
@@ -197,7 +212,17 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
                 isIgnored: ignored,
                 location: loc,
                 typeIsSupported: supported,
-                converterTypeFullName: converterTypeName));
+                converterTypeFullName: converterTypeName);
+
+            // An override / `new` shadow keeps the base column position but
+            // adopts the most-derived declaration's metadata.
+            if (indexByName.TryGetValue(member.Name, out int existing))
+                result[existing] = wp;
+            else
+            {
+                indexByName[member.Name] = result.Count;
+                result.Add(wp);
+            }
         }
         return result;
     }

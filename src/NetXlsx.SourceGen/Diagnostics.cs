@@ -73,13 +73,14 @@ internal static class Diagnostics
         isEnabledByDefault: true);
 
     /// <summary>
-    /// A property has a type the v1.0 built-in converter set does not
-    /// support (custom converters arrive in v1.1).
+    /// A property has a type the built-in converter set does not support.
+    /// Nullable&lt;T&gt; and other unmodeled types are handled via a custom
+    /// converter (<c>[Column(ConverterType = ...)]</c>, decision I-58).
     /// </summary>
     public static readonly DiagnosticDescriptor UnsupportedPropertyType = new(
         id: "NXLS0006",
         title: "[Worksheet] property type has no built-in converter",
-        messageFormat: "Property '{0}.{1}' has type '{2}', which v1.0 has no built-in converter for. Supported types: string, bool, byte/short/int/long (and unsigned), float/double/decimal, DateTime, DateOnly, TimeOnly, TimeSpan, and Nullable<T> over any of these.",
+        messageFormat: "Property '{0}.{1}' has type '{2}', which has no built-in converter. Supported types: string, bool, byte/short/int/long (and unsigned), float/double/decimal, DateTime, DateOnly, TimeOnly, TimeSpan. Other types (including Nullable<T>) need a custom converter via [Column(ConverterType = typeof(...))].",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
