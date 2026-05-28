@@ -4,7 +4,7 @@ Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating 
 
 **Status:** **v1.3.0** release-PR ready on `main` (2026-05-22), pending operator tag. v1.3 closes the named-style OOXML round-trip gap (decision I-67) and lands a partial `FilterCriteria.In(...)` for 1–2-value lists (I-68). **v1.2.0** released 2026-05-22 (RemoveTable, table totals row, workbook password, per-column AutoFilter criteria — decisions I-63 through I-66). **v1.1.0** released 2026-05-22 (the 10-slice "common asks" set + fuzz harness + post-review polish — decisions I-50…I-62). **v1.0.0** released 2026-05-20.
 
-The public surface is exercised by **666 tests per TFM × 2 TFMs = 1,332 total runs per CI build** across unit, golden-file, source-generator, fuzz, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. The [roadmap](docs/roadmap.md) lists the v1.2 and beyond backlog.
+The public surface is exercised by **778 tests per TFM × 2 TFMs = 1,556 total runs per CI build** across unit, golden-file, source-generator, fuzz, and public-API snapshot suites. The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. The [roadmap](docs/roadmap.md) lists the v1.2 and beyond backlog.
 
 Targets `net8.0` and `net10.0` (both LTS). MIT-licensed.
 

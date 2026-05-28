@@ -29,9 +29,14 @@ case "$TARGET" in
     dotnet build NetXlsx.sln -c "$CONFIGURATION" --no-restore
     ;;
   test)
+    # Excludes Category=HeadlessNoFonts to match CI's main test job. Those
+    # tests assert font-absent behavior (e.g. AutoSize throwing) and only
+    # pass in CI's dedicated fonts-purged job, so they spuriously fail on a
+    # workstation with fonts installed.
     dotnet test NetXlsx.sln -c "$CONFIGURATION" --no-build \
       --logger "trx;LogFileName=test-results.trx" \
-      --collect:"XPlat Code Coverage"
+      --collect:"XPlat Code Coverage" \
+      --filter "Category!=HeadlessNoFonts"
     ;;
   pack)
     dotnet pack src/NetXlsx/NetXlsx.csproj -c "$CONFIGURATION" --no-build \

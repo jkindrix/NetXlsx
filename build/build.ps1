@@ -32,9 +32,13 @@ Write-Host "==> NetXlsx build ($Configuration) target=$Target"
 function Invoke-Restore { dotnet restore NetXlsx.sln }
 function Invoke-Build   { dotnet build   NetXlsx.sln -c $Configuration --no-restore }
 function Invoke-Test {
+    # Excludes Category=HeadlessNoFonts to match CI's main test job (those
+    # tests only pass in CI's dedicated fonts-purged job and spuriously
+    # fail on a workstation with fonts installed).
     dotnet test NetXlsx.sln -c $Configuration --no-build `
         --logger "trx;LogFileName=test-results.trx" `
-        --collect:"XPlat Code Coverage"
+        --collect:"XPlat Code Coverage" `
+        --filter "Category!=HeadlessNoFonts"
 }
 function Invoke-Pack {
     dotnet pack src/NetXlsx/NetXlsx.csproj -c $Configuration --no-build `
