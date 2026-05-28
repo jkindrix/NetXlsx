@@ -102,6 +102,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "SortRange", (Action<ISheet>)(s => s.SortRange("A1:B2", SortKey.Asc(1))) };
         yield return new object[] { "AddChart", (Action<ISheet>)(s => s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5")) };
         yield return new object[] { "AddShape", (Action<ISheet>)(s => s.AddShape(ShapeType.Rectangle, "A1", "C3")) };
+        yield return new object[] { "AddConnector", (Action<ISheet>)(s => s.AddConnector(ConnectorType.Straight, "A1", "C3")) };
         yield return new object[] { "AddConditionalFormatting", (Action<ISheet>)(s => s.AddConditionalFormatting("A1:A5", ConditionalFormat.CellValueGreaterThan("50", new CellStyle { Bold = true }))) };
         yield return new object[] { "ConditionalFormattingCount", (Action<ISheet>)(s => { var _ = s.ConditionalFormattingCount; }) };
         yield return new object[] { "RemoveConditionalFormatting", (Action<ISheet>)(s => s.RemoveConditionalFormatting(0)) };

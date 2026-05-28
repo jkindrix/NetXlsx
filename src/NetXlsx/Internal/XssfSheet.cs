@@ -292,7 +292,12 @@ internal sealed partial class XssfSheet : ISheet
         return new XssfShape(this, shape, type);
     }
 
-    public NPOI.XSSF.UserModel.XSSFConnector AddConnector(ConnectorType type, string startCell, string endCell, Color? lineColor = null)
+    public IConnector AddConnector(ConnectorType type, string startCell, string endCell,
+        Color? lineColor = null,
+        int dx1 = 0, int dy1 = 0, int dx2 = 0, int dy2 = 0,
+        bool flipH = false, bool flipV = false,
+        ConnectorEnd headEnd = ConnectorEnd.None, ConnectorEnd tailEnd = ConnectorEnd.None,
+        double? lineWidthPoints = null)
     {
         _workbook.ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(startCell);
@@ -302,13 +307,48 @@ internal sealed partial class XssfSheet : ISheet
         var (r2, c2) = CellAddress.Parse(endCell);
 
         var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)_underlying.CreateDrawingPatriarch();
-        var anchor = new NPOI.XSSF.UserModel.XSSFClientAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2 - 1, r2 - 1);
+        var anchor = new NPOI.XSSF.UserModel.XSSFClientAnchor(dx1, dy1, dx2, dy2, c1 - 1, r1 - 1, c2 - 1, r2 - 1);
         var connector = drawing.CreateConnector(anchor);
         connector.ShapeType = (NPOI.OpenXmlFormats.Dml.ST_ShapeType)(int)type;
         if (lineColor is { } lc)
             connector.SetLineStyleColor(lc.R, lc.G, lc.B);
-        return connector;
+        if (lineWidthPoints is { } w)
+            connector.LineWidth = w;
+
+        if (flipH || flipV || headEnd != ConnectorEnd.None || tailEnd != ConnectorEnd.None)
+        {
+            var ct = connector.GetCTConnector();
+            var spPr = ct.spPr ?? ct.AddNewSpPr();
+
+            if (flipH || flipV)
+            {
+                var xfrm = spPr.xfrm ?? spPr.AddNewXfrm();
+                xfrm.flipH = flipH;
+                xfrm.flipV = flipV;
+            }
+
+            if (headEnd != ConnectorEnd.None || tailEnd != ConnectorEnd.None)
+            {
+                var ln = spPr.ln ?? spPr.AddNewLn();
+                if (headEnd != ConnectorEnd.None)
+                    ln.headEnd = new NPOI.OpenXmlFormats.Dml.CT_LineEndProperties { type = ToLineEndType(headEnd) };
+                if (tailEnd != ConnectorEnd.None)
+                    ln.tailEnd = new NPOI.OpenXmlFormats.Dml.CT_LineEndProperties { type = ToLineEndType(tailEnd) };
+            }
+        }
+
+        return new XssfConnector(this, connector, type);
     }
+
+    private static NPOI.OpenXmlFormats.Dml.ST_LineEndType ToLineEndType(ConnectorEnd end) => end switch
+    {
+        ConnectorEnd.Triangle => NPOI.OpenXmlFormats.Dml.ST_LineEndType.triangle,
+        ConnectorEnd.Stealth => NPOI.OpenXmlFormats.Dml.ST_LineEndType.stealth,
+        ConnectorEnd.Diamond => NPOI.OpenXmlFormats.Dml.ST_LineEndType.diamond,
+        ConnectorEnd.Oval => NPOI.OpenXmlFormats.Dml.ST_LineEndType.oval,
+        ConnectorEnd.Arrow => NPOI.OpenXmlFormats.Dml.ST_LineEndType.arrow,
+        _ => NPOI.OpenXmlFormats.Dml.ST_LineEndType.none,
+    };
 
     public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules)
     {

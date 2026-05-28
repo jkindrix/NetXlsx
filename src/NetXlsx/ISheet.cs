@@ -182,16 +182,30 @@ public interface ISheet
     IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null);
 
     /// <summary>
-    /// Adds a connector (line or arrow) between two cells (decision I-79).
-    /// Connectors are typically used as standalone arrows or as visual
-    /// indicators in form-style sheets.
+    /// Adds a connector (line or arrow) between two cells (decisions I-79,
+    /// I-80). Connectors are typically used as standalone arrows or as
+    /// visual indicators in form-style sheets.
     /// </summary>
-    /// <param name="type">Connector type (Straight, Bent, Curved). Arrows added via lineColor + arrowhead.</param>
-    /// <param name="startCell">Anchor's top-left cell.</param>
-    /// <param name="endCell">Anchor's bottom-right cell.</param>
+    /// <param name="type">Connector geometry (Straight, Bent, Curved).</param>
+    /// <param name="startCell">Anchor's start (from) cell in A1 notation.</param>
+    /// <param name="endCell">Anchor's end (to) cell in A1 notation.</param>
     /// <param name="lineColor">Line color (default black).</param>
-    /// <returns>The created connector; reach through <c>.Underlying</c> for arrowhead/style details.</returns>
-    NPOI.XSSF.UserModel.XSSFConnector AddConnector(ConnectorType type, string startCell, string endCell, Color? lineColor = null);
+    /// <param name="dx1">EMU offset of the start point within <paramref name="startCell"/> (x).</param>
+    /// <param name="dy1">EMU offset of the start point within <paramref name="startCell"/> (y).</param>
+    /// <param name="dx2">EMU offset of the end point within <paramref name="endCell"/> (x).</param>
+    /// <param name="dy2">EMU offset of the end point within <paramref name="endCell"/> (y).</param>
+    /// <param name="flipH">Whether the connector is flipped horizontally.</param>
+    /// <param name="flipV">Whether the connector is flipped vertically.</param>
+    /// <param name="headEnd">Arrowhead decoration on the start (head) end.</param>
+    /// <param name="tailEnd">Arrowhead decoration on the end (tail) end.</param>
+    /// <param name="lineWidthPoints">Line width in points. <c>null</c> leaves the NPOI default.</param>
+    /// <returns>The created connector — use <see cref="IConnector.Underlying"/> for advanced properties.</returns>
+    IConnector AddConnector(ConnectorType type, string startCell, string endCell,
+        Color? lineColor = null,
+        int dx1 = 0, int dy1 = 0, int dx2 = 0, int dy2 = 0,
+        bool flipH = false, bool flipV = false,
+        ConnectorEnd headEnd = ConnectorEnd.None, ConnectorEnd tailEnd = ConnectorEnd.None,
+        double? lineWidthPoints = null);
 
     /// <summary>
     /// Adds one or more conditional formatting rules to the given range

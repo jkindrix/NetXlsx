@@ -489,6 +489,40 @@ IPicture AddPicture(string startCell, string endCell, byte[] data);
 
 2. **Two-cell `AddPicture` overload** — anchors an image between `startCell` (top-left) and `endCell` (bottom-right), stretching to fill the anchor region. Unlike the single-cell overload (I-52) which renders at natural pixel size, this variant gives layout control when the anchor position matters more than pixel fidelity.
 
+### 6.2.13 Connectors — I-79, I-80
+
+```csharp
+public enum ConnectorType { Straight = 96, Bent = 98, Curved = 102 }
+public enum ConnectorEnd { None, Triangle, Stealth, Diamond, Oval, Arrow }
+
+public interface IConnector
+{
+    ISheet Sheet { get; }
+    ConnectorType Type { get; }
+    XSSFConnector Underlying { get; }
+}
+
+// On ISheet:
+IConnector AddConnector(ConnectorType type, string startCell, string endCell,
+    Color? lineColor = null,
+    int dx1 = 0, int dy1 = 0, int dx2 = 0, int dy2 = 0,
+    bool flipH = false, bool flipV = false,
+    ConnectorEnd headEnd = ConnectorEnd.None, ConnectorEnd tailEnd = ConnectorEnd.None,
+    double? lineWidthPoints = null);
+```
+
+**I-79 (added 2026-05-27):** Initial connector support — `AddConnector(type, startCell, endCell, lineColor)` returning the raw `XSSFConnector`.
+
+**I-80 (added 2026-05-27):** Connector support reworked for faithful reproduction. Three problems with the I-79 shape:
+
+1. **Wrong geometry.** `ConnectorType` values were old POI `ShapeTypes` constants (20/32/38), but `XSSFConnector.ShapeType` takes an `ST_ShapeType` ordinal. Value 20 is `star8`, not a connector — every I-79 connector rendered as an 8-pointed star. Values are now the correct `ST_ShapeType` ordinals (`straightConnector1 = 96`, `bentConnector3 = 98`, `curvedConnector3 = 102`).
+
+2. **No EMU offsets.** I-79 hard-coded `(0,0,0,0)` anchor offsets, so a connector confined to one cell (the common case for a short arrow over a merged region) collapsed to zero length and was invisible. `AddConnector` now accepts `dx1..dy2` like the two-cell `AddPicture` overload.
+
+3. **No arrowheads / flip / width.** A "Straight **Arrow** Connector" needs a `tailEnd`/`headEnd` decoration; direction is encoded as `flipH`/`flipV` in the transform; weight comes from the theme line-style ref (e.g. `lnRef idx="2"` ≈ 2 pt). I-80 surfaces `headEnd`/`tailEnd` (`ConnectorEnd`), `flipH`/`flipV`, and `lineWidthPoints` so the generated code stays pure NetXlsx — no reaching through `.Underlying`.
+
+The return type is now the `IConnector` facade (consistent with `IShape`/`IPicture`/`IChart`); the raw `XSSFConnector` remains reachable via `.Underlying`. Theme-based line *color* is left to the caller — `lineColor` sets an explicit `solidFill` which Excel renders over the style `lnRef` color.
+
 ### 6.2.12 Drawings / shapes — I-74
 
 ```csharp

@@ -69,8 +69,19 @@ NetXlsx.ThemeColor.Tint.get -> double
 NetXlsx.ThemeColor.Tint.init -> void
 NetXlsx.ThemeColor.ThemeColor(int Index, double Tint = 0) -> void
 NetXlsx.ISheet.MergeCellsStyled(string! a1Range, NetXlsx.CellStyle! style) -> void
-NetXlsx.ISheet.AddConnector(NetXlsx.ConnectorType type, string! startCell, string! endCell, NetXlsx.Color? lineColor = null) -> NPOI.XSSF.UserModel.XSSFConnector!
+NetXlsx.ISheet.AddConnector(NetXlsx.ConnectorType type, string! startCell, string! endCell, NetXlsx.Color? lineColor = null, int dx1 = 0, int dy1 = 0, int dx2 = 0, int dy2 = 0, bool flipH = false, bool flipV = false, NetXlsx.ConnectorEnd headEnd = NetXlsx.ConnectorEnd.None, NetXlsx.ConnectorEnd tailEnd = NetXlsx.ConnectorEnd.None, double? lineWidthPoints = null) -> NetXlsx.IConnector!
 NetXlsx.ConnectorType
-NetXlsx.ConnectorType.Bent = 32 -> NetXlsx.ConnectorType
-NetXlsx.ConnectorType.Curved = 38 -> NetXlsx.ConnectorType
-NetXlsx.ConnectorType.Straight = 20 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Bent = 98 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Curved = 102 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Straight = 96 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Arrow = 5 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Diamond = 3 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.None = 0 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Oval = 4 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Stealth = 2 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Triangle = 1 -> NetXlsx.ConnectorEnd
+NetXlsx.IConnector
+NetXlsx.IConnector.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IConnector.Type.get -> NetXlsx.ConnectorType
+NetXlsx.IConnector.Underlying.get -> NPOI.XSSF.UserModel.XSSFConnector!

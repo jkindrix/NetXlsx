@@ -43,15 +43,56 @@ public enum ShapeType
 }
 
 /// <summary>
-/// Connector types for <see cref="ISheet.AddConnector"/> (decision I-79).
-/// Maps to NPOI's connector shape types.
+/// Connector types for <see cref="ISheet.AddConnector"/> (decisions I-79, I-80).
+/// Values are <c>ST_ShapeType</c> ordinals for the corresponding preset
+/// connector geometry.
 /// </summary>
 public enum ConnectorType
 {
-    /// <summary>A straight line connector.</summary>
-    Straight = 20,  // ShapeTypes.Line
-    /// <summary>A bent (right-angle) connector.</summary>
-    Bent = 32,
-    /// <summary>A curved connector.</summary>
-    Curved = 38,
+    /// <summary>A straight line connector (<c>straightConnector1</c>).</summary>
+    Straight = 96,
+    /// <summary>A bent (right-angle) connector (<c>bentConnector3</c>).</summary>
+    Bent = 98,
+    /// <summary>A curved connector (<c>curvedConnector3</c>).</summary>
+    Curved = 102,
+}
+
+/// <summary>
+/// Line-end (arrowhead) decorations for connector ends (decision I-80).
+/// Maps to OOXML <c>ST_LineEndType</c>.
+/// </summary>
+public enum ConnectorEnd
+{
+    /// <summary>No decoration (plain line end).</summary>
+    None = 0,
+    /// <summary>A filled triangular arrowhead.</summary>
+    Triangle,
+    /// <summary>A "stealth" (concave) arrowhead.</summary>
+    Stealth,
+    /// <summary>A diamond.</summary>
+    Diamond,
+    /// <summary>An oval.</summary>
+    Oval,
+    /// <summary>An open arrow (the Excel "arrow" line end).</summary>
+    Arrow,
+}
+
+/// <summary>
+/// A connector (line or arrow) drawn on a sheet (decisions I-79, I-80).
+/// Constructed via <see cref="ISheet.AddConnector"/>. For advanced
+/// manipulation, reach through <see cref="Underlying"/>.
+/// </summary>
+public interface IConnector
+{
+    /// <summary>The owning sheet.</summary>
+    ISheet Sheet { get; }
+
+    /// <summary>The connector type.</summary>
+    ConnectorType Type { get; }
+
+    /// <summary>
+    /// Escape hatch — direct access to the underlying NPOI
+    /// <c>XSSFConnector</c>.
+    /// </summary>
+    NPOI.XSSF.UserModel.XSSFConnector Underlying { get; }
 }

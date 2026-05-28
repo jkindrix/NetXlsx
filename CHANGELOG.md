@@ -9,6 +9,23 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Connector enhancements (I-80)
+
+Reworks the I-79 connector API for faithful reproduction of arrows and
+lines:
+
+- `ConnectorType` values corrected to `ST_ShapeType` ordinals
+  (`Straight = 96`, `Bent = 98`, `Curved = 102`). The I-79 values mapped
+  `Straight` to `star8`, so every connector rendered as a star.
+- `ISheet.AddConnector` now accepts EMU offsets (`dx1..dy2`),
+  `flipH`/`flipV`, head/tail arrowheads (`ConnectorEnd`), and
+  `lineWidthPoints`, and returns the new `IConnector` facade instead of a
+  raw `XSSFConnector`.
+- New `ConnectorEnd` enum and `IConnector` interface.
+
+Coverage: `tests/NetXlsx.Tests/ConnectorTests.cs` plus a new
+`DisposedWorkbookMatrixTests` row.
+
 ### `.xlsm` macro-enabled passthrough (I-69)
 
 Adds `Workbook.CreateMacroEnabled(options?)` to create macro-enabled
