@@ -358,9 +358,9 @@ internal sealed partial class XssfWorkbook : IWorkbook
         var contentType = "application/vnd.openxmlformats-officedocument.theme+xml";
         var relType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme";
 
-        NPOI.OpenXml4Net.OPC.PackagePart part;
-        try { part = pkg.GetPart(partName); }
-        catch { part = pkg.CreatePart(partName, contentType); }
+        NPOI.OpenXml4Net.OPC.PackagePart? part = null;
+        try { part = pkg.GetPart(partName); } catch { }
+        if (part == null) part = pkg.CreatePart(partName, contentType);
 
         using (var os = part.GetOutputStream())
             os.Write(themeXml, 0, themeXml.Length);
@@ -368,8 +368,12 @@ internal sealed partial class XssfWorkbook : IWorkbook
         var wbPartName = NPOI.OpenXml4Net.OPC.PackagingUriHelper.CreatePartName("/xl/workbook.xml");
         var wbPart = pkg.GetPart(wbPartName);
         bool hasRel = false;
-        foreach (var r in wbPart.Relationships)
-            if (r.RelationshipType == relType) { hasRel = true; break; }
+        try
+        {
+            foreach (var r in wbPart.Relationships)
+                if (r.RelationshipType == relType) { hasRel = true; break; }
+        }
+        catch { /* No relationships collection — proceed to add */ }
         if (!hasRel)
             wbPart.AddRelationship(partName, NPOI.OpenXml4Net.OPC.TargetMode.Internal, relType);
     }
