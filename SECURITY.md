@@ -26,6 +26,10 @@ If you don't have a GitHub account or can't use private advisories, email the ma
 
 The library wraps NPOI 2.7.x. Vulnerabilities specific to NPOI's OOXML parsing belong upstream (https://github.com/nissl-lab/npoi); we'll coordinate with NPOI maintainers if a finding crosses the boundary.
 
+### Dependency posture (read this if you parse untrusted input)
+
+NPOI is **pinned at 2.7.3** — its last Apache-2.0 release — and is **not auto-updated**. NPOI 2.8+ moved to the OSMF EULA, which is incompatible with NetXlsx's MIT licensing. The practical consequence: **upstream NPOI security fixes published after 2.7.3 do not flow into NetXlsx automatically.** We monitor NPOI advisories and will mitigate in-tree where feasible (input guards, the fuzz harness that already converts NPOI's leaked exceptions into typed failures); for engine-level issues bound by the license, the response path is the v2 engine migration ([docs/v2-ooxml-planning.md](docs/v2-ooxml-planning.md)), not a version bump. If your deployment processes untrusted spreadsheets, factor this frozen-engine posture into your risk assessment.
+
 Out of scope:
 - The strong-name signing key (`netxlsx.snk`) is committed in this repo by design. Strong-naming in OSS is a friction-reducer for legacy consumers, not a security boundary. "Anyone can sign as NetXlsx" is not a vulnerability — it's documented behavior.
 - Issues in NPOI itself: please report to https://github.com/nissl-lab/npoi.
