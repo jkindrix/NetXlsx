@@ -646,6 +646,42 @@ internal sealed partial class XssfSheet : ISheet
         get { _workbook.ThrowIfDisposed(); return _underlying; }
     }
 
+    // ---- I-81: drawing iteration -------------------------------------
+
+    public System.Collections.Generic.IReadOnlyList<IPicture> Pictures
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            var result = new System.Collections.Generic.List<IPicture>();
+            var drawing = (NPOI.XSSF.UserModel.XSSFDrawing?)_underlying.GetDrawingPatriarch();
+            if (drawing is null) return result;
+            foreach (var shape in drawing.GetShapes())
+            {
+                if (shape is NPOI.XSSF.UserModel.XSSFPicture p)
+                    result.Add(XssfPicture.FromExisting(_workbook, this, p));
+            }
+            return result;
+        }
+    }
+
+    public System.Collections.Generic.IReadOnlyList<IConnector> Connectors
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            var result = new System.Collections.Generic.List<IConnector>();
+            var drawing = (NPOI.XSSF.UserModel.XSSFDrawing?)_underlying.GetDrawingPatriarch();
+            if (drawing is null) return result;
+            foreach (var shape in drawing.GetShapes())
+            {
+                if (shape is NPOI.XSSF.UserModel.XSSFConnector c)
+                    result.Add(XssfConnector.FromExisting(this, c));
+            }
+            return result;
+        }
+    }
+
     private XssfCell GetOrCreateCell(int row1, int col1)
     {
         // NPOI rows/cols are 0-based; ours are 1-based per decision #3.

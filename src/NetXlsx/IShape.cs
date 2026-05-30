@@ -90,6 +90,60 @@ public interface IConnector
     /// <summary>The connector type.</summary>
     ConnectorType Type { get; }
 
+    /// <summary>Start anchor cell in A1 notation (decision I-81).</summary>
+    string FromCell { get; }
+    /// <summary>End anchor cell in A1 notation (decision I-81).</summary>
+    string ToCell { get; }
+
+    /// <summary>EMU x-offset of the start point within <see cref="FromCell"/> (I-81).</summary>
+    int Dx1 { get; }
+    /// <summary>EMU y-offset of the start point within <see cref="FromCell"/> (I-81).</summary>
+    int Dy1 { get; }
+    /// <summary>EMU x-offset of the end point within <see cref="ToCell"/> (I-81).</summary>
+    int Dx2 { get; }
+    /// <summary>EMU y-offset of the end point within <see cref="ToCell"/> (I-81).</summary>
+    int Dy2 { get; }
+
+    /// <summary>Whether the connector is flipped horizontally (decision I-81).</summary>
+    bool FlipH { get; }
+    /// <summary>Whether the connector is flipped vertically (decision I-81).</summary>
+    bool FlipV { get; }
+
+    /// <summary>Arrowhead decoration on the start (head) end (decision I-81).</summary>
+    ConnectorEnd HeadEnd { get; }
+    /// <summary>Arrowhead decoration on the end (tail) end (decision I-81).</summary>
+    ConnectorEnd TailEnd { get; }
+
+    /// <summary>
+    /// Explicit line color (<c>spPr/ln/solidFill/srgbClr</c>) if set on this
+    /// connector, otherwise <c>null</c> (decision I-81). A null result with
+    /// a non-null <see cref="LineSchemeColor"/> means the color comes from
+    /// the theme — resolve via <see cref="IWorkbook.ResolveThemeColor(string, double)"/>.
+    /// </summary>
+    Color? LineColor { get; }
+
+    /// <summary>
+    /// Scheme-color name (e.g. <c>"dk1"</c>, <c>"accent1"</c>) referenced by
+    /// either the explicit line fill or the connector's style
+    /// <c>lnRef</c>, if any (decision I-81). Resolve via
+    /// <see cref="IWorkbook.ResolveThemeColor(string, double)"/>.
+    /// </summary>
+    string? LineSchemeColor { get; }
+
+    /// <summary>
+    /// Explicit line width in points (<c>spPr/ln/@w</c> / 12700) if set,
+    /// otherwise <c>null</c> (decision I-81). A null result with a non-null
+    /// <see cref="LineStyleRefIndex"/> means width comes from the theme —
+    /// resolve via <see cref="IWorkbook.GetThemeLineWidthEmu(int)"/>.
+    /// </summary>
+    double? LineWidthPoints { get; }
+
+    /// <summary>
+    /// 1-based index into the theme's <c>fmtScheme/lnStyleLst</c> from the
+    /// connector's <c>style/lnRef/@idx</c>, if any (decision I-81).
+    /// </summary>
+    int? LineStyleRefIndex { get; }
+
     /// <summary>
     /// Escape hatch — direct access to the underlying NPOI
     /// <c>XSSFConnector</c>.

@@ -155,6 +155,11 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
 
     public bool IsMacroEnabled => false;
     public void SetThemeXml(byte[] themeXml) { }
+    public byte[]? GetThemeXml() => null;
+    public Color? ResolveThemeColor(int index, double tint = 0) => null;
+    public Color? ResolveThemeColor(ThemeColor color) => null;
+    public Color? ResolveThemeColor(string schemeName, double tint = 0) => null;
+    public int? GetThemeLineWidthEmu(int oneBasedIdx) => null;
     public NPOI.XSSF.UserModel.XSSFWorkbook Underlying => throw new NotImplementedException();
 
     public void Dispose() { }

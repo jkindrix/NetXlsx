@@ -396,11 +396,86 @@ internal sealed partial class XssfWorkbook : IWorkbook
         catch { /* No relationships collection — proceed to add */ }
         if (!hasRel)
             wbPart.AddRelationship(partName, NPOI.OpenXml4Net.OPC.TargetMode.Internal, relType);
+
+        // Invalidate the cached theme so subsequent ResolveThemeColor calls
+        // see the new theme (decision I-81).
+        _themeInfo = null;
     }
 
     public bool IsMacroEnabled
     {
         get { ThrowIfDisposed(); return _underlying.IsMacroEnabled(); }
+    }
+
+    // ---- I-81: theme read API -----------------------------------------
+
+    // Parsed view of the workbook's theme1.xml. Cached on first access —
+    // the theme is constant for a given workbook lifetime, so a single
+    // parse covers all ResolveThemeColor / GetThemeLineWidthEmu calls.
+    private ThemeInfo? _themeInfo;
+
+    public byte[]? GetThemeXml()
+    {
+        ThrowIfDisposed();
+        try
+        {
+            // Read the theme part directly from the OPC package by name.
+            // Going through XSSFWorkbook.GetTheme() returns a value cached
+            // at workbook construction, which doesn't reflect a post-Open
+            // SetThemeXml — reading the part by name always sees the
+            // current bytes.
+            var partName = NPOI.OpenXml4Net.OPC.PackagingUriHelper
+                .CreatePartName("/xl/theme/theme1.xml");
+            NPOI.OpenXml4Net.OPC.PackagePart? part = null;
+            try { part = _underlying.Package.GetPart(partName); } catch { }
+            if (part is null) return null;
+            using var stream = part.GetInputStream();
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var bytes = ms.ToArray();
+            return bytes.Length > 0 ? bytes : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private ThemeInfo Theme
+    {
+        get
+        {
+            if (_themeInfo is null)
+            {
+                _themeInfo = ThemeInfo.Parse(GetThemeXml());
+            }
+            return _themeInfo;
+        }
+    }
+
+    public Color? ResolveThemeColor(int index, double tint = 0)
+    {
+        ThrowIfDisposed();
+        return Theme.ResolveByIndex(index, tint);
+    }
+
+    public Color? ResolveThemeColor(ThemeColor color)
+    {
+        ThrowIfDisposed();
+        return Theme.ResolveByIndex(color.Index, color.Tint);
+    }
+
+    public Color? ResolveThemeColor(string schemeName, double tint = 0)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(schemeName);
+        return Theme.ResolveByName(schemeName, tint);
+    }
+
+    public int? GetThemeLineWidthEmu(int oneBasedIdx)
+    {
+        ThrowIfDisposed();
+        return Theme.LineWidthEmu(oneBasedIdx);
     }
 
     public XSSFWorkbook Underlying

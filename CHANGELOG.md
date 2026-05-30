@@ -9,6 +9,24 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Read-side introspection: themes + drawings (I-81)
+
+Adds the symmetric read surface that consumers (reproduction tools,
+validators, converters) were previously building by reaching through
+`.Underlying`:
+
+- `IWorkbook.GetThemeXml()` (counterpart to `SetThemeXml`),
+  `ResolveThemeColor` (three overloads: by index, by `ThemeColor`, by
+  scheme name with `tx1`/`bg1` aliases) using Excel's correct tint
+  algorithm, and `GetThemeLineWidthEmu(int)`.
+- `ISheet.Pictures` / `ISheet.Connectors` — drawing-order read-only lists.
+- `IPicture` gains `FromCell`/`ToCell`/`Dx1..Dy2`/`Data`.
+- `IConnector` gains anchor + offsets, `FlipH`/`FlipV`, `HeadEnd`/`TailEnd`,
+  `LineColor`, `LineSchemeColor`, `LineWidthPoints`, `LineStyleRefIndex`.
+
+Coverage: `tests/NetXlsx.Tests/ThemeReadAndDrawingIterationTests.cs` plus
+new `DisposedWorkbookMatrix` rows.
+
 ### Source generator: inheritance, incrementality, honest NXLS0006
 
 - `[Worksheet]` types now map public properties inherited from base

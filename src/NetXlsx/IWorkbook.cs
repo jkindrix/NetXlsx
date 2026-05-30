@@ -155,6 +155,51 @@ public interface IWorkbook : IDisposable
     void SetThemeXml(byte[] themeXml);
 
     /// <summary>
+    /// Returns the workbook's <c>xl/theme/theme1.xml</c> bytes (decision
+    /// I-81), or <c>null</c> if the workbook has no theme part.
+    /// Counterpart to <see cref="SetThemeXml(byte[])"/>; together they
+    /// support round-tripping a workbook's theme as opaque XML.
+    /// </summary>
+    byte[]? GetThemeXml();
+
+    /// <summary>
+    /// Resolves a theme color reference to an explicit RGB
+    /// <see cref="Color"/> against this workbook's theme (decision I-81).
+    /// The integer encoding follows OOXML's cell-color theme index
+    /// (<c>0 = lt1, 1 = dk1, 2 = lt2, 3 = dk2, 4..9 = accent1..6,
+    /// 10 = hlink, 11 = folHlink</c>) — matching <see cref="ThemeColor.Index"/>.
+    /// <paramref name="tint"/> is applied with Excel's tint algorithm
+    /// (negative darkens, positive lightens). Returns <c>null</c> when the
+    /// workbook has no theme or the index isn't defined in the scheme.
+    /// </summary>
+    Color? ResolveThemeColor(int index, double tint = 0);
+
+    /// <summary>Convenience overload for a <see cref="ThemeColor"/>.</summary>
+    Color? ResolveThemeColor(ThemeColor color);
+
+    /// <summary>
+    /// Resolves a scheme color reference by its drawing name (e.g.
+    /// <c>"dk1"</c>, <c>"accent3"</c>, <c>"tx1"</c>) to an explicit RGB
+    /// <see cref="Color"/> (decision I-81). Drawing references use the
+    /// <c>tx1</c>/<c>bg1</c>/<c>tx2</c>/<c>bg2</c> aliases for
+    /// <c>dk1</c>/<c>lt1</c>/<c>dk2</c>/<c>lt2</c>; both spellings are
+    /// accepted. <paramref name="tint"/> is applied with Excel's tint
+    /// algorithm. Returns <c>null</c> for an unknown name or an absent
+    /// theme.
+    /// </summary>
+    Color? ResolveThemeColor(string schemeName, double tint = 0);
+
+    /// <summary>
+    /// EMU line width for a theme line-style reference
+    /// (<c>themeElements/fmtScheme/lnStyleLst/ln[idx]/@w</c>), used by
+    /// connectors and shapes carrying a <c>style/lnRef</c> (decision I-81).
+    /// <paramref name="oneBasedIdx"/> is 1-based to match the
+    /// <c>lnRef/@idx</c> attribute. Returns <c>null</c> if the index is
+    /// out of range or the theme has no <c>lnStyleLst</c>.
+    /// </summary>
+    int? GetThemeLineWidthEmu(int oneBasedIdx);
+
+    /// <summary>
     /// Whether this workbook is macro-enabled (<c>.xlsm</c>) per decision
     /// I-69. A macro-enabled workbook preserves VBA project parts across
     /// open/save; NetXlsx does not read, write, or execute VBA — the

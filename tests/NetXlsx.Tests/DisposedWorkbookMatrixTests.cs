@@ -37,6 +37,11 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "RegisteredStyleNames", (Action<IWorkbook>)(wb => { var _ = wb.RegisteredStyleNames; }) };
         yield return new object[] { "GetStylePoolDiagnostics", (Action<IWorkbook>)(wb => wb.GetStylePoolDiagnostics()) };
         yield return new object[] { "IsMacroEnabled", (Action<IWorkbook>)(wb => { var _ = wb.IsMacroEnabled; }) };
+        yield return new object[] { "GetThemeXml", (Action<IWorkbook>)(wb => wb.GetThemeXml()) };
+        yield return new object[] { "ResolveThemeColor(int)", (Action<IWorkbook>)(wb => wb.ResolveThemeColor(0)) };
+        yield return new object[] { "ResolveThemeColor(ThemeColor)", (Action<IWorkbook>)(wb => wb.ResolveThemeColor(new ThemeColor(0))) };
+        yield return new object[] { "ResolveThemeColor(string)", (Action<IWorkbook>)(wb => wb.ResolveThemeColor("dk1")) };
+        yield return new object[] { "GetThemeLineWidthEmu", (Action<IWorkbook>)(wb => wb.GetThemeLineWidthEmu(1)) };
     }
 
     [Theory]
@@ -103,6 +108,8 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "AddChart", (Action<ISheet>)(s => s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5")) };
         yield return new object[] { "AddShape", (Action<ISheet>)(s => s.AddShape(ShapeType.Rectangle, "A1", "C3")) };
         yield return new object[] { "AddConnector", (Action<ISheet>)(s => s.AddConnector(ConnectorType.Straight, "A1", "C3")) };
+        yield return new object[] { "Pictures", (Action<ISheet>)(s => { var _ = s.Pictures; }) };
+        yield return new object[] { "Connectors", (Action<ISheet>)(s => { var _ = s.Connectors; }) };
         yield return new object[] { "AddConditionalFormatting", (Action<ISheet>)(s => s.AddConditionalFormatting("A1:A5", ConditionalFormat.CellValueGreaterThan("50", new CellStyle { Bold = true }))) };
         yield return new object[] { "ConditionalFormattingCount", (Action<ISheet>)(s => { var _ = s.ConditionalFormattingCount; }) };
         yield return new object[] { "RemoveConditionalFormatting", (Action<ISheet>)(s => s.RemoveConditionalFormatting(0)) };

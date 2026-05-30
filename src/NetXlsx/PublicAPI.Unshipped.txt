@@ -74,6 +74,34 @@ NetXlsx.ConnectorType
 NetXlsx.ConnectorType.Bent = 98 -> NetXlsx.ConnectorType
 NetXlsx.ConnectorType.Curved = 102 -> NetXlsx.ConnectorType
 NetXlsx.ConnectorType.Straight = 96 -> NetXlsx.ConnectorType
+NetXlsx.IPicture.FromCell.get -> string!
+NetXlsx.IPicture.ToCell.get -> string!
+NetXlsx.IPicture.Dx1.get -> int
+NetXlsx.IPicture.Dy1.get -> int
+NetXlsx.IPicture.Dx2.get -> int
+NetXlsx.IPicture.Dy2.get -> int
+NetXlsx.IPicture.Data.get -> byte[]!
+NetXlsx.IConnector.FromCell.get -> string!
+NetXlsx.IConnector.ToCell.get -> string!
+NetXlsx.IConnector.Dx1.get -> int
+NetXlsx.IConnector.Dy1.get -> int
+NetXlsx.IConnector.Dx2.get -> int
+NetXlsx.IConnector.Dy2.get -> int
+NetXlsx.IConnector.FlipH.get -> bool
+NetXlsx.IConnector.FlipV.get -> bool
+NetXlsx.IConnector.HeadEnd.get -> NetXlsx.ConnectorEnd
+NetXlsx.IConnector.TailEnd.get -> NetXlsx.ConnectorEnd
+NetXlsx.IConnector.LineColor.get -> NetXlsx.Color?
+NetXlsx.IConnector.LineSchemeColor.get -> string?
+NetXlsx.IConnector.LineWidthPoints.get -> double?
+NetXlsx.IConnector.LineStyleRefIndex.get -> int?
+NetXlsx.ISheet.Pictures.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.IPicture!>!
+NetXlsx.ISheet.Connectors.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.IConnector!>!
+NetXlsx.IWorkbook.GetThemeXml() -> byte[]?
+NetXlsx.IWorkbook.ResolveThemeColor(int index, double tint = 0) -> NetXlsx.Color?
+NetXlsx.IWorkbook.ResolveThemeColor(NetXlsx.ThemeColor! color) -> NetXlsx.Color?
+NetXlsx.IWorkbook.ResolveThemeColor(string! schemeName, double tint = 0) -> NetXlsx.Color?
+NetXlsx.IWorkbook.GetThemeLineWidthEmu(int oneBasedIdx) -> int?
 NetXlsx.ConnectorEnd
 NetXlsx.ConnectorEnd.Arrow = 5 -> NetXlsx.ConnectorEnd
 NetXlsx.ConnectorEnd.Diamond = 3 -> NetXlsx.ConnectorEnd

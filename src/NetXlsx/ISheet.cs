@@ -208,6 +208,20 @@ public interface ISheet
         double? lineWidthPoints = null);
 
     /// <summary>
+    /// All pictures currently anchored on this sheet (decision I-81), in
+    /// drawing order. The list reflects the sheet's drawing patriarch at
+    /// the moment of access — newly added pictures appear in subsequent
+    /// reads. Returns an empty list if the sheet has no drawing part.
+    /// </summary>
+    System.Collections.Generic.IReadOnlyList<IPicture> Pictures { get; }
+
+    /// <summary>
+    /// All connectors currently anchored on this sheet (decision I-81),
+    /// in drawing order. See <see cref="Pictures"/> for ordering semantics.
+    /// </summary>
+    System.Collections.Generic.IReadOnlyList<IConnector> Connectors { get; }
+
+    /// <summary>
     /// Adds one or more conditional formatting rules to the given range
     /// (decision I-73). Each rule is applied in order; Excel evaluates
     /// them top-to-bottom, stopping at the first match per cell.

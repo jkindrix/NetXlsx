@@ -489,6 +489,68 @@ IPicture AddPicture(string startCell, string endCell, byte[] data);
 
 2. **Two-cell `AddPicture` overload** — anchors an image between `startCell` (top-left) and `endCell` (bottom-right), stretching to fill the anchor region. Unlike the single-cell overload (I-52) which renders at natural pixel size, this variant gives layout control when the anchor position matters more than pixel fidelity.
 
+### 6.2.14 Read-side introspection: themes + drawings — I-81
+
+```csharp
+// On IWorkbook:
+byte[]? GetThemeXml();
+Color? ResolveThemeColor(int index, double tint = 0);
+Color? ResolveThemeColor(ThemeColor color);
+Color? ResolveThemeColor(string schemeName, double tint = 0);
+int? GetThemeLineWidthEmu(int oneBasedIdx);
+
+// On ISheet:
+IReadOnlyList<IPicture>   Pictures   { get; }
+IReadOnlyList<IConnector> Connectors { get; }
+
+// On IPicture (added): FromCell, ToCell, Dx1..Dy2, Data
+// On IConnector (added): FromCell/ToCell/Dx1..Dy2, FlipH/V, HeadEnd/TailEnd,
+//                        LineColor, LineSchemeColor, LineWidthPoints,
+//                        LineStyleRefIndex
+```
+
+**I-81 (added 2026-05-29):** The library was strong on the write side and
+thin on the read side. Every consumer that needed to introspect an
+existing workbook (validators, converters, reproduction tools) was
+reaching through `.Underlying` for the same handful of things —
+the working-agreement signal that they belong in the library. I-81 lands
+the symmetric read surface:
+
+1. **`GetThemeXml()`** — counterpart to I-79's `SetThemeXml`. Reads the
+   theme part directly from the OPC package by name, not via NPOI's
+   `XSSFWorkbook.GetTheme()` (which returns a value cached at construction
+   and doesn't reflect a post-Open `SetThemeXml`).
+
+2. **`ResolveThemeColor`** — three overloads cover the three callers
+   already in the wild: an integer index (OOXML cell-color encoding:
+   `0=lt1, 1=dk1, 2=lt2, 3=dk2, 4..9=accent1..6, 10=hlink, 11=folHlink`,
+   matching `ThemeColor.Index`), a `ThemeColor`, and a drawing scheme name
+   (`"dk1"`/`"accent3"`/`"tx1"`, with `tx1`/`bg1`/`tx2`/`bg2` aliases for
+   `dk1`/`lt1`/`dk2`/`lt2`). `tint` is applied with Excel's actual tint
+   algorithm (HLS lightness with the `tint<0 ? L*(1+tint) : L*(1-tint)+t`
+   formula from the OOXML spec) — **not** NPOI's `RGBWithTint`, which
+   disagrees with Excel.
+
+3. **`GetThemeLineWidthEmu(int)`** — for connectors and shapes whose width
+   comes from the theme's `lnStyleLst` via a `style/lnRef/@idx` reference.
+
+4. **`ISheet.Pictures` / `Connectors`** — drawing-order read-only lists,
+   wrapping existing `XSSFPicture`/`XSSFConnector` into the existing
+   `IPicture`/`IConnector` facades via `FromExisting` factories that
+   derive the missing metadata (image format from MIME; connector type
+   from preset geometry).
+
+5. **`IPicture`/`IConnector` property additions** complete the round-trip:
+   anchor cells (A1, mirroring the write-side `AddPicture`/`AddConnector`
+   string params), EMU offsets, image bytes for pictures, and for
+   connectors the flip flags, arrowhead types, explicit line color/width,
+   and (crucially) the `lnRef` scheme color name + index so callers can
+   resolve theme-styled lines via the new workbook helpers above.
+
+Internally, the workbook caches a parsed `ThemeInfo` lazily on first
+`ResolveThemeColor` / `GetThemeLineWidthEmu` access; `SetThemeXml`
+invalidates the cache.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp

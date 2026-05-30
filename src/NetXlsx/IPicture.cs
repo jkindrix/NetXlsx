@@ -35,6 +35,30 @@ public interface IPicture
     ImageFormat Format { get; }
 
     /// <summary>
+    /// The picture's top-left anchor cell in A1 notation (decision I-81).
+    /// For a two-cell anchor this is the <c>from</c> cell.
+    /// </summary>
+    string FromCell { get; }
+
+    /// <summary>
+    /// The picture's bottom-right anchor cell in A1 notation (decision
+    /// I-81). For a one-cell anchor this equals <see cref="FromCell"/>.
+    /// </summary>
+    string ToCell { get; }
+
+    /// <summary>EMU x-offset of the start anchor within <see cref="FromCell"/> (I-81).</summary>
+    int Dx1 { get; }
+    /// <summary>EMU y-offset of the start anchor within <see cref="FromCell"/> (I-81).</summary>
+    int Dy1 { get; }
+    /// <summary>EMU x-offset of the end anchor within <see cref="ToCell"/> (I-81).</summary>
+    int Dx2 { get; }
+    /// <summary>EMU y-offset of the end anchor within <see cref="ToCell"/> (I-81).</summary>
+    int Dy2 { get; }
+
+    /// <summary>The raw image bytes (decision I-81).</summary>
+    byte[] Data { get; }
+
+    /// <summary>
     /// Escape hatch — direct access to the underlying NPOI
     /// <c>XSSFPicture</c>. Same contract as
     /// <see cref="IWorkbook.Underlying"/>.
