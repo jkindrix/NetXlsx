@@ -551,6 +551,63 @@ Internally, the workbook caches a parsed `ThemeInfo` lazily on first
 `ResolveThemeColor` / `GetThemeLineWidthEmu` access; `SetThemeXml`
 invalidates the cache.
 
+### 6.2.15 Engine swap: NPOI → Open XML SDK — I-82
+
+```csharp
+// New, additive during the swap (decision I-82):
+public static IWorkbook Workbook.CreateOoxml(WorkbookOptions? options = null);
+public static IWorkbook Workbook.OpenOoxml(string path, WorkbookOptions? options = null);
+public static IWorkbook Workbook.OpenOoxml(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null);
+
+// On IWorkbook (additive):
+DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument { get; }
+```
+
+**I-82 (added 2026-05-31):** NetXlsx swaps its engine from NPOI 2.7.3 to
+Microsoft's **Open XML SDK** (`DocumentFormat.OpenXml`, pinned 3.5.1). This is
+the headline change for **v2.0.0**.
+
+*Why.* The fidelity-patching pattern of recent slices is a symptom of NPOI's
+lossy read surface (`FillPattern` throws on null `patternType`, `XSSFColor.RGB`
+is null for indexed/theme refs, `NumFormattingRuns` counts unformatted runs with
+null fonts, `RGBWithTint` disagrees with Excel). The data was always in the
+OOXML; NPOI obscured it. Open XML SDK is schema-complete (generated from the
+OOXML XSDs), .NET-native, MIT-licensed, AOT/trim-friendly, and Microsoft-
+maintained. It also retires the OSMF license ceiling at NPOI 2.8+. Chosen over
+binding ClosedXML (the EV-ranked option in `docs/long-term.md`) so NetXlsx owns
+its full surface end-to-end rather than becoming a wrapper-of-a-wrapper — matching
+the "no escape-hatch surprises" philosophy.
+
+*Strategy — parallel engine, late cutover.* The swap does **not** rewrite the
+default engine in place. Instead the SDK engine grows additively, behind new
+factory methods, alongside the untouched NPOI engine:
+
+- `IWorkbook.Underlying` keeps returning NPOI's `XSSFWorkbook` for the **entire**
+  swap. On the SDK engine it throws `NotSupportedException`; the SDK escape hatch
+  is the new `IWorkbook.OpenXmlDocument` (`null` on the legacy engine, non-null on
+  the SDK engine — this is how callers discriminate engines).
+- `Workbook.Create()` / `Open()` stay NPOI-backed; `Workbook.CreateOoxml()` /
+  `OpenOoxml(...)` reach the SDK engine.
+- New conformance tests live in `tests/NetXlsx.OoxmlEngine.Tests` so the full
+  `NetXlsx.Tests` suite stays green every session. `main` is **never** left
+  non-compiling — that invariant is the whole point of the parallel approach.
+
+*The breaking change is deferred to a single, focused cutover slice.* At v2.0.0
+cutover: `IWorkbook.Underlying`'s return type changes to `SpreadsheetDocument`,
+`Create()`/`Open()` route to the SDK engine, the ~34 NPOI reach-through tests in
+`NetXlsx.Tests` migrate in one batch, the `NetXlsx.OoxmlEngine.Tests` conformance
+suite folds into the main suite, and the NPOI `PackageReference` + its transitive
+security overrides are dropped. The cutover is gated on the **full v1.3 behavioral
+suite passing against the SDK engine** — no exceptions.
+
+*Slice order* (each ends green on its tests before the next starts): foundation
+(this slice: create/open/save/dispose, AddSheet, enumeration) → cells & rows →
+cell styles (`CellStylePool` re-targets OOXML schema types) → rich text → merges/
+named ranges/panes/grouping → drawings → CF/validation/tables/autofilter/sort →
+charts → streaming (the `OpenXmlWriter` forward-only shape may need small
+public-API tweaks — surface those as their own decision rows) → source-gen runtime
+helpers.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp

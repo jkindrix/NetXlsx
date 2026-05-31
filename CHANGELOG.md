@@ -9,6 +9,32 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Engine swap to Open XML SDK — foundation slice (I-82)
+
+Begins the v2.0.0 engine swap from NPOI 2.7.3 to Microsoft's Open XML
+SDK (`DocumentFormat.OpenXml` 3.5.1). The new engine grows **additively**
+behind new factory methods — `Workbook.Create()`/`Open()` stay NPOI-backed
+throughout the swap, so existing behavior and the full test suite are
+unchanged.
+
+- `Workbook.CreateOoxml()` / `Workbook.OpenOoxml(path)` /
+  `Workbook.OpenOoxml(stream, leaveOpen)` — create/open on the Open XML
+  SDK engine. This foundation slice supports create, open, save, dispose,
+  `AddSheet`, sheet enumeration, and the indexers; other members throw
+  `NotImplementedException` until their slice lands.
+- `IWorkbook.OpenXmlDocument` — the SDK escape hatch
+  (`SpreadsheetDocument?`). Returns the live document on the SDK engine,
+  `null` on the legacy NPOI engine (the engine-discrimination signal).
+  `IWorkbook.Underlying` (NPOI `XSSFWorkbook`) is unchanged on the legacy
+  engine and throws `NotSupportedException` on the SDK engine.
+
+No breaking change in this slice. The `.Underlying` return-type change,
+the NPOI removal, and the default-engine cutover land together in a later,
+focused **v2.0.0** cutover slice, gated on the full suite passing against
+the SDK engine. See `docs/design.md` I-82.
+
+Coverage: `tests/NetXlsx.OoxmlEngine.Tests/FoundationRoundTripTests.cs`.
+
 ### Read-side introspection: themes + drawings (I-81)
 
 Adds the symmetric read surface that consumers (reproduction tools,

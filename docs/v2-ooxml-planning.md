@@ -1,5 +1,13 @@
 # v2.0 OOXML implementation — planning notes
 
+> **Status update (2026-05-31): superseded by decision I-82 (`docs/design.md`).**
+> The v2.0 engine is **Microsoft's Open XML SDK** (`DocumentFormat.OpenXml`),
+> not a from-scratch OOXML implementation. The SDK gives us the schema for
+> free, so the effort is mapping NetXlsx's public API onto SDK types in
+> `Internal/*` (revised estimate 6–12 months solo full-time) rather than the
+> 24–36 months this doc estimates for from-scratch. The cost analysis below
+> is retained as the **why** record for ruling the from-scratch path out.
+
 This doc captures the research and time estimates for one of the v2
 paths `docs/long-term.md` lists: implement OOXML directly inside
 NetXlsx and drop the NPOI engine. Complementary to:
