@@ -160,15 +160,13 @@ public class WorkbookOptionsWritePathTests
     // ---- Round-trip: defaults are still applied after open ----------
 
     [Fact]
-    public void Open_Without_Options_Does_Not_Reset_Existing_File_Default_Font()
+    public void Open_Preserves_File_Default_Font_Regardless_Of_Options()
     {
-        // When opening an existing file, applying our defaults shouldn't
-        // clobber whatever the file was authored with — but in the
-        // current wiring, the XssfWorkbook ctor overwrites the default
-        // font at index 0. This test documents the intended behavior:
-        // round-trip when the caller passes the file's existing font as
-        // the configured default OR omits options (in which case our
-        // Calibri/11 default does overwrite — known limitation).
+        // Opening a file never overwrites its default font (font 0). The
+        // options' DefaultFontName/Size are write-side defaults applied
+        // only when creating a new workbook — silently swapping a file's
+        // default font on Open would mis-render every cell that inherits
+        // it (e.g. a modern Excel file's "Aptos Narrow" becoming Calibri).
         var path = Path.Combine(Path.GetTempPath(), $"opts-font-{Guid.NewGuid():N}.xlsx");
         try
         {
@@ -177,9 +175,16 @@ public class WorkbookOptionsWritePathTests
                 wb.AddSheet("S")[1, 1].SetString("authored-with-verdana");
                 wb.Save(path);
             }
-            // Reopening *with the same explicit options* preserves the
-            // file's font:
-            using (var wb = Workbook.Open(path, new WorkbookOptions { DefaultFontName = "Verdana", DefaultFontSize = 12 }))
+            // Reopen with NO options — the file's "Verdana" must survive,
+            // not get clobbered with NetXlsx's Calibri/11 default.
+            using (var wb = Workbook.Open(path))
+            {
+                var font = wb.Underlying.GetFontAt(0);
+                font.FontName.Should().Be("Verdana");
+                font.FontHeightInPoints.Should().Be(12);
+            }
+            // Reopen with DIFFERENT options — the file still wins.
+            using (var wb = Workbook.Open(path, new WorkbookOptions { DefaultFontName = "Arial", DefaultFontSize = 14 }))
             {
                 var font = wb.Underlying.GetFontAt(0);
                 font.FontName.Should().Be("Verdana");

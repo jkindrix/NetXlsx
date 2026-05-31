@@ -46,9 +46,13 @@ internal sealed partial class XssfWorkbook : IWorkbook
         _options = options;
 
         // Apply DefaultFontName / DefaultFontSize to the workbook's
-        // default font (index 0). NPOI auto-creates a default font on
-        // first XSSFWorkbook construction; we mutate it in place.
-        if (_underlying.NumberOfFonts > 0)
+        // default font (index 0) — but only on the create path. An opened
+        // workbook carries its own default font (e.g. modern Excel writes
+        // "Aptos Narrow"), and clobbering it would silently swap fonts on
+        // every cell that inherits the default. NumberOfSheets == 0 is
+        // the reliable new-workbook discriminator (same gate as the 1904
+        // date system below; a valid xlsx always has at least one sheet).
+        if (_underlying.NumberOfSheets == 0 && _underlying.NumberOfFonts > 0)
         {
             var defaultFont = _underlying.GetFontAt(0);
             defaultFont.FontName = _options.DefaultFontName;
