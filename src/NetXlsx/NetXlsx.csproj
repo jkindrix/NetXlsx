@@ -10,6 +10,9 @@
 
   <ItemGroup>
     <PackageReference Include="NPOI" />
+    <!-- I-82 engine swap: Open XML SDK grows additively behind the
+         Workbook.CreateOoxml()/OpenOoxml() factories until the v2.0.0 cutover. -->
+    <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="MinVer" PrivateAssets="all" />
   </ItemGroup>
 
