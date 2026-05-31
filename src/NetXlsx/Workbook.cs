@@ -63,6 +63,60 @@ public static class Workbook
         return new SxssfWorkbook(options ?? new StreamingOptions());
     }
 
+    // ---- I-82 engine swap: Open XML SDK factories --------------------------
+    // These return the new Open XML SDK-backed engine, grown additively
+    // alongside the default NPOI engine under the parallel-engine / late-cutover
+    // strategy (design I-82). The default Create()/Open() keep returning the NPOI
+    // engine until the v2.0.0 cutover slice, which retires NPOI and folds the SDK
+    // engine into Create()/Open() directly. A workbook from these factories
+    // reports a non-null IWorkbook.OpenXmlDocument and throws on the NPOI
+    // IWorkbook.Underlying escape hatch.
+
+    /// <summary>
+    /// Creates a new, empty workbook on the Open XML SDK engine (decision
+    /// I-82). Counterpart to <see cref="Create"/>, which uses the legacy NPOI
+    /// engine. The SDK engine is the v2.0.0 direction; during the swap it is
+    /// reached only through this factory.
+    /// </summary>
+    /// <param name="options">
+    /// Per-workbook configuration. When <c>null</c>, uses
+    /// <see cref="WorkbookOptions"/> defaults.
+    /// </param>
+    public static IWorkbook CreateOoxml(WorkbookOptions? options = null)
+    {
+        return OoxmlWorkbook.Create(options ?? new WorkbookOptions());
+    }
+
+    /// <summary>
+    /// Opens an existing <c>.xlsx</c> / <c>.xlsm</c> workbook on the Open XML
+    /// SDK engine from a file path (decision I-82). Counterpart to
+    /// <see cref="Open(string, WorkbookOptions?)"/>, which uses the legacy NPOI
+    /// engine.
+    /// </summary>
+    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>
+    public static IWorkbook OpenOoxml(string path, WorkbookOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        return OoxmlWorkbook.Open(path, options ?? new WorkbookOptions());
+    }
+
+    /// <summary>
+    /// Opens an existing <c>.xlsx</c> / <c>.xlsm</c> workbook on the Open XML
+    /// SDK engine from a stream (decision I-82). The stream's content is copied
+    /// into an owned in-memory buffer, so the stream need only be readable; it
+    /// is not mutated.
+    /// </summary>
+    /// <param name="stream">A readable stream positioned at the workbook's start.</param>
+    /// <param name="leaveOpen">If <c>false</c>, the stream is disposed after the workbook is read. Default <c>true</c>.</param>
+    /// <exception cref="ArgumentException">The stream is not readable.</exception>
+    /// <exception cref="MalformedFileException">The stream content is not a valid workbook.</exception>
+    public static IWorkbook OpenOoxml(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        return OoxmlWorkbook.Open(stream, leaveOpen, options ?? new WorkbookOptions());
+    }
+
     /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a file path.</summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>

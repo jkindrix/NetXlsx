@@ -487,6 +487,15 @@ internal sealed partial class XssfWorkbook : IWorkbook
         get { ThrowIfDisposed(); return _underlying; }
     }
 
+    // I-82 engine swap: this is the NPOI-backed engine, so the Open XML SDK
+    // escape hatch is null here. The SDK-backed OoxmlWorkbook returns the live
+    // SpreadsheetDocument. Callers discriminate engines via this member being
+    // non-null. (ThrowIfDisposed keeps the disposed-workbook contract uniform.)
+    public DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument
+    {
+        get { ThrowIfDisposed(); return null; }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

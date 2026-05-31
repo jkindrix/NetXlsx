@@ -113,3 +113,7 @@ NetXlsx.IConnector
 NetXlsx.IConnector.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IConnector.Type.get -> NetXlsx.ConnectorType
 NetXlsx.IConnector.Underlying.get -> NPOI.XSSF.UserModel.XSSFConnector!
+NetXlsx.IWorkbook.OpenXmlDocument.get -> DocumentFormat.OpenXml.Packaging.SpreadsheetDocument?
+static NetXlsx.Workbook.CreateOoxml(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.OpenOoxml(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.OpenOoxml(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
