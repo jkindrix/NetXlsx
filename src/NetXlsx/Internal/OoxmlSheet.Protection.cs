@@ -69,11 +69,12 @@ internal sealed partial class OoxmlSheet
     private S.SheetProtection GetOrCreateSheetProtection()
         => OoxmlSchemaOrder.GetOrInsert(Worksheet, static () => new S.SheetProtection());
 
-    // The legacy 16-bit Excel password verifier (ECMA-376 §18.3.1.79 references the
-    // algorithm; identical to the value NPOI's CryptoFunctions.CreateXorVerifier1
-    // writes for the same input). Returned as the 4-hex-digit ST_UnsignedShortHex
-    // form @password expects. Excel's sheet-protection password is brute-forceable
-    // by design — this is a UX guard only.
+    // The standard legacy 16-bit Excel password verifier (the classic hash Excel
+    // writes into @password for sheet protection). Returned as the 4-hex-digit
+    // ST_UnsignedShortHex form the attribute expects. Excel's sheet-protection
+    // password is brute-forceable by design — this is a UX guard only, and the
+    // contract asserts only presence + round-trip + schema-validity, not a
+    // byte-for-byte match with NPOI's verifier.
     internal static string LegacyPasswordHash(string password)
     {
         int hash = 0;
