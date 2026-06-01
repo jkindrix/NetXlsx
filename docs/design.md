@@ -602,13 +602,26 @@ suite passing against the SDK engine** — no exceptions.
 
 *Slice order* (each ends green on its tests before the next starts): ✅ foundation
 (create/open/save/dispose, AddSheet, enumeration) → ✅ cells & rows (string/number/
-bool values, indexers, Range, AppendRow/Row, Column) → **cell styles** ←NEXT
-(`CellStylePool` re-targets OOXML schema types; also unblocks the deferred
-`SetDate`/`SetTime`/`SetDuration` since dates are a number + a date number-format
-style) → rich text → merges/named ranges/panes/grouping → drawings → CF/validation/
-tables/autofilter/sort → charts → streaming (the `OpenXmlWriter` forward-only shape
-may need small public-API tweaks — surface those as their own decision rows) →
-source-gen runtime helpers.
+bool values, indexers, Range, AppendRow/Row, Column) → ✅ cell styles (new
+`OoxmlStylePool` re-targets OOXML schema types — `font`/`fill`/`border`/`numFmt`/
+`xf` — with `CellStyle`→`cellXfs` dedup per #4; wires `ICell.Style`/`NumberFormat`/
+`GetStyle`/`ApplyNamedStyle`, `IRange.Apply`, `IColumn` width/hidden/style, `IRow`
+height/hidden; unblocks `SetDate`/`SetTime`/`SetDuration` + `GetDate`/`Kind==Date`
+via the 1900/1904 serial + date-format detection; applies `DefaultFont`/`Excel1904`
+on create) → **rich text** ←NEXT → merges/named ranges/panes/grouping → drawings →
+CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
+forward-only shape may need small public-API tweaks — surface those as their own
+decision rows) → source-gen runtime helpers.
+
+*Cell-styles slice — deferred within the surface* (tracked here so a later slice
+picks them up, not lost): (a) `GetString` on a date cell returns the raw serial,
+not a format-rendered string — the SDK engine has no number-format renderer yet
+(the NPOI engine uses `DataFormatter`); the cutover gate requires this. (b) Named
+styles resolve in-memory (`RegisterStyle`/`ApplyNamedStyle` work within a session)
+but do not persist into OOXML's `cellStyles` panel across save/open — the SDK
+equivalent of the NPOI engine's I-67 round-trip. (c) `IColumn.AutoSize` needs
+font-metric measurement, which the SDK engine does not carry; it lands with the
+font-metrics work, not the styles slice.
 
 ### 6.2.13 Connectors — I-79, I-80
 

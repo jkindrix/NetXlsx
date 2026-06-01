@@ -42,13 +42,43 @@ and rich text remain deferred to later slices (they throw
 number plus a date number-format style, so `SetDate`/`SetTime`/
 `SetDuration` land with the styles slice.
 
+**Cell styles slice.** The SDK engine now models `xl/styles.xml` and wires
+the styling surface, backed by a new `OoxmlStylePool` that dedups
+`CellStyle` values to a single `cellXfs` index (decision #4) and emits
+OOXML schema types (`font`/`fill`/`border`/`numFmt`/`xf`) directly:
+
+- `ICell.Style(CellStyle)` (merge semantics — non-null axes overlay, null
+  inherit), `NumberFormat(string)`, `GetStyle()`, `ApplyNamedStyle(string)`;
+  `IRange.Apply` / `ApplyNamedStyle` (dense); `IColumn.Width` / `WidthUnits`
+  / `Hidden` / `SetDefaultStyle` / `ForEachPopulated`; `IRow.HeightInPoints`
+  / `Hidden`; `IWorkbook.GetStylePoolDiagnostics` / `RegisterStyle` /
+  `GetRegisteredStyle` / `RegisteredStyleNames`.
+- The deferred date/time setters are unblocked: `ICell.SetDate` (DateTime /
+  DateOnly) / `SetTime` / `SetDuration` write the Excel serial and apply the
+  workbook's default date/time/duration number format when the cell is
+  unstyled (decisions I-18/I-19, §7.9). `GetDate` / `GetDateOnly` and
+  `Kind == CellKind.Date` detect date number formats (builtin ids 14–22 /
+  45–47 plus custom date-token codes). The 1900/1904 epochs are honored,
+  including Excel's fictitious 1900-02-29 leap day.
+- `WorkbookOptions.DefaultFontName` / `DefaultFontSize` are applied to font
+  index 0 on `CreateOoxml`; `DateSystem.Excel1904` is written to
+  `workbookPr/@date1904`. On `OpenOoxml` the file's stylesheet and default
+  font are adopted untouched (lessons #8, #9).
+
+Deferred within the styles surface (land in later slices): `GetString` on a
+date cell returns the raw serial rather than a format-rendered string (needs
+a number-format renderer); named styles resolve in-memory but do not yet
+persist into OOXML's `cellStyles` panel across save/open (the SDK equivalent
+of the NPOI engine's I-67 round-trip); `IColumn.AutoSize` (needs font
+metrics). Rich text, comments, hyperlinks, and formulas remain deferred.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
 the SDK engine. See `docs/design.md` I-82.
 
 Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
-`CellAndRowValueTests`).
+`CellAndRowValueTests`, `CellStyleTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 
