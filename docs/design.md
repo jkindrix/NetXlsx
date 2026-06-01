@@ -611,8 +611,11 @@ via the 1900/1904 serial + date-format detection; applies `DefaultFont`/`Excel19
 on create) → ✅ rich text (`SetRichText`/`GetRichText` as inline `<is>` runs; each
 run's `<rPr>` built by the style pool's run-property helper; an empty-style run
 gets no `<rPr>` so it inherits the cell font — lesson #10 — and the OPC-preservation
-gate, lesson #13, is confirmed on the SDK engine via `OpcPreservationTests`) →
-**merges / named ranges / panes / grouping** ←NEXT → drawings →
+gate, lesson #13, is confirmed on the SDK engine via `OpcPreservationTests`) → ✅
+schema-validation gate (cross-cutting conformance — `OpenXmlValidator` over engine
+output, target `Microsoft365`; found the engine already schema-clean, including the
+`<rPr>` child order the handoff flagged) → **merges / named ranges / panes /
+grouping** ←NEXT → drawings →
 CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
 decision rows) → source-gen runtime helpers.
@@ -626,6 +629,45 @@ but do not persist into OOXML's `cellStyles` panel across save/open — the SDK
 equivalent of the NPOI engine's I-67 round-trip. (c) `IColumn.AutoSize` needs
 font-metric measurement, which the SDK engine does not carry; it lands with the
 font-metrics work, not the styles slice.
+
+*Schema-validation gate — I-82 sub-decision (added 2026-05-31).* The engine
+swap's founding premise is that the Open XML SDK is schema-complete, so engine
+output is correct "for free." That premise is now *enforced*, not assumed: a
+reusable gate (`OpenXmlValidationGate.AssertValid` in
+`tests/NetXlsx.OoxmlEngine.Tests`) runs `DocumentFormat.OpenXml.Validation.
+OpenXmlValidator` over a workbook's live `OpenXmlDocument` and asserts zero
+errors, dumping each error's part URI / element XPath / id / description on
+failure. Fixtures cover every landed feature (scalar values; fonts/fills/borders/
+numFmts/alignment; 1900- and 1904-epoch dates/times/durations; rich text including
+the empty-style inheriting run) plus an `OpenOoxml`→`Save` round-trip. Future
+slices add their fixtures to the gate, so it widens with the engine.
+
+- **Validation target: `FileFormatVersions.Microsoft365`.** Microsoft365 is the
+  most current target and matches the engine's modern-Excel orientation (it
+  round-trips x14/x15 extension parts unmodeled). All created-workbook fixtures
+  also validate clean under the conservative `Office2019` alternative; Microsoft365
+  is the standing gate. This is a conformance-policy decision and adds no public
+  symbol (no `PublicAPI.Unshipped` entry).
+- **The rich-text `<rPr>` child-order suspicion is disproven by the schema
+  oracle.** The handoff carried `<rPr>` child order as the prime suspect (the
+  slice emits `b/i/u/sz/color/rFont`, copied from the order-*independent* styles
+  `<font>`). The validator settles it: it does **not** constrain `CT_RPrElt` child
+  order — the current order, the strict-ECMA order, and a deliberately scrambled
+  order all validate clean — whereas it **does** constrain `CT_Font` order in
+  `styles.xml` (a scrambled `<font>` raises `Sch_UnexpectedElementContentExpecting
+  Complex`). The engine's `<rPr>` emit order is therefore schema-valid as written,
+  and the font path's order was already correct. No reorder was needed; nothing was
+  changed in the engine for this slice — the gate found the engine already clean.
+- **Known validation finding (real stress files, not engine output):** of the five
+  real stress files, four round-trip schema-clean; `ANIMAL_STRAW_HOLDERS_PSS`
+  carries one error — `x14:workbookPr/@defaultImageDpi='32767'` in `workbook.xml`,
+  which exceeds the attribute's enumeration constraint. That value is **authored in
+  the source file** (by whatever produced the PSS workbook) and the engine
+  OPC-preserves it byte-for-byte per lesson #13. It is not engine-generated;
+  "correcting" it would violate the preservation contract. The committed gate uses
+  a synthetic round-trip (the project commits no binary fixtures — decision I18
+  option b — and the stress files live only in the operator's Downloads); the
+  stress-file validation is operator-side evidence.
 
 ### 6.2.13 Connectors — I-79, I-80
 

@@ -95,6 +95,26 @@ stress files: part sets preserved exactly, e.g. 50/50, 36/36, 17/17). A new
 `OpcPreservationTests` builds a CI-safe fixture carrying an unmodeled custom
 XML part and asserts the part set and the part's bytes survive Open → Save.
 
+**Schema-validation gate (cross-cutting conformance).** The swap's founding
+premise — that the Open XML SDK is schema-complete, so engine output is correct
+"for free" — is now enforced rather than assumed. A reusable gate
+(`OpenXmlValidationGate.AssertValid`) runs `DocumentFormat.OpenXml.Validation.
+OpenXmlValidator` over a workbook's live `OpenXmlDocument` and asserts zero
+errors, itemizing each error's part URI / element path / id / description on
+failure. Fixtures cover every landed feature (scalar values; fonts/fills/borders/
+numFmts/alignment; 1900- and 1904-epoch dates/times/durations; rich text incl. the
+empty-style inheriting run) plus an `OpenOoxml`→`Save` round-trip; future slices
+add their fixtures so the gate widens with the engine. Target:
+`FileFormatVersions.Microsoft365` (also clean under `Office2019`). The gate found
+the engine **already schema-clean** — including the rich-text `<rPr>` child order
+that prior notes flagged as the prime suspect: the SDK does not constrain
+`CT_RPrElt` child order (it does constrain `CT_Font` in `styles.xml`, and the font
+path was already correct), so no engine change was required. (Operator-side
+evidence: four of five real stress files round-trip schema-clean; the fifth carries
+one source-authored `x14:workbookPr/@defaultImageDpi` value that the engine
+OPC-preserves verbatim per lesson #13 — not engine-generated.) See
+`docs/design.md` §6.2.15.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -102,7 +122,7 @@ the SDK engine. See `docs/design.md` I-82.
 
 Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
-`OpcPreservationTests`).
+`OpcPreservationTests`, `SchemaValidationTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 
