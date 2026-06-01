@@ -312,7 +312,8 @@ internal sealed partial class OoxmlSheet : ISheet
         ConnectorEnd headEnd = ConnectorEnd.None, ConnectorEnd tailEnd = ConnectorEnd.None,
         double? lineWidthPoints = null) => throw NotYet();
 
-    public IReadOnlyList<IPicture> Pictures => throw NotYet();
+    // Pictures (AddPicture overloads + Pictures read-back) land in
+    // OoxmlSheet.Pictures.cs (I-82 drawings slice).
     public IReadOnlyList<IConnector> Connectors => throw NotYet();
 
     public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules) => throw NotYet();
@@ -340,12 +341,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public void AddValidation(string a1Range, DataValidation validation) => throw NotYet();
 
-    public IPicture AddPicture(string a1Cell, byte[] data, ImageFormat format) => throw NotYet();
-    public IPicture AddPicture(string a1Cell, byte[] data) => throw NotYet();
-    public IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format) => throw NotYet();
-    public IPicture AddPicture(string startCell, string endCell, byte[] data) => throw NotYet();
-    public IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format,
-        int dx1, int dy1, int dx2, int dy2) => throw NotYet();
+    // AddPicture overloads land in OoxmlSheet.Pictures.cs (I-82 drawings slice).
 
     // Protect / Unprotect / IsProtected land in OoxmlSheet.Protection.cs.
 

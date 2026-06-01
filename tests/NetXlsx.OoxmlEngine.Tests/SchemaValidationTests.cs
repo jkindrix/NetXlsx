@@ -81,6 +81,10 @@ public class SchemaValidationTests
     private static string TempXlsxPath()
         => Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-validate-{Guid.NewGuid():N}.xlsx");
 
+    // 1×1 transparent PNG, for the drawings fixtures.
+    private static readonly byte[] OnePixelPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
+
     // ---- Values: string / number / bool -------------------------------------
 
     [Fact]
@@ -226,6 +230,20 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Drawings (slice 6): pictures ---------------------------------------
+
+    [Fact]
+    public void Pictures_Both_Anchor_Kinds_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("with images");
+        s.AddPicture("B2", OnePixelPng, ImageFormat.Png);                 // one-cell anchor
+        s.AddPicture("D4", "F8", OnePixelPng, ImageFormat.Png,            // two-cell anchor + EMU offsets
+            dx1: 12700, dy1: 6350, dx2: 19050, dy2: 9525);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Schema-ordered insertion into OPENED containers (SDK-quirk #8) ------
     //
     // Every fixture above validates a workbook the engine created from scratch,
@@ -322,6 +340,41 @@ public class SchemaValidationTests
 
         s.Protect();                 // sheetProtection (ordinal 7)
         s.MergeCells("A1:B1");       // mergeCells (ordinal 14)
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_A_Picture_To_An_Opened_Sheet_Carrying_LegacyDrawing_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("v");
+
+        // <legacyDrawing> (ordinal 29) is the FIRST sibling that must follow
+        // <drawing> (ordinal 28). Inject one (backed by a VML drawing part so it is
+        // schema-valid) to simulate an opened file that carries comments / form
+        // controls. AddPicture must slot the new <drawing> in AHEAD of it — a bare
+        // AppendChild would emit <drawing> after <legacyDrawing> (out-of-order XML);
+        // OoxmlSchemaOrder places it correctly. This is the drawings-slice analogue
+        // of the structure slice's open-mutate fixtures (SDK-quirk #8), and the part
+        // graph (a new DrawingsPart + ImagePart) makes the opened path matter more
+        // here than anywhere prior.
+        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        var ws = wsp.Worksheet!;
+        var vml = wsp.AddNewPart<VmlDrawingPart>();
+        using (var st = vml.GetStream(FileMode.Create))
+        using (var w = new StreamWriter(st))
+            w.Write("<xml xmlns:v=\"urn:schemas-microsoft-com:vml\"></xml>");
+        ws.AppendChild(new S.LegacyDrawing { Id = wsp.GetIdOfPart(vml) });
+
+        s.AddPicture("B2", "D5", OnePixelPng, ImageFormat.Png);
+
+        // The new <drawing> must precede the pre-existing <legacyDrawing>.
+        var children = ws.ChildElements.ToList();
+        int drawingIdx = children.FindIndex(c => c is S.Drawing);
+        int legacyIdx = children.FindIndex(c => c is S.LegacyDrawing);
+        drawingIdx.Should().BeGreaterThanOrEqualTo(0);
+        drawingIdx.Should().BeLessThan(legacyIdx);
         OpenXmlValidationGate.AssertValid(wb);
     }
 
