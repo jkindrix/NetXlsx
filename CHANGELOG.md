@@ -28,12 +28,27 @@ unchanged.
   `IWorkbook.Underlying` (NPOI `XSSFWorkbook`) is unchanged on the legacy
   engine and throws `NotSupportedException` on the SDK engine.
 
-No breaking change in this slice. The `.Underlying` return-type change,
+**Cells & rows slice.** The SDK engine now reads and writes cell values:
+`ICell.SetString` / `SetNumber` (double/decimal/int/long) / `SetBool` +
+getters + `Kind` + `Clear`; `ISheet` indexers (`["A1"]`, `[r,c]`),
+`Range(...)`, `AppendRow()` / `Row(int)`, `Column(...)`; `IRow` cell
+navigation + `Set(...)` chaining; `IRange` sparse/dense enumeration,
+`Value(object?)`, and `ClearContents`. Cells materialize lazily — reading
+a never-written address reports `CellKind.Empty` without adding a node
+(decision #40) — and rows/cells persist in Excel's required ascending
+order. Date/time and formula setters, cell styling, comments, hyperlinks,
+and rich text remain deferred to later slices (they throw
+`NotImplementedException` on the SDK engine for now); a date in OOXML is a
+number plus a date number-format style, so `SetDate`/`SetTime`/
+`SetDuration` land with the styles slice.
+
+No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
 the SDK engine. See `docs/design.md` I-82.
 
-Coverage: `tests/NetXlsx.OoxmlEngine.Tests/FoundationRoundTripTests.cs`.
+Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
+`CellAndRowValueTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

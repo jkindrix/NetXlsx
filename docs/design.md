@@ -600,13 +600,15 @@ suite folds into the main suite, and the NPOI `PackageReference` + its transitiv
 security overrides are dropped. The cutover is gated on the **full v1.3 behavioral
 suite passing against the SDK engine** — no exceptions.
 
-*Slice order* (each ends green on its tests before the next starts): foundation
-(this slice: create/open/save/dispose, AddSheet, enumeration) → cells & rows →
-cell styles (`CellStylePool` re-targets OOXML schema types) → rich text → merges/
-named ranges/panes/grouping → drawings → CF/validation/tables/autofilter/sort →
-charts → streaming (the `OpenXmlWriter` forward-only shape may need small
-public-API tweaks — surface those as their own decision rows) → source-gen runtime
-helpers.
+*Slice order* (each ends green on its tests before the next starts): ✅ foundation
+(create/open/save/dispose, AddSheet, enumeration) → ✅ cells & rows (string/number/
+bool values, indexers, Range, AppendRow/Row, Column) → **cell styles** ←NEXT
+(`CellStylePool` re-targets OOXML schema types; also unblocks the deferred
+`SetDate`/`SetTime`/`SetDuration` since dates are a number + a date number-format
+style) → rich text → merges/named ranges/panes/grouping → drawings → CF/validation/
+tables/autofilter/sort → charts → streaming (the `OpenXmlWriter` forward-only shape
+may need small public-API tweaks — surface those as their own decision rows) →
+source-gen runtime helpers.
 
 ### 6.2.13 Connectors — I-79, I-80
 
