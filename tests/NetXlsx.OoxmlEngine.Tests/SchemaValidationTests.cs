@@ -171,6 +171,27 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Portability: the gate target's conservative alternative ------------
+    //
+    // The standing gate target is Microsoft365; design.md records that engine
+    // output is also clean under the conservative Office2019 alternative. This
+    // guards that documented claim against silent drift — a future slice that
+    // emits a Microsoft365-only construct would surface here.
+
+    [Fact]
+    public void Created_Output_Also_Validates_Under_Office2019()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("text");
+        s["A1"].Style(new CellStyle { Bold = true, Background = Color.FromRgb(0xFF, 0xFF, 0x00) });
+        s["A2"].SetDate(new DateTime(2026, 5, 31));
+        s["A3"].SetRichText(new RichText(
+            new RichTextRun("plain", RichTextStyle.Default),
+            new RichTextRun(" fancy", new RichTextStyle { Italic = true, Color = Color.FromRgb(0, 0x80, 0) })));
+        OpenXmlValidationGate.AssertValid(wb, FileFormatVersions.Office2019);
+    }
+
     // ---- OpenOoxml -> Save round-trip ---------------------------------------
     //
     // CI-safe stand-in for a "real stress file" round-trip: the project commits no
