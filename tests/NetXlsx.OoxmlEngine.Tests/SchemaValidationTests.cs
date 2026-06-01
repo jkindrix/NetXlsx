@@ -260,6 +260,53 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // A full 12-slot clrScheme + fontScheme + fmtScheme (3 of each list) — the
+    // minimum a CT_OfficeStyleSheet theme requires to validate. Used to prove the
+    // ThemePart the engine writes via SetThemeXml is schema-valid in-package. NB:
+    // CT_FontCollection requires the latin/ea/cs font triple in sequence, so each
+    // font carries empty <a:ea>/<a:cs> overrides (the form Excel emits) — the
+    // byte-parity-with-NPOI fixture in ThemeTests omits them because it asserts
+    // round-trip + resolution only and never runs through this schema gate.
+    private static readonly byte[] TinyTheme = System.Text.Encoding.UTF8.GetBytes(
+        """
+        <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        <a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Tiny">
+          <a:themeElements>
+            <a:clrScheme name="Tiny">
+              <a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>
+              <a:lt1><a:sysClr val="window" lastClr="FFFFFF"/></a:lt1>
+              <a:dk2><a:srgbClr val="222222"/></a:dk2>
+              <a:lt2><a:srgbClr val="EEEEEE"/></a:lt2>
+              <a:accent1><a:srgbClr val="FF0000"/></a:accent1>
+              <a:accent2><a:srgbClr val="00FF00"/></a:accent2>
+              <a:accent3><a:srgbClr val="0000FF"/></a:accent3>
+              <a:accent4><a:srgbClr val="FFFF00"/></a:accent4>
+              <a:accent5><a:srgbClr val="FF00FF"/></a:accent5>
+              <a:accent6><a:srgbClr val="00FFFF"/></a:accent6>
+              <a:hlink><a:srgbClr val="0000EE"/></a:hlink>
+              <a:folHlink><a:srgbClr val="551A8B"/></a:folHlink>
+            </a:clrScheme>
+            <a:fontScheme name="Tiny"><a:majorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:majorFont><a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface=""/></a:minorFont></a:fontScheme>
+            <a:fmtScheme name="Tiny">
+              <a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst>
+              <a:lnStyleLst><a:ln w="9525"/><a:ln w="25400"/><a:ln w="38100"/></a:lnStyleLst>
+              <a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst>
+              <a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst>
+            </a:fmtScheme>
+          </a:themeElements>
+        </a:theme>
+        """);
+
+    [Fact]
+    public void Theme_Part_Is_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("themed");
+        wb.SetThemeXml(TinyTheme);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Schema-ordered insertion into OPENED containers (SDK-quirk #8) ------
     //
     // Every fixture above validates a workbook the engine created from scratch,

@@ -522,12 +522,8 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     public void Unprotect() => throw NotYet();
     public bool IsProtected => throw NotYet();
 
-    public void SetThemeXml(byte[] themeXml) => throw NotYet();
-    public byte[]? GetThemeXml() => throw NotYet();
-    public Color? ResolveThemeColor(int index, double tint = 0) => throw NotYet();
-    public Color? ResolveThemeColor(ThemeColor color) => throw NotYet();
-    public Color? ResolveThemeColor(string schemeName, double tint = 0) => throw NotYet();
-    public int? GetThemeLineWidthEmu(int oneBasedIdx) => throw NotYet();
+    // SetThemeXml / GetThemeXml / ResolveThemeColor / GetThemeLineWidthEmu live in
+    // OoxmlWorkbook.Theme.cs (drawings slice — theme round-trip).
 
     public bool IsMacroEnabled => throw NotYet();
 }
