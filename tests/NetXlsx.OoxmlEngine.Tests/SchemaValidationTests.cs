@@ -31,6 +31,7 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Validation;
 using NetXlsx;
 using Xunit;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx.OoxmlEngine.Tests;
 
@@ -198,6 +199,74 @@ public class SchemaValidationTests
         wb.AddSheet("Calc");
         wb.AddNamedRange("Global", "Data!$A$1:$A$100");
         wb.AddNamedRange("Scoped", "Calc!$C$3", sheetScope: "Calc");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    // ---- Structure (5b): panes, grouping, visibility, protection ------------
+
+    [Fact]
+    public void Sheet_Structure_Surface_Is_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("Cover");                          // keep >=1 visible sheet
+        var s = wb.AddSheet("S");
+        for (int i = 1; i <= 6; i++) s.Row(i).Set(1, $"r{i}");
+        s.FreezePane(1, 2);                            // frozen panes
+        s.GroupRows(2, 5);
+        s.GroupRows(3, 4);                             // nested outline
+        s.GroupColumns(2, 4);
+        s.SetRowGroupCollapsed(3, true);               // collapsed group
+        s.ShowGridlines = false;
+        s.DefaultColumnWidth = 18;
+        s.Hidden = true;
+        s.MergeCells("A1:C1");
+        s.Protect(password: "pw", options: SheetProtection.LockAll);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    // ---- Schema-ordered insertion into OPENED containers (SDK-quirk #8) ------
+    //
+    // Every fixture above validates a workbook the engine created from scratch,
+    // which cannot emit the legal intervening siblings (<autoFilter>,
+    // <functionGroups>, …) that sit between a 5a/5b anchor and the element being
+    // inserted. These two fixtures close that blind spot: they inject such a
+    // sibling at its schema position (simulating an opened real-world file), then
+    // mutate through the engine, then validate. A bare InsertAfter(anchor) would
+    // emit out-of-order XML here; OoxmlSchemaOrder places the new child correctly.
+
+    [Fact]
+    public void Mutating_An_Opened_Sheet_Carrying_AutoFilter_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("h");
+        s["A2"].SetString("v");
+
+        // <autoFilter> is ubiquitous in real files and sits between <sheetData>
+        // and <mergeCells>; the engine does not model it yet, so inject it at its
+        // schema position directly.
+        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        ws.InsertAfter(new S.AutoFilter { Reference = "A1:A2" }, ws.GetFirstChild<S.SheetData>());
+
+        // sheetProtection(before autoFilter) and mergeCells(after autoFilter) must
+        // each slot into their schema position around the existing <autoFilter>.
+        s.Protect();
+        s.MergeCells("A1:A2");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Mutating_An_Opened_Workbook_Carrying_FunctionGroups_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("Data");
+
+        // <functionGroups> sits between <sheets> and <definedNames>; inject it at
+        // its schema position to simulate an opened file that carries one.
+        var workbook = wb.OpenXmlDocument!.WorkbookPart!.Workbook!;
+        workbook.InsertAfter(new S.FunctionGroups(), workbook.GetFirstChild<S.Sheets>());
+
+        wb.AddNamedRange("Items", "Data!$A$1:$A$10");
         OpenXmlValidationGate.AssertValid(wb);
     }
 

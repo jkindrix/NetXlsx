@@ -427,6 +427,24 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             ? _sheetsByIndex[zeroBasedIndex].Name
             : null;
 
+    /// <summary>
+    /// The workbook.xml <c>&lt;sheet&gt;</c> element backing <paramref name="part"/>,
+    /// resolved via the part's relationship id. Sheet visibility (<c>state</c>) lives
+    /// on this element, not on the worksheet — so <see cref="OoxmlSheet.Hidden"/>
+    /// reaches it through here.
+    /// </summary>
+    internal S.Sheet SheetElementFor(WorksheetPart part)
+    {
+        var wbPart = _document.WorkbookPart
+            ?? throw new InvalidOperationException("Workbook has no workbook part.");
+        string rid = wbPart.GetIdOfPart(part);
+        var sheets = wbPart.Workbook?.GetFirstChild<S.Sheets>()
+            ?? throw new InvalidOperationException("Workbook has no <sheets> element.");
+        foreach (var sheet in sheets.Elements<S.Sheet>())
+            if (sheet.Id?.Value == rid) return sheet;
+        throw new InvalidOperationException("No <sheet> element backs this worksheet part.");
+    }
+
     // Resolves a sheet name to its 0-based document-order index (case-insensitive,
     // matching the workbook's sheet-name resolution), or -1 if no such sheet.
     private int IndexOfSheet(string name)

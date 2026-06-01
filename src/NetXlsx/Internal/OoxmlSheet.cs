@@ -118,15 +118,7 @@ internal sealed partial class OoxmlSheet : ISheet
     // splits a spanning entry so a single column gets its own attributes.
 
     private S.Columns GetOrCreateColumns()
-    {
-        var cols = Worksheet.GetFirstChild<S.Columns>();
-        if (cols is not null) return cols;
-        cols = new S.Columns();
-        var sheetData = Worksheet.GetFirstChild<S.SheetData>();
-        if (sheetData is not null) Worksheet.InsertBefore(cols, sheetData);
-        else Worksheet.AppendChild(cols);
-        return cols;
-    }
+        => OoxmlSchemaOrder.GetOrInsert(Worksheet, static () => new S.Columns());
 
     // Non-mutating lookup of the <col> entry covering a 1-based column, or null.
     internal S.Column? FindColumn(int col)
@@ -307,16 +299,9 @@ internal sealed partial class OoxmlSheet : ISheet
         return new OoxmlColumn(this, CellAddress.ParseColumn(letter));
     }
 
-    public void FreezeRows(int rows) => throw NotYet();
-    public void FreezeColumns(int cols) => throw NotYet();
-    public void FreezePane(int rows, int cols) => throw NotYet();
-
-    public void GroupRows(int startRow, int endRow) => throw NotYet();
-    public void UngroupRows(int startRow, int endRow) => throw NotYet();
-    public void GroupColumns(int startCol, int endCol) => throw NotYet();
-    public void UngroupColumns(int startCol, int endCol) => throw NotYet();
-    public void SetRowGroupCollapsed(int row, bool collapsed) => throw NotYet();
-    public void CreateSplitPane(int xSplitTwips, int ySplitTwips) => throw NotYet();
+    // Freeze / split panes, grouping (outline), sheet visibility, gridlines, and
+    // default column width land in OoxmlSheet.Structure.cs (I-82 structure slice).
+    // Sheet protection lands in OoxmlSheet.Protection.cs.
 
     public IChart AddChart(ChartType type, string startCell, string endCell, string categoryRange, string valueRange, string? title = null) => throw NotYet();
     public IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null) => throw NotYet();
@@ -339,9 +324,7 @@ internal sealed partial class OoxmlSheet : ISheet
     // Merges (MergeCells / MergeCellsStyled / UnmergeCells / MergedRanges) land
     // in OoxmlSheet.Merges.cs (I-82 structure slice).
 
-    public bool Hidden { get => throw NotYet(); set => throw NotYet(); }
-    public bool ShowGridlines { get => throw NotYet(); set => throw NotYet(); }
-    public double? DefaultColumnWidth { get => throw NotYet(); set => throw NotYet(); }
+    // Hidden / ShowGridlines / DefaultColumnWidth land in OoxmlSheet.Structure.cs.
 
     public ITable AddTable(string a1Range, string name, string? style = null) => throw NotYet();
     public IReadOnlyList<ITable> Tables => throw NotYet();
@@ -364,9 +347,7 @@ internal sealed partial class OoxmlSheet : ISheet
     public IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format,
         int dx1, int dy1, int dx2, int dy2) => throw NotYet();
 
-    public void Protect(string? password = null, SheetProtection? options = null) => throw NotYet();
-    public void Unprotect() => throw NotYet();
-    public bool IsProtected => throw NotYet();
+    // Protect / Unprotect / IsProtected land in OoxmlSheet.Protection.cs.
 
     // Escape hatch divergence (I-82): no NPOI sheet exists on the SDK engine.
     public NPOI.XSSF.UserModel.XSSFSheet Underlying => throw new NotSupportedException(
