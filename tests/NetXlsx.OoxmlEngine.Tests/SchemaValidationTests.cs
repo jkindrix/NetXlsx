@@ -171,6 +171,36 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Structure: merged regions + named ranges ---------------------------
+
+    [Fact]
+    public void Merged_Regions_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("Merged");
+        s["A1"].SetString("header");
+        s.MergeCells("A1:C1");                       // plain merge
+        s.MergeCellsStyled("A2:C2", new CellStyle    // styled merge (lesson #4)
+        {
+            Bold = true,
+            Background = Color.FromRgb(0xDD, 0xDD, 0xDD),
+            Borders = CellBorders.All(BorderStyle.Thin),
+        });
+        s.MergeCells("E1:E10");                       // tall merge
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Named_Ranges_WorkbookAnd_SheetScoped_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("Data");
+        wb.AddSheet("Calc");
+        wb.AddNamedRange("Global", "Data!$A$1:$A$100");
+        wb.AddNamedRange("Scoped", "Calc!$C$3", sheetScope: "Calc");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Portability: the gate target's conservative alternative ------------
     //
     // The standing gate target is Microsoft365; design.md records that engine
@@ -228,6 +258,12 @@ public class SchemaValidationTests
                     data[$"B{r}"].SetNumber(r * 1.5);
                     data[$"B{r}"].NumberFormat("#,##0.00");
                 }
+                // Structure slice (I-82): a merged title banner + named ranges,
+                // exercised through the open -> resave -> validate path below.
+                data["A27"].SetString("Summary");
+                data.MergeCellsStyled("A27:B27", new CellStyle { Bold = true, Background = Color.FromRgb(0xEE, 0xEE, 0xEE) });
+                wb.AddNamedRange("Items", "Data!$A$2:$A$25");
+                wb.AddNamedRange("FirstItem", "Data!$A$2", sheetScope: "Data");
 
                 var meta = wb.AddSheet("Meta");
                 meta["A1"].SetRichText(new RichText(

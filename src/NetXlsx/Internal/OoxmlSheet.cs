@@ -21,7 +21,7 @@ using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx;
 
-internal sealed class OoxmlSheet : ISheet
+internal sealed partial class OoxmlSheet : ISheet
 {
     private readonly OoxmlWorkbook _workbook;
     private readonly WorksheetPart _worksheetPart;
@@ -336,10 +336,8 @@ internal sealed class OoxmlSheet : ISheet
 
     public void SortRange(string a1Range, params SortKey[] keys) => throw NotYet();
 
-    public void MergeCells(string a1Range) => throw NotYet();
-    public void MergeCellsStyled(string a1Range, CellStyle style) => throw NotYet();
-    public void UnmergeCells(string a1Range) => throw NotYet();
-    public IReadOnlyList<string> MergedRanges => throw NotYet();
+    // Merges (MergeCells / MergeCellsStyled / UnmergeCells / MergedRanges) land
+    // in OoxmlSheet.Merges.cs (I-82 structure slice).
 
     public bool Hidden { get => throw NotYet(); set => throw NotYet(); }
     public bool ShowGridlines { get => throw NotYet(); set => throw NotYet(); }

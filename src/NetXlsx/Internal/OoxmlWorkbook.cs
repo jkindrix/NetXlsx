@@ -34,7 +34,7 @@ using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx;
 
-internal sealed class OoxmlWorkbook : IWorkbook
+internal sealed partial class OoxmlWorkbook : IWorkbook
 {
     private readonly SpreadsheetDocument _document;
     private readonly MemoryStream _backing;
@@ -414,8 +414,28 @@ internal sealed class OoxmlWorkbook : IWorkbook
             "legacy engine (Workbook.Create/Open) for this operation, or track the " +
             "swap in docs/design.md (I-82).");
 
-    public INamedRange AddNamedRange(string name, string formula, string? sheetScope = null) => throw NotYet();
-    public IReadOnlyList<INamedRange> NamedRanges => throw NotYet();
+    // Named ranges (AddNamedRange / NamedRanges) land in OoxmlWorkbook.Names.cs
+    // (I-82 structure slice).
+
+    /// <summary>
+    /// The display name of the sheet at <paramref name="zeroBasedIndex"/> in
+    /// workbook (document) order — used by <see cref="OoxmlNamedRange.SheetScope"/>
+    /// to resolve a <c>localSheetId</c>. Returns <c>null</c> if out of range.
+    /// </summary>
+    internal string? SheetNameAt(int zeroBasedIndex)
+        => zeroBasedIndex >= 0 && zeroBasedIndex < _sheetsByIndex.Count
+            ? _sheetsByIndex[zeroBasedIndex].Name
+            : null;
+
+    // Resolves a sheet name to its 0-based document-order index (case-insensitive,
+    // matching the workbook's sheet-name resolution), or -1 if no such sheet.
+    private int IndexOfSheet(string name)
+    {
+        for (int i = 0; i < _sheetsByIndex.Count; i++)
+            if (string.Equals(_sheetsByIndex[i].Name, name, StringComparison.OrdinalIgnoreCase))
+                return i;
+        return -1;
+    }
 
     // ---- Style pool diagnostics + named-style registry (styles slice) ------
     //
