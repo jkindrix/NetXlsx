@@ -14,19 +14,24 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Runtime.CompilerServices;
+using DocumentFormat.OpenXml.Packaging;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx;
 
 internal sealed class OoxmlSheet : ISheet
 {
     private readonly OoxmlWorkbook _workbook;
+    private readonly WorksheetPart _worksheetPart;
     private string _name;
 
-    internal OoxmlSheet(OoxmlWorkbook workbook, string name)
+    internal OoxmlSheet(OoxmlWorkbook workbook, string name, WorksheetPart worksheetPart)
     {
         _workbook = workbook ?? throw new ArgumentNullException(nameof(workbook));
         _name = name ?? throw new ArgumentNullException(nameof(name));
+        _worksheetPart = worksheetPart ?? throw new ArgumentNullException(nameof(worksheetPart));
     }
 
     public string Name
@@ -39,8 +44,111 @@ internal sealed class OoxmlSheet : ISheet
         get { _workbook.ThrowIfDisposed(); return _workbook; }
     }
 
+    internal OoxmlWorkbook WorkbookInternal => _workbook;
+
     // Allows the workbook to keep wrapper names in sync if a rename API lands.
     internal void SetNameInternal(string name) => _name = name;
+
+    // ---- Grid access over the worksheet DOM --------------------------------
+    // Excel requires <row> elements in ascending @r order and <c> elements in
+    // ascending column order within a row. The Get-or-create helpers maintain
+    // that ordering on insert; the Find helpers never mutate the DOM (decision
+    // #40: reading a never-written address must not add nodes).
+
+    // WorksheetPart.Worksheet is annotated nullable; create/open always set it.
+    private S.Worksheet Worksheet => _worksheetPart.Worksheet!;
+
+    private S.SheetData Data =>
+        Worksheet.GetFirstChild<S.SheetData>() ?? Worksheet.AppendChild(new S.SheetData());
+
+    internal S.Row? FindRow(int rowIndex)
+    {
+        foreach (var r in Data.Elements<S.Row>())
+            if (r.RowIndex?.Value == (uint)rowIndex) return r;
+        return null;
+    }
+
+    internal S.Cell? FindCell(int rowIndex, int col)
+    {
+        var row = FindRow(rowIndex);
+        if (row is null) return null;
+        foreach (var c in row.Elements<S.Cell>())
+            if (ColumnOf(c) == col) return c;
+        return null;
+    }
+
+    internal S.Row GetOrCreateRow(int rowIndex)
+    {
+        var data = Data;
+        S.Row? successor = null;
+        foreach (var r in data.Elements<S.Row>())
+        {
+            var ri = r.RowIndex?.Value ?? 0;
+            if (ri == (uint)rowIndex) return r;
+            if (ri > (uint)rowIndex) { successor = r; break; }
+        }
+        var newRow = new S.Row { RowIndex = (uint)rowIndex };
+        if (successor is null) data.AppendChild(newRow);
+        else data.InsertBefore(newRow, successor);
+        return newRow;
+    }
+
+    internal S.Cell GetOrCreateCell(int rowIndex, int col)
+    {
+        var row = GetOrCreateRow(rowIndex);
+        S.Cell? successor = null;
+        foreach (var c in row.Elements<S.Cell>())
+        {
+            int cc = ColumnOf(c);
+            if (cc == col) return c;
+            if (cc > col) { successor = c; break; }
+        }
+        var newCell = new S.Cell { CellReference = CellAddress.Format(rowIndex, col) };
+        if (successor is null) row.AppendChild(newCell);
+        else row.InsertBefore(newCell, successor);
+        return newCell;
+    }
+
+    internal OoxmlCell CellHandle(int row, int col) => new(this, row, col);
+
+    // Populated cells (value / inline string / formula present) within a
+    // rectangle, in row-major then ascending-column order.
+    internal IEnumerable<OoxmlCell> EnumeratePopulated(int r1, int c1, int r2, int c2)
+    {
+        foreach (var row in Data.Elements<S.Row>())
+        {
+            var ri = (int)(row.RowIndex?.Value ?? 0);
+            if (ri < r1 || ri > r2) continue;
+            foreach (var c in row.Elements<S.Cell>())
+            {
+                int col = ColumnOf(c);
+                if (col < c1 || col > c2) continue;
+                if (IsPopulated(c)) yield return new OoxmlCell(this, ri, col);
+            }
+        }
+    }
+
+    private static bool IsPopulated(S.Cell c) =>
+        c.CellValue is not null || c.InlineString is not null || c.CellFormula is not null;
+
+    private static int ColumnOf(S.Cell c)
+    {
+        var reference = c.CellReference?.Value;
+        if (string.IsNullOrEmpty(reference)) return 0;
+        var (_, col) = CellAddress.Parse(reference);
+        return col;
+    }
+
+    private int MaxRowIndex()
+    {
+        int max = 0;
+        foreach (var r in Data.Elements<S.Row>())
+        {
+            int ri = (int)(r.RowIndex?.Value ?? 0);
+            if (ri > max) max = ri;
+        }
+        return max;
+    }
 
     // ---- Not-yet-implemented surface (lands slice by slice; see I-82) -------
 
@@ -51,17 +159,76 @@ internal sealed class OoxmlSheet : ISheet
             "legacy engine (Workbook.Create/Open) for this operation, or track " +
             "the swap in docs/design.md (I-82).");
 
-    public ICell this[string a1] => throw NotYet();
-    public ICell this[int row, int column] => throw NotYet();
+    public ICell this[string a1]
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            var (row, col) = CellAddress.Parse(a1);
+            return new OoxmlCell(this, row, col);
+        }
+    }
 
-    public IRange Range(string a1Range) => throw NotYet();
-    public IRange Range(int row1, int col1, int row2, int col2) => throw NotYet();
+    public ICell this[int row, int column]
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            if (row < 1 || row > CellAddress.MaxRow)
+                throw new ArgumentOutOfRangeException(nameof(row), row, $"row must be in [1, {CellAddress.MaxRow}]");
+            if (column < 1 || column > CellAddress.MaxColumn)
+                throw new ArgumentOutOfRangeException(nameof(column), column, $"column must be in [1, {CellAddress.MaxColumn}]");
+            return new OoxmlCell(this, row, column);
+        }
+    }
 
-    public IRow AppendRow() => throw NotYet();
-    public IRow Row(int index) => throw NotYet();
+    public IRange Range(string a1Range)
+    {
+        _workbook.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(a1Range);
+        var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
+        return new OoxmlRange(this, r1, c1, r2, c2);
+    }
 
-    public IColumn Column(int index) => throw NotYet();
-    public IColumn Column(string letter) => throw NotYet();
+    public IRange Range(int row1, int col1, int row2, int col2)
+    {
+        _workbook.ThrowIfDisposed();
+        foreach (var (label, v, max) in new[] { ("row1", row1, CellAddress.MaxRow), ("col1", col1, CellAddress.MaxColumn), ("row2", row2, CellAddress.MaxRow), ("col2", col2, CellAddress.MaxColumn) })
+            if (v < 1 || v > max)
+                throw new ArgumentOutOfRangeException(label, v, $"{label} must be in [1, {max}]");
+        return new OoxmlRange(this, row1, col1, row2, col2);
+    }
+
+    public IRow AppendRow()
+    {
+        _workbook.ThrowIfDisposed();
+        int next = MaxRowIndex() + 1;
+        GetOrCreateRow(next);
+        return new OoxmlRow(this, next);
+    }
+
+    public IRow Row(int index)
+    {
+        _workbook.ThrowIfDisposed();
+        if (index < 1 || index > CellAddress.MaxRow)
+            throw new ArgumentOutOfRangeException(nameof(index), index, $"row index must be in [1, {CellAddress.MaxRow}]");
+        GetOrCreateRow(index);
+        return new OoxmlRow(this, index);
+    }
+
+    public IColumn Column(int index)
+    {
+        _workbook.ThrowIfDisposed();
+        if (index < 1 || index > CellAddress.MaxColumn)
+            throw new ArgumentOutOfRangeException(nameof(index), index, $"column index must be in [1, {CellAddress.MaxColumn}]");
+        return new OoxmlColumn(this, index);
+    }
+
+    public IColumn Column(string letter)
+    {
+        _workbook.ThrowIfDisposed();
+        return new OoxmlColumn(this, CellAddress.ParseColumn(letter));
+    }
 
     public void FreezeRows(int rows) => throw NotYet();
     public void FreezeColumns(int cols) => throw NotYet();

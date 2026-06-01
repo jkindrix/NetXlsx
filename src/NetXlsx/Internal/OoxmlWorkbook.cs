@@ -162,10 +162,13 @@ internal sealed class OoxmlWorkbook : IWorkbook
     {
         var sheets = _document.WorkbookPart?.Workbook?.GetFirstChild<S.Sheets>();
         if (sheets is null) return;
+        var wbPart = _document.WorkbookPart!;
         foreach (var sheet in sheets.Elements<S.Sheet>())
         {
             var name = sheet.Name?.Value ?? string.Empty;
-            var wrapper = new OoxmlSheet(this, name);
+            // Resolve the worksheet part backing this sheet via its r:id.
+            var wsPart = (WorksheetPart)wbPart.GetPartById(sheet.Id!.Value!);
+            var wrapper = new OoxmlSheet(this, name, wsPart);
             _sheetsByIndex.Add(wrapper);
             _sheetsByName[name] = wrapper;
         }
@@ -224,7 +227,7 @@ internal sealed class OoxmlWorkbook : IWorkbook
         };
         sheets.AppendChild(sheetElement);
 
-        var wrapper = new OoxmlSheet(this, name);
+        var wrapper = new OoxmlSheet(this, name, wsPart);
         _sheetsByIndex.Add(wrapper);
         _sheetsByName[name] = wrapper;
         return wrapper;
