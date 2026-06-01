@@ -178,6 +178,20 @@ are retrofitted onto the helper, and the gate gains open-mutate-validate fixture
 (inject a real-world intervening sibling, mutate, validate) so the blind spot is
 closed for every structural slice from here (SDK-quirk #8).
 
+**Schema-order completeness — machine-checked.** The helper's order lists were found
+to be incomplete (a hand-maintenance hazard that had silently shipped gaps across two
+slices). The lists are now derived from the SDK's *own* compiled schema particle and
+locked by a guard test (`SchemaOrderCanonicalTests`): it reflects
+`DocumentFormat.OpenXml`'s particle metadata for `CT_Worksheet`/`CT_Workbook` and
+fails the build if either list drifts from the SDK by even one element. Ranking now
+keys on element **local name** rather than CLR `Type` (the schema sequence is defined
+over qualified names, and `<absPath>`'s class hides in an extension namespace a
+`Type[]` would miss). Three previously-omitted elements are restored:
+`<legacyDrawing>` / `<legacyDrawingHF>` (worksheet) and `<absPath>` (`x15ac:absPath`,
+workbook ordinal 3 — emitted routinely by Excel and mis-ordered *today* by a shipping
+`<definedNames>` insert before this fix). New open-mutate-validate fixtures cover both
+the workbook `absPath` and worksheet `legacyDrawing` regions.
+
 All structure-second-half fixtures are added to the schema-validation gate (clean
 under `Microsoft365`). No public symbol added; the PublicAPI snapshot is unchanged.
 
@@ -188,9 +202,9 @@ the SDK engine. See `docs/design.md` I-82.
 
 Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
-`OpcPreservationTests`, `SchemaValidationTests`, `MergeTests`,
-`NamedRangeTests`, `PaneTests`, `GroupingTests`, `SheetStructureTests`,
-`SheetProtectionTests`).
+`OpcPreservationTests`, `SchemaValidationTests`, `SchemaOrderCanonicalTests`,
+`MergeTests`, `NamedRangeTests`, `PaneTests`, `GroupingTests`,
+`SheetStructureTests`, `SheetProtectionTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

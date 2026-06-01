@@ -760,6 +760,38 @@ would need its own I-NN, not a quiet addition.
   and cross-checked against the NPOI-engine `FreezeMergeHiddenTests` / `GroupingTests`
   / `SheetProtectionTests`, so the cutover of this surface is de-risked now.
 
+*Schema-order completeness — machine-checked (I-82 sub-decision, added 2026-05-31).*
+A review of the second-half structure slice found `OoxmlSchemaOrder`'s hand-derived
+order lists were **incomplete**, and would mis-position inserts on opened files that
+carry the omitted siblings — the exact class of bug `OoxmlSchemaOrder` exists to
+prevent, just one layer deeper. Two root-cause fixes landed (no public symbol; all
+within `Internal/OoxmlSchemaOrder.cs` + the conformance suite):
+
+- **The order lists are now derived from the SDK's *own* compiled schema particle,
+  not hand-transcribed from ECMA-376, and a guard test enforces that.** A new
+  `SchemaOrderCanonicalTests` reflects `DocumentFormat.OpenXml`'s `ElementMetadata →
+  CompiledParticle → Lookup` for `CT_Worksheet` / `CT_Workbook`, derives the canonical
+  ordered list of child local names (asserting the root particle is a flat `0..n-1`
+  sequence, which guards the helper's flat-rank model against a future SDK schema
+  reshape), and asserts the helper's lists match **element-for-element**. A missing,
+  extra, or misordered name — whether a human omission or an SDK upgrade — now fails
+  the build. This replaces hand-maintenance (which had silently shipped gaps across
+  two consecutive slices) with a machine-checked invariant. The found gaps:
+  `<legacyDrawing>` / `<legacyDrawingHF>` (worksheet, between `<drawing>` and
+  `<drawingHF>`) and `<absPath>` (`x15ac:absPath`, workbook ordinal 3). The worksheet
+  pair detonates only once a *post-drawing* insert ships (tables / OLE / controls);
+  `<absPath>` detonates **today** — Excel emits it routinely, and a `<definedNames>`
+  insert (named ranges, already shipping) would land ahead of it. Both are covered by
+  new open-mutate-validate fixtures.
+- **Ranking now keys on element local name, not CLR `Type`.** The schema sequence is
+  defined over qualified names and the guard derives names from the particle, so a
+  name-keyed list maps to that truth 1:1. It is also more robust: `<absPath>`'s element
+  class lives in an obscure extension namespace
+  (`DocumentFormat.OpenXml.Office2013.ExcelAc.AbsolutePath`) — the kind of awkward type
+  a `Type[]` invites omitting — and name-keying ranks an element correctly whether an
+  opened file round-trips it as its typed class or as an `OpenXmlUnknownElement`. The
+  compile-time safety lost by dropping `typeof(...)` is recovered by the guard test.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
