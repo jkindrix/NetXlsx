@@ -258,8 +258,35 @@ freely):
 A shapes+connectors schema-valid fixture and a connector open-mutate-validate fixture
 (add a connector to an opened sheet carrying `<legacyDrawing>`, exercising the shared
 `<drawing>` schema-ordered insert) are added to the gate (clean under `Microsoft365`).
-The theme round-trip remains deferred to the rest of the drawings slice. No public
-symbol added; the PublicAPI snapshot is unchanged.
+No public symbol added; the PublicAPI snapshot is unchanged.
+
+**Drawings slice — theme round-trip (final sub-slice; completes the slice).**
+`IWorkbook.SetThemeXml` / `GetThemeXml` and the read-side resolution
+(`ResolveThemeColor` ×3 + `GetThemeLineWidthEmu`) are implemented on the SDK engine,
+completing the drawings slice:
+
+- The theme lives in `xl/theme/theme1.xml` as a dedicated `ThemePart` hung off the
+  `WorkbookPart` by the theme relationship — **not** a child of any strict-ordered
+  container, so the schema-order helper (SDK-quirk #8) does not apply here.
+  `SetThemeXml` creates the part via `AddNewPart<ThemePart>()` (which also wires the
+  content type + relationship) and writes the raw bytes with `FeedData`; a re-set
+  reuses the existing part rather than orphaning a relationship. `GetThemeXml` reads
+  the part stream directly (never materializing `ThemePart.Theme` into a DOM that
+  would re-serialize and drift), so the bytes round-trip faithfully across save/open
+  (OOXML truth — lesson #2: a missing theme breaks column-width display and
+  theme-color resolution, so the theme must be preserved).
+- The read side is engine-agnostic: it delegates to the shared `ThemeInfo`
+  parsed-bytes view (decision I-81), so the OOXML cell-color slot mapping
+  (`0=lt1, 1=dk1, 2=lt2, 3=dk2, 4..9=accent1..6, 10=hlink, 11=folHlink`), the
+  `tx1`/`bg1`/`tx2`/`bg2` aliases, Excel's HLS tint algorithm, and the indexed
+  line-width table behave identically to the NPOI engine. The cached `ThemeInfo` is
+  invalidated by `SetThemeXml` so a re-set theme is resolved, not the stale one.
+- The contract mirrors the NPOI-engine `ThemeReadAndDrawingIterationTests` (theme
+  half) verbatim, de-risking the cutover; a theme schema-valid fixture is added to
+  the gate (clean under `Microsoft365`). No public symbol added (all six are existing
+  `IWorkbook` members newly implemented internally); the PublicAPI snapshot is
+  unchanged. **This completes the drawings slice** — the next slice is conditional
+  formatting / data validation / tables / autofilter / sort.
 
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
@@ -270,7 +297,8 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
 `OpcPreservationTests`, `SchemaValidationTests`, `SchemaOrderCanonicalTests`,
 `MergeTests`, `NamedRangeTests`, `PaneTests`, `GroupingTests`,
-`SheetStructureTests`, `SheetProtectionTests`, `PictureTests`).
+`SheetStructureTests`, `SheetProtectionTests`, `PictureTests`,
+`ShapeConnectorTests`, `ThemeTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

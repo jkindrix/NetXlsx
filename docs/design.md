@@ -617,9 +617,9 @@ output, target `Microsoft365`; found the engine already schema-clean, including 
 `<rPr>` child order the handoff flagged) → ✅ structure (split across sessions):
 ✅ merges + named ranges; ✅ panes / grouping / visibility / gridlines / default
 column width / sheet protection (TabColor is not on `ISheet`, so it is out of scope
-without a new I-NN) → **drawings** (split: ✅ pictures; ✅ connectors/shapes; theme
-round-trip ←NEXT) →
-CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
+without a new I-NN) → ✅ drawings (split: ✅ pictures; ✅ connectors/shapes; ✅ theme
+round-trip — slice complete) →
+**CF/validation/tables/autofilter/sort ←NEXT** → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
 decision rows) → source-gen runtime helpers.
 
@@ -798,8 +798,8 @@ within `Internal/OoxmlSchemaOrder.cs` + the conformance suite):
 (`OoxmlSheet.Pictures.cs` + `OoxmlPicture.cs`); it adds no public symbol (the five
 `AddPicture` overloads and `ISheet.Pictures` are existing interface members newly
 implemented internally, so the snapshot gate stays green). The drawings slice is
-split across sessions per its size — ✅ connectors/shapes now land too (next note);
-the theme round-trip is the remaining half.
+split across sessions per its size — ✅ connectors/shapes and ✅ the theme round-trip
+land too (next notes), completing the slice.
 
 - **Part graph.** A picture introduces a *new part type*, not just a worksheet
   attribute: each sheet's images live in a `DrawingsPart` (`xl/drawings/drawingN.xml`,
@@ -884,6 +884,37 @@ freely), so they do not hit SDK-quirk #8 inside it; only the shared worksheet
   the shared schema-ordered `<drawing>` insert) are added to the gate (clean under
   `Microsoft365`); behavior was cross-checked against the NPOI-engine `ShapeTests` /
   `ConnectorTests` / the `Connectors` section of `ThemeReadAndDrawingIterationTests`.
+
+*Drawings slice — theme round-trip (I-82 sub-slice, third and final of the drawings
+split, added 2026-06-01). Completes the drawings slice.* `IWorkbook.SetThemeXml` /
+`GetThemeXml` and the read-side resolution (`ResolveThemeColor` ×3 +
+`GetThemeLineWidthEmu`) land on the SDK engine (`OoxmlWorkbook.Theme.cs`); no public
+symbol added (existing interface members, snapshot gate stays green).
+
+- **The theme is a part, not a strict-ordered child — so SDK-quirk #8 does not apply
+  here.** `xl/theme/theme1.xml` is a dedicated `ThemePart` hung off the `WorkbookPart`
+  by the `…/relationships/theme` relationship. `SetThemeXml` creates it via
+  `AddNewPart<ThemePart>()` (one call wires the content type + relationship), reuses an
+  existing part on a re-set rather than orphaning a relationship, and writes the raw
+  bytes with `FeedData`. `GetThemeXml` reads the part stream directly and never
+  materializes `ThemePart.Theme` into a DOM — a materialized root would re-serialize on
+  Save and drift the bytes, whereas reading/writing the stream round-trips the theme
+  faithfully (OOXML truth — lesson #2: a missing/clobbered theme breaks column-width
+  display and theme-color resolution, so it must be preserved verbatim). This mirrors
+  the NPOI engine, which wrote the part bytes directly through the OPC package.
+- **The read side is engine-agnostic.** `ResolveThemeColor` / `GetThemeLineWidthEmu`
+  delegate to the shared `ThemeInfo` parsed-bytes view (decision I-81) exactly as the
+  NPOI engine does — the OOXML cell-color slot mapping (`0=lt1, 1=dk1, 2=lt2, 3=dk2,
+  4..9=accent1..6, 10=hlink, 11=folHlink`), the `tx1`/`bg1`/`tx2`/`bg2` aliases, Excel's
+  HLS tint algorithm, and the indexed line-width table all live in `ThemeInfo` and are
+  shared verbatim. The cached `ThemeInfo` is invalidated by `SetThemeXml` so a re-set
+  theme resolves to the new scheme, not the stale one.
+- A theme schema-valid fixture is added to the gate (clean under `Microsoft365`); the
+  theme is its own part, not an insert into a strict-sequence container, so no
+  open-mutate-validate fixture is needed (SDK-quirk #8 N/A). Behavior mirrors the
+  NPOI-engine `ThemeReadAndDrawingIterationTests` (theme half) verbatim, de-risking the
+  cutover. **This completes the drawings slice;** the next slice is conditional
+  formatting / data validation / tables / autofilter / sort.
 
 ### 6.2.13 Connectors — I-79, I-80
 
