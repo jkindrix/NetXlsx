@@ -115,10 +115,9 @@ one source-authored `x14:workbookPr/@defaultImageDpi` value that the engine
 OPC-preserves verbatim per lesson #13 — not engine-generated.) See
 `docs/design.md` §6.2.15.
 
-**Structure slice — merges + named ranges.** The SDK engine now implements the
-first half of the sheet/workbook structural surface (the slice is split across
-sessions per its size; panes / visibility / tab color / protection / grouping
-follow):
+**Structure slice — merges + named ranges (first half).** The SDK engine now
+implements the first half of the sheet/workbook structural surface (the slice is
+split across sessions per its size):
 
 - **Merges** — `ISheet.MergeCells` / `MergeCellsStyled` / `UnmergeCells` /
   `MergedRanges`. `<mergeCells>` is written after `<sheetData>` in the worksheet's
@@ -139,6 +138,49 @@ Both fixture families are added to the schema-validation gate (clean under
 is an existing interface member newly implemented on the SDK engine, so the
 PublicAPI snapshot is unchanged.
 
+**Structure slice — panes / grouping / visibility / gridlines / width /
+protection (second half).** Completes the sheet/workbook structural surface on the
+SDK engine, each member writing the OOXML node directly and matching the NPOI
+engine's contract (cross-checked against the NPOI-engine `FreezeMergeHiddenTests` /
+`GroupingTests` / `SheetProtectionTests`):
+
+- **Frozen / split panes** — `ISheet.FreezeRows` / `FreezeColumns` / `FreezePane`
+  / `CreateSplitPane`. Written as `<sheetView><pane>` (xSplit = frozen columns,
+  ySplit = frozen rows, `topLeftCell`, `activePane` + a matching `<selection>`,
+  `state` = frozen or split). `(0, 0)` clears an existing freeze; negative args
+  throw.
+- **Grouping (outline)** — `GroupRows` / `UngroupRows` / `GroupColumns` /
+  `UngroupColumns` / `SetRowGroupCollapsed` (1-based, validated). Row/column
+  `outlineLevel` plus `<sheetFormatPr>` `outlineLevelRow`/`outlineLevelCol` tracking
+  the deepest level; collapse hides the group block and marks the boundary row
+  `collapsed`.
+- **Visibility** — `ISheet.Hidden`, written as the `state` attribute on the
+  workbook's `<sheet>` element (not the worksheet); both `hidden` and `veryHidden`
+  read as hidden, clearing it on un-hide.
+- **Gridlines / default column width** — `ShowGridlines` (`<sheetView>`
+  `showGridLines`, default true, attribute cleared when set back to true) and
+  `DefaultColumnWidth` (`<sheetFormatPr>` `defaultColWidth`; `null` clears it so
+  Excel derives the width from font metrics, lesson #3 / I-78).
+- **Sheet protection** — `Protect(password?, SheetProtection?)` / `Unprotect` /
+  `IsProtected`. `<sheetProtection>` with `sheet=true`, all 15 granular lock flags
+  set explicitly from the options, and the legacy 16-bit XOR verifier in
+  `@password`; `Unprotect` removes the element.
+
+A reusable schema-ordered insertion helper (`OoxmlSchemaOrder`) now places every
+structural element at its correct position in the strict CT_Worksheet / CT_Workbook
+child sequence. This fixes a latent ordering gap carried from the first half: the
+bare `InsertAfter(<sheetData>)` / `InsertAfter(<sheets>)` inserts were correct only
+for engine-*created* files, but on an *opened* file already carrying a legal
+intervening sibling (`<autoFilter>` before `<mergeCells>`,
+`<functionGroups>`/`<externalReferences>` before `<definedNames>`) they emitted
+out-of-order XML that `OpenXmlValidator` rejects. The 5a merge / named-range inserts
+are retrofitted onto the helper, and the gate gains open-mutate-validate fixtures
+(inject a real-world intervening sibling, mutate, validate) so the blind spot is
+closed for every structural slice from here (SDK-quirk #8).
+
+All structure-second-half fixtures are added to the schema-validation gate (clean
+under `Microsoft365`). No public symbol added; the PublicAPI snapshot is unchanged.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -147,7 +189,8 @@ the SDK engine. See `docs/design.md` I-82.
 Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
 `OpcPreservationTests`, `SchemaValidationTests`, `MergeTests`,
-`NamedRangeTests`).
+`NamedRangeTests`, `PaneTests`, `GroupingTests`, `SheetStructureTests`,
+`SheetProtectionTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

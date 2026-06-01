@@ -614,9 +614,10 @@ gets no `<rPr>` so it inherits the cell font — lesson #10 — and the OPC-pres
 gate, lesson #13, is confirmed on the SDK engine via `OpcPreservationTests`) → ✅
 schema-validation gate (cross-cutting conformance — `OpenXmlValidator` over engine
 output, target `Microsoft365`; found the engine already schema-clean, including the
-`<rPr>` child order the handoff flagged) → 🟡 structure (split across sessions):
-✅ merges + named ranges done; **panes / visibility / tab color / protection /
-grouping** ←NEXT → drawings →
+`<rPr>` child order the handoff flagged) → ✅ structure (split across sessions):
+✅ merges + named ranges; ✅ panes / grouping / visibility / gridlines / default
+column width / sheet protection (TabColor is not on `ISheet`, so it is out of scope
+without a new I-NN) → **drawings** ←NEXT →
 CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
 decision rows) → source-gen runtime helpers.
@@ -703,6 +704,61 @@ grouping are the next session's half.
   `FreezeMergeHiddenTests` (merge half) and `NamedRangeApiTests` were cross-checked
   against this SDK behavior — every assertion is satisfied, so this surface's cutover
   is already de-risked.
+
+*Structure slice — panes / grouping / visibility / gridlines / width / protection
+(I-82 sub-slice, second half, added 2026-05-31).* Completes the structural surface
+on the SDK engine; adds no public symbol (every member is an existing `ISheet`
+member newly implemented internally — `OoxmlSheet.Structure.cs` and
+`OoxmlSheet.Protection.cs` — so the snapshot gate stays green). `ISheet.TabColor`
+does not exist on the public surface, so tab color is deliberately out of scope: it
+would need its own I-NN, not a quiet addition.
+
+- **Schema-ordered insertion (SDK-quirk #8, the "fix-first" item).** `CT_Worksheet`
+  and `CT_Workbook` are strict-sequence types and the SDK does not reorder on insert
+  (SDK-quirk #3). The first-half code used `InsertAfter(<sheetData>)` /
+  `InsertAfter(<sheets>)`, which is correct only for engine-*created* files; on an
+  *opened* file already carrying a legal intervening sibling — `<autoFilter>` (which
+  must precede `<mergeCells>`) or `<functionGroups>`/`<externalReferences>` (which
+  must precede `<definedNames>`) — those bare inserts emit out-of-order XML that
+  `OpenXmlValidator` rejects with `Sch_UnexpectedElementContentExpectingComplex`, a
+  regression vs the NPOI engine (which orders internally) at cutover. A reusable
+  helper (`Internal/OoxmlSchemaOrder.cs`) now encodes the ECMA-376 CT_Worksheet /
+  CT_Workbook child sequences and inserts each element before the first existing
+  sibling that must follow it. The 5a merge / named-range inserts are retrofitted
+  onto it (along with `<cols>`), and every structural element here
+  (`<sheetViews>`/`<pane>`, `<sheetFormatPr>`, `<sheetProtection>`) routes through
+  it. The gate gains **open-mutate-validate** fixtures — inject a real intervening
+  sibling, mutate through the engine, validate — making "open realistic content →
+  mutate → validate" a standing pattern that covers the blind spot created-from-
+  scratch fixtures cannot.
+- **Frozen / split panes** (`OoxmlSheet.Structure.cs`): `<sheetView><pane>` with
+  `xSplit` = frozen columns, `ySplit` = frozen rows, `topLeftCell` = first unfrozen
+  cell, `activePane` + a matching `<selection>`, and `state` = `frozen` (panes) or
+  `split` (draggable). Mirrors NPOI's column-first `CreateFreezePane(cols, rows)`
+  mapping and `CreateSplitPane(..., LowerRight)`. `(0,0)` clears; negative args throw.
+- **Grouping (outline):** row/column `outlineLevel` plus `<sheetFormatPr>`
+  `outlineLevelRow`/`outlineLevelCol` tracking the deepest level; `SetRowGroupCollapsed`
+  reproduces POI's group-block detection (hide the contiguous ≥-level block, mark the
+  boundary row `collapsed`). All 1-based, validated ≥1 and start ≤ end.
+- **Visibility** (`ISheet.Hidden`): the `state` attribute on the workbook's
+  `<sheet>` element (resolved via the worksheet part's relationship id), *not* a
+  worksheet child. Both `hidden` and `veryHidden` read as hidden; un-hiding clears
+  the attribute (visible is the default).
+- **Gridlines / default column width:** `ShowGridlines` (`<sheetView>`
+  `showGridLines`, default true; the attribute is cleared, not set to `1`, when true)
+  and `DefaultColumnWidth` (`<sheetFormatPr>` `defaultColWidth`; `null`/non-positive
+  clears it so Excel derives the width from the Normal-style font metrics — lesson #3
+  / I-78). `<sheetFormatPr>` carries the required `@defaultRowHeight` whenever the
+  engine materializes it.
+- **Sheet protection** (`OoxmlSheet.Protection.cs`): `<sheetProtection>` with
+  `sheet=true` and all 15 granular lock flags set explicitly from `SheetProtection`
+  (so the result never depends on the schema's per-attribute defaults), plus the
+  legacy 16-bit XOR verifier in `@password` (ST_UnsignedShortHex). `Unprotect` removes
+  the element. `<sheetProtection>` precedes `<mergeCells>` in CT_Worksheet, handled by
+  the ordering helper. Mirrors the NPOI engine's I-53 contract.
+- All fixtures are added to the schema-validation gate (clean under `Microsoft365`)
+  and cross-checked against the NPOI-engine `FreezeMergeHiddenTests` / `GroupingTests`
+  / `SheetProtectionTests`, so the cutover of this surface is de-risked now.
 
 ### 6.2.13 Connectors — I-79, I-80
 
