@@ -244,6 +244,22 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    [Fact]
+    public void Shapes_And_Connectors_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s.AddShape(ShapeType.Rectangle, "A1", "D5",
+            fillColor: Color.FromRgb(255, 0, 0), lineColor: Color.FromRgb(0, 0, 255));
+        s.AddShape(ShapeType.Ellipse, "F1", "H4");                        // no-fill shape
+        s.AddConnector(ConnectorType.Straight, "I41", "I41",             // line ends + flip + width
+            lineColor: Color.FromRgb(0, 0, 0),
+            dx1: 115661, dy1: 272142, dx2: 891268, dy2: 278946,
+            flipH: true, tailEnd: ConnectorEnd.Arrow, lineWidthPoints: 2.0);
+        s.AddConnector(ConnectorType.Bent, "B2", "E6");                  // plain connector (style block only)
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Schema-ordered insertion into OPENED containers (SDK-quirk #8) ------
     //
     // Every fixture above validates a workbook the engine created from scratch,
@@ -370,6 +386,36 @@ public class SchemaValidationTests
         s.AddPicture("B2", "D5", OnePixelPng, ImageFormat.Png);
 
         // The new <drawing> must precede the pre-existing <legacyDrawing>.
+        var children = ws.ChildElements.ToList();
+        int drawingIdx = children.FindIndex(c => c is S.Drawing);
+        int legacyIdx = children.FindIndex(c => c is S.LegacyDrawing);
+        drawingIdx.Should().BeGreaterThanOrEqualTo(0);
+        drawingIdx.Should().BeLessThan(legacyIdx);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_A_Connector_To_An_Opened_Sheet_Carrying_LegacyDrawing_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("v");
+
+        // Connectors enter the drawing through the same GetOrCreateDrawing path as
+        // pictures, so the first AddConnector on an opened sheet must also slot the
+        // worksheet <drawing> (ordinal 28) AHEAD of an existing <legacyDrawing>
+        // (ordinal 29). The shapes append freely inside xdr:wsDr (not a strict-ordered
+        // container), so only the worksheet-child insert is at risk here.
+        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        var ws = wsp.Worksheet!;
+        var vml = wsp.AddNewPart<VmlDrawingPart>();
+        using (var st = vml.GetStream(FileMode.Create))
+        using (var w = new StreamWriter(st))
+            w.Write("<xml xmlns:v=\"urn:schemas-microsoft-com:vml\"></xml>");
+        ws.AppendChild(new S.LegacyDrawing { Id = wsp.GetIdOfPart(vml) });
+
+        s.AddConnector(ConnectorType.Straight, "A1", "C3", lineColor: Color.FromRgb(0, 0, 0));
+
         var children = ws.ChildElements.ToList();
         int drawingIdx = children.FindIndex(c => c is S.Drawing);
         int legacyIdx = children.FindIndex(c => c is S.LegacyDrawing);

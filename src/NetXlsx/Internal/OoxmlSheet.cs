@@ -304,17 +304,10 @@ internal sealed partial class OoxmlSheet : ISheet
     // Sheet protection lands in OoxmlSheet.Protection.cs.
 
     public IChart AddChart(ChartType type, string startCell, string endCell, string categoryRange, string valueRange, string? title = null) => throw NotYet();
-    public IShape AddShape(ShapeType type, string startCell, string endCell, Color? fillColor = null, Color? lineColor = null) => throw NotYet();
-    public IConnector AddConnector(ConnectorType type, string startCell, string endCell,
-        Color? lineColor = null,
-        int dx1 = 0, int dy1 = 0, int dx2 = 0, int dy2 = 0,
-        bool flipH = false, bool flipV = false,
-        ConnectorEnd headEnd = ConnectorEnd.None, ConnectorEnd tailEnd = ConnectorEnd.None,
-        double? lineWidthPoints = null) => throw NotYet();
 
     // Pictures (AddPicture overloads + Pictures read-back) land in
-    // OoxmlSheet.Pictures.cs (I-82 drawings slice).
-    public IReadOnlyList<IConnector> Connectors => throw NotYet();
+    // OoxmlSheet.Pictures.cs; shapes/connectors (AddShape, AddConnector,
+    // Connectors) land in OoxmlSheet.Shapes.cs (I-82 drawings slice).
 
     public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules) => throw NotYet();
     public int ConditionalFormattingCount => throw NotYet();
