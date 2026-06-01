@@ -115,17 +115,13 @@ internal sealed partial class OoxmlSheet
         }
     }
 
-    // <mergeCells> lives after <sheetData> in CT_Worksheet's child sequence.
+    // <mergeCells> sits after <sheetData> (and after <sheetProtection> /
+    // <autoFilter> / <sortState> / … when present) in CT_Worksheet's child
+    // sequence. OoxmlSchemaOrder places it correctly even on an opened file that
+    // already carries an intervening sibling (SDK-quirk #8); a bare
+    // InsertAfter(<sheetData>) would emit out-of-order XML in that case.
     private S.MergeCells GetOrCreateMergeCells()
-    {
-        var existing = Worksheet.GetFirstChild<S.MergeCells>();
-        if (existing is not null) return existing;
-        var merges = new S.MergeCells();
-        var sheetData = Worksheet.GetFirstChild<S.SheetData>();
-        if (sheetData is not null) Worksheet.InsertAfter(merges, sheetData);
-        else Worksheet.AppendChild(merges);
-        return merges;
-    }
+        => OoxmlSchemaOrder.GetOrInsert(Worksheet, static () => new S.MergeCells());
 
     private static bool RangesOverlap(
         int ar1, int ac1, int ar2, int ac2,

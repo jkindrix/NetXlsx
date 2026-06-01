@@ -88,29 +88,13 @@ internal sealed partial class OoxmlWorkbook
     private S.DefinedNames? DefinedNamesContainer()
         => _document.WorkbookPart?.Workbook?.GetFirstChild<S.DefinedNames>();
 
-    // <definedNames> sits between <sheets> and <calcPr> in CT_Workbook.
+    // <definedNames> sits between <sheets> and <calcPr> in CT_Workbook — and
+    // after <functionGroups> / <externalReferences> when an opened file carries
+    // them. OoxmlSchemaOrder places it correctly in every case (SDK-quirk #8); a
+    // bare InsertAfter(<sheets>) would emit out-of-order XML past those siblings.
     private S.DefinedNames GetOrCreateDefinedNames()
-    {
-        var workbook = _document.WorkbookPart!.Workbook!;
-        var existing = workbook.GetFirstChild<S.DefinedNames>();
-        if (existing is not null) return existing;
-
-        var dn = new S.DefinedNames();
-        var sheets = workbook.GetFirstChild<S.Sheets>();
-        if (sheets is not null)
-        {
-            workbook.InsertAfter(dn, sheets);
-        }
-        else
-        {
-            // <sheets> is always present on a created/opened workbook; this branch
-            // is defensive. Fall back to before <calcPr>, else append.
-            var calcPr = workbook.GetFirstChild<S.CalculationProperties>();
-            if (calcPr is not null) workbook.InsertBefore(dn, calcPr);
-            else workbook.AppendChild(dn);
-        }
-        return dn;
-    }
+        => OoxmlSchemaOrder.GetOrInsert(
+            _document.WorkbookPart!.Workbook!, static () => new S.DefinedNames());
 
     // Excel defined-name rules (the documented IWorkbook.AddNamedRange contract):
     // 1-255 chars; first char a letter or underscore; remaining letters / digits /
