@@ -28,9 +28,11 @@ using System.IO;
 using System.Linq;
 using AwesomeAssertions;
 using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Validation;
 using NetXlsx;
 using Xunit;
+using ExcelAc = DocumentFormat.OpenXml.Office2013.ExcelAc;
 using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx.OoxmlEngine.Tests;
@@ -267,6 +269,59 @@ public class SchemaValidationTests
         workbook.InsertAfter(new S.FunctionGroups(), workbook.GetFirstChild<S.Sheets>());
 
         wb.AddNamedRange("Items", "Data!$A$1:$A$10");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Mutating_An_Opened_Workbook_Carrying_AbsPath_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("Data");
+
+        // <x15ac:absPath> sits at ordinal 3 (between <workbookPr> and the rest). Excel
+        // emits it routinely; its element class lives in an Office2013 extension
+        // namespace (DocumentFormat.OpenXml.Office2013.ExcelAc.AbsolutePath), which is
+        // why OoxmlSchemaOrder keys by element NAME — the schema sequence is defined
+        // over qualified names, not CLR types. This is the workbook analogue of the
+        // worksheet's <legacyDrawing> gap, and unlike that one it detonates with a
+        // SHIPPING insert: <definedNames> (ordinal 9) would land ahead of an unranked
+        // absPath, producing out-of-order XML. Name-keying ranks absPath at 3 so the
+        // insert slots in after it.
+        var workbook = wb.OpenXmlDocument!.WorkbookPart!.Workbook!;
+        workbook.InsertAfter(
+            new ExcelAc.AbsolutePath { Url = @"C:\reports\" },
+            workbook.GetFirstChild<S.WorkbookProperties>());
+
+        wb.AddNamedRange("Items", "Data!$A$1:$A$10");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Mutating_An_Opened_Sheet_Carrying_LegacyDrawing_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("v");
+        s["B1"].SetString("w");
+
+        // <legacyDrawing> (ordinal 29) is the post-<drawing> anchor that real files
+        // carry for comments / form controls — ubiquitous, and the reason the post-
+        // drawing region matters. Inject one (backed by a VML drawing part so it is
+        // schema-valid) to simulate that opened file. Its RANK is machine-checked by
+        // SchemaOrderCanonicalTests; behaviorally it only mis-orders once a post-
+        // drawing insert (tables / OLE / controls) ships, so this fixture guards that
+        // a pre-drawing engine mutation slots in ahead of <legacyDrawing> and leaves
+        // the post-drawing region intact.
+        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        var ws = wsp.Worksheet!;
+        var vml = wsp.AddNewPart<VmlDrawingPart>();
+        using (var st = vml.GetStream(FileMode.Create))
+        using (var w = new StreamWriter(st))
+            w.Write("<xml xmlns:v=\"urn:schemas-microsoft-com:vml\"></xml>");
+        ws.AppendChild(new S.LegacyDrawing { Id = wsp.GetIdOfPart(vml) });
+
+        s.Protect();                 // sheetProtection (ordinal 7)
+        s.MergeCells("A1:B1");       // mergeCells (ordinal 14)
         OpenXmlValidationGate.AssertValid(wb);
     }
 
