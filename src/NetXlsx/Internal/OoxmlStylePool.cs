@@ -502,6 +502,72 @@ internal sealed class OoxmlStylePool
         return false;
     }
 
+    // ---- Rich-text run properties (<rPr>) -----------------------------------
+    // A rich-text run carries its font as inline <rPr> properties on the <r>
+    // node, NOT a cellXfs font index — so these build/read S.RunProperties
+    // directly and never touch the font pool. The marquee semantic (lesson #10):
+    // a run whose style is empty gets NO <rPr>, so it inherits the cell's font.
+    // Absent axes inside a present <rPr> inherit too — so, unlike the cell-style
+    // font path, a null FontName/FontSize is omitted rather than defaulted.
+
+    /// <summary>
+    /// Builds the <c>&lt;rPr&gt;</c> for a rich-text run, or <c>null</c> when the
+    /// run style is empty (the run then inherits the cell font — lesson #10). The
+    /// child order mirrors the styles <c>&lt;font&gt;</c> sequence
+    /// (b/i/u/sz/color/rFont) Excel writes; the run-font element is
+    /// <c>&lt;rFont&gt;</c>, not <c>&lt;name&gt;</c>.
+    /// </summary>
+    internal static S.RunProperties? BuildRunProperties(RichTextStyle style)
+    {
+        if (IsEmptyRunStyle(style)) return null;
+
+        var rpr = new S.RunProperties();
+        if (style.Bold == true) rpr.AppendChild(new S.Bold());
+        if (style.Italic == true) rpr.AppendChild(new S.Italic());
+        if (style.Underline is { } u && u != UnderlineStyle.None)
+            rpr.AppendChild(new S.Underline { Val = MapUnderline(u) });
+        if (style.FontSize is { } sz) rpr.AppendChild(new S.FontSize { Val = sz });
+        if (style.Color is { } c) rpr.AppendChild(ToColor<S.Color>(c));
+        if (!string.IsNullOrEmpty(style.FontName)) rpr.AppendChild(new S.RunFont { Val = style.FontName });
+        return rpr;
+    }
+
+    /// <summary>
+    /// Reads a rich-text run's <c>&lt;rPr&gt;</c> back to a
+    /// <see cref="RichTextStyle"/>. A <c>null</c> <paramref name="rpr"/> (no run
+    /// properties) reads as <see cref="RichTextStyle.Default"/> — the inherited
+    /// cell font. Lossy for axes the run model does not cover, exactly like
+    /// <see cref="ReadFont"/>; theme/indexed run colors read as <c>null</c> until
+    /// the theme slice, matching the NPOI engine's RGB-only run-color read.
+    /// </summary>
+    internal static RichTextStyle ReadRunStyle(S.RunProperties? rpr)
+    {
+        if (rpr is null) return RichTextStyle.Default;
+
+        bool? bold = rpr.GetFirstChild<S.Bold>() is { } bx ? (bx.Val?.Value ?? true) ? true : (bool?)null : null;
+        bool? italic = rpr.GetFirstChild<S.Italic>() is { } ix ? (ix.Val?.Value ?? true) ? true : (bool?)null : null;
+        UnderlineStyle? underline = rpr.GetFirstChild<S.Underline>() is { } ux
+            ? MapUnderlineBack(ux.Val?.Value ?? S.UnderlineValues.Single)
+            : null;
+        string? name = rpr.GetFirstChild<S.RunFont>()?.Val?.Value;
+        double? size = rpr.GetFirstChild<S.FontSize>()?.Val?.Value;
+        Color? color = FromColor(rpr.GetFirstChild<S.Color>());
+
+        return new RichTextStyle
+        {
+            Bold = bold,
+            Italic = italic,
+            Underline = underline,
+            FontName = name,
+            FontSize = size,
+            Color = color,
+        };
+    }
+
+    private static bool IsEmptyRunStyle(RichTextStyle s) =>
+        s.Bold is null && s.Italic is null && s.Underline is null
+        && s.FontName is null && s.FontSize is null && s.Color is null;
+
     // ---- Helpers ------------------------------------------------------------
 
     private static bool IsEmpty(CellStyle s) =>

@@ -6,16 +6,16 @@
 // NOT add a node to the DOM. Writes materialize the <row>/<c> elements (in the
 // ascending order Excel requires) via the sheet's grid helpers.
 //
-// Implemented this slice: string / number / bool set + get, Kind, Clear, the
-// numeric-interpretation getters (GetTime/GetDuration), and the address members.
-// Deferred (throw NotYet): SetDate/SetTime/SetDuration and SetFormula — a date
-// in OOXML is a number plus a date number-format style, so it belongs with the
-// styles slice; formulas belong with their own slice. Styling, comments, and
-// hyperlinks land in later slices. GetDate/GetFormula/GetError/GetRichText
-// return null here, which is correct: this engine cannot yet produce date,
-// formula, error, or rich-text cells.
+// Implemented across slices: string / number / bool set + get, Kind, Clear, the
+// numeric-interpretation getters (GetTime/GetDuration), the address members
+// (cells & rows); date/time setters + styling (cell styles); rich text
+// (SetRichText/GetRichText, this slice — inline <r> runs, with empty-style runs
+// inheriting the cell font per lesson #10). Deferred (throw NotYet): SetFormula,
+// comments, hyperlinks land in later slices. GetFormula/GetError return null
+// here, which is correct: this engine cannot yet produce formula or error cells.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -220,8 +220,6 @@ internal sealed class OoxmlCell : ICell
     // No formula / error cells are producible on this engine yet; null is correct.
     public string? GetFormula() { Wb.ThrowIfDisposed(); return null; }
     public CellError? GetError() { Wb.ThrowIfDisposed(); return null; }
-    // A plain string cell returns null per the GetRichText contract.
-    public RichText? GetRichText() { Wb.ThrowIfDisposed(); return null; }
 
     private string ReadString(S.Cell c)
     {
@@ -309,6 +307,89 @@ internal sealed class OoxmlCell : ICell
             c.StyleIndex = Wb.StylePool.GetOrCreate(defaultStyle);
     }
 
+    // ---- Rich text (rich-text slice) ---------------------------------------
+    // A multi-run formatted string is written as an inline rich string —
+    // <c t="inlineStr"><is><r>…</r>…</is></c> — one <r> per RichTextRun. Each
+    // run's <rPr> carries its font axes inline (the style pool's run-property
+    // builder); a run whose style is empty gets NO <rPr> and so inherits the
+    // cell font (lesson #10 — the exact inheritance the NPOI path could not
+    // preserve). Kind is String; GetString returns the concatenated run text.
+
+    public void SetRichText(RichText value)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(value);
+
+        var plain = value.PlainText;
+        int limit = Wb.Options.MaxCellTextLength;
+        if (plain.Length > limit)
+            throw new ResourceLimitExceededException("cell text length", limit, plain.Length);
+
+        var c = _sheet.GetOrCreateCell(_row, _col);
+        c.RemoveAllChildren();
+        c.CellFormula = null;
+        c.DataType = S.CellValues.InlineString;
+
+        var inline = new S.InlineString();
+        foreach (var run in value.Runs)
+        {
+            // Empty runs contribute no formatting run (parity with the NPOI engine).
+            if (run.Text.Length == 0) continue;
+            var r = new S.Run();
+            // <rPr> must precede <t> in an <r>; a null <rPr> means "inherit".
+            if (OoxmlStylePool.BuildRunProperties(run.Style) is { } rpr) r.AppendChild(rpr);
+            r.AppendChild(new S.Text(run.Text) { Space = SpaceProcessingModeValues.Preserve });
+            inline.AppendChild(r);
+        }
+        c.AppendChild(inline);
+    }
+
+    public RichText? GetRichText()
+    {
+        Wb.ThrowIfDisposed();
+        var c = Element;
+        // Only string cells can carry formatting runs; everything else is null.
+        if (KindOf(c) != CellKind.String) return null;
+
+        var runs = ReadRuns(c!);
+        // A plain string (no <r> runs) returns null per the GetRichText contract,
+        // distinguishing "set via SetRichText / file has rich text" from "plain".
+        return runs is null || runs.Count == 0 ? null : new RichText(runs);
+    }
+
+    // Collects the <r> formatting runs of a string cell, or null when it carries
+    // none (a plain inline/shared <t>). Handles both the inline strings this
+    // engine writes and shared-string <si> runs an opened file may carry.
+    private List<RichTextRun>? ReadRuns(S.Cell c)
+    {
+        var t = c.DataType?.Value;
+        IEnumerable<S.Run>? rawRuns = null;
+        if (t == S.CellValues.InlineString)
+        {
+            rawRuns = c.InlineString?.Elements<S.Run>();
+        }
+        else if (t == S.CellValues.SharedString)
+        {
+            if (int.TryParse(c.CellValue?.InnerText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx))
+                rawRuns = SharedStringItemAt(idx)?.Elements<S.Run>();
+        }
+        if (rawRuns is null) return null;
+
+        var runs = new List<RichTextRun>();
+        foreach (var r in rawRuns)
+        {
+            var text = r.Text?.InnerText ?? string.Empty;
+            runs.Add(new RichTextRun(text, OoxmlStylePool.ReadRunStyle(r.RunProperties)));
+        }
+        return runs;
+    }
+
+    private S.SharedStringItem? SharedStringItemAt(int index)
+    {
+        var sst = Wb.OpenXmlDocument?.WorkbookPart?.SharedStringTablePart?.SharedStringTable;
+        return sst?.Elements<S.SharedStringItem>().ElementAtOrDefault(index);
+    }
+
     // ---- Styling (styles slice) --------------------------------------------
 
     public ICell Style(CellStyle style)
@@ -372,7 +453,6 @@ internal sealed class OoxmlCell : ICell
             "(I-82 engine swap). It lands in a later slice (formulas/comments/" +
             "hyperlinks/rich text); track the swap in docs/design.md (I-82).");
 
-    public void SetRichText(RichText value) => throw NotYet();
     public void SetFormula(string formula) => throw NotYet();
 
     public ICell Comment(string text, string? author = null) => throw NotYet();
