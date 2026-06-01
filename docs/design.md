@@ -614,7 +614,8 @@ gets no `<rPr>` so it inherits the cell font — lesson #10 — and the OPC-pres
 gate, lesson #13, is confirmed on the SDK engine via `OpcPreservationTests`) → ✅
 schema-validation gate (cross-cutting conformance — `OpenXmlValidator` over engine
 output, target `Microsoft365`; found the engine already schema-clean, including the
-`<rPr>` child order the handoff flagged) → **merges / named ranges / panes /
+`<rPr>` child order the handoff flagged) → 🟡 structure (split across sessions):
+✅ merges + named ranges done; **panes / visibility / tab color / protection /
 grouping** ←NEXT → drawings →
 CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
@@ -668,6 +669,40 @@ slices add their fixtures to the gate, so it widens with the engine.
   a synthetic round-trip (the project commits no binary fixtures — decision I18
   option b — and the stress files live only in the operator's Downloads); the
   stress-file validation is operator-side evidence.
+
+*Structure slice — merges + named ranges (I-82 sub-slice, added 2026-05-31).* The
+first half of the structural surface lands on the SDK engine; it adds no public
+symbol (every member is an existing interface member newly implemented internally,
+so no `PublicAPI.Unshipped` entry and the snapshot gate stays green). The slice is
+split across sessions per its size — panes / visibility / tab color / protection /
+grouping are the next session's half.
+
+- **Merges** (`OoxmlSheet.Merges.cs`): `<mergeCells>` is inserted *after*
+  `<sheetData>` in `CT_Worksheet`'s strict sequence (SDK-quirk #3), mirroring how
+  `<cols>` is inserted *before* it. `CT_MergeCells` requires ≥1 child, so unmerging
+  the last region drops the container rather than leaving a schema-invalid childless
+  `<mergeCells/>`; the optional `@count` is kept in sync. Contract matches the NPOI
+  engine exactly: 1×1 merge is a no-op (I-38), an overlapping merge throws
+  `InvalidOperationException` (§6.4), `UnmergeCells` of a non-exact range is a silent
+  no-op, `MergedRanges` returns canonical `A1:C3` strings, and `MergeCellsStyled`
+  styles every cell in the range before merging (lesson #4 — merged-region borders
+  render from the boundary cells, so cells emit before merges).
+- **Named ranges** (`OoxmlWorkbook.Names.cs` + `OoxmlNamedRange.cs`):
+  `<definedNames>` is inserted between `<sheets>` and `<calcPr>` in `CT_Workbook`.
+  A `localSheetId` (0-based document-order sheet index) carries sheet scope and is
+  resolved back to the sheet name on read. The leading `=` is stripped; names must
+  be unique workbook-wide case-insensitively regardless of scope (the NPOI engine's
+  documented constraint — its duplicate message contains both "already exists" and
+  "unique workbook-wide" so the existing `NamedRangeApiTests` pass at cutover). The
+  SDK has no built-in name validator, so the documented Excel name rules (start with
+  letter/underscore; letters/digits/underscore/period; not a cell reference like A1)
+  are enforced in `ValidateDefinedName` — reproducing what the NPOI engine delegated
+  to `XSSFName.ValidateName`.
+- Both fixture families are added to the schema-validation gate; the engine output
+  validates clean under `Microsoft365` (no engine quirk surfaced). All NPOI-engine
+  `FreezeMergeHiddenTests` (merge half) and `NamedRangeApiTests` were cross-checked
+  against this SDK behavior — every assertion is satisfied, so this surface's cutover
+  is already de-risked.
 
 ### 6.2.13 Connectors — I-79, I-80
 

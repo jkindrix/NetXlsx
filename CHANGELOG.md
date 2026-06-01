@@ -115,6 +115,30 @@ one source-authored `x14:workbookPr/@defaultImageDpi` value that the engine
 OPC-preserves verbatim per lesson #13 — not engine-generated.) See
 `docs/design.md` §6.2.15.
 
+**Structure slice — merges + named ranges.** The SDK engine now implements the
+first half of the sheet/workbook structural surface (the slice is split across
+sessions per its size; panes / visibility / tab color / protection / grouping
+follow):
+
+- **Merges** — `ISheet.MergeCells` / `MergeCellsStyled` / `UnmergeCells` /
+  `MergedRanges`. `<mergeCells>` is written after `<sheetData>` in the worksheet's
+  strict child order; the container is dropped (not left childless) when the last
+  region is removed. Behavior matches the NPOI engine: 1×1 merge no-op (I-38),
+  overlap throws `InvalidOperationException` (§6.4), non-exact unmerge is a silent
+  no-op, `MergedRanges` is canonical `A1:C3`, and `MergeCellsStyled` styles every
+  cell in the range before merging so merged-region borders render from the
+  boundary cells (lesson #4).
+- **Named ranges** — `IWorkbook.AddNamedRange` / `NamedRanges` (+ `INamedRange`).
+  Stored as `<definedNames>` in `workbook.xml`; sheet scope round-trips via
+  `localSheetId`. Leading `=` is stripped, names are unique workbook-wide
+  case-insensitively regardless of scope, and Excel name rules are validated
+  (the SDK has no built-in validator). Contract matches the NPOI engine.
+
+Both fixture families are added to the schema-validation gate (clean under
+`Microsoft365`). No engine quirk surfaced. No public symbol added — every member
+is an existing interface member newly implemented on the SDK engine, so the
+PublicAPI snapshot is unchanged.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -122,7 +146,8 @@ the SDK engine. See `docs/design.md` I-82.
 
 Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
-`OpcPreservationTests`, `SchemaValidationTests`).
+`OpcPreservationTests`, `SchemaValidationTests`, `MergeTests`,
+`NamedRangeTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 
