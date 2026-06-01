@@ -195,6 +195,36 @@ the workbook `absPath` and worksheet `legacyDrawing` regions.
 All structure-second-half fixtures are added to the schema-validation gate (clean
 under `Microsoft365`). No public symbol added; the PublicAPI snapshot is unchanged.
 
+**Drawings slice — pictures (first sub-slice).** The SDK engine now embeds and
+reads back images. `ISheet.AddPicture` (all five overloads — single-cell, range,
+each with explicit `ImageFormat` or magic-byte auto-detection, plus the range +
+EMU-offset overload) and `ISheet.Pictures` are implemented on the SDK engine:
+
+- Each sheet's images live in a `DrawingsPart` (`xl/drawings/drawingN.xml`,
+  `xdr:wsDr`) referenced by a worksheet `<drawing r:id>` child, with the bytes in
+  an `ImagePart` referenced by the picture's blip fill. The `<drawing>` child is
+  placed by `OoxmlSchemaOrder`, so adding a picture to an *opened* sheet that
+  already carries a later sibling (e.g. `<legacyDrawing>` for comments / form
+  controls) keeps the worksheet schema-ordered (SDK-quirk #8).
+- Single-cell overloads anchor at the cell's top-left at the image's **natural
+  pixel size** via an `xdr:oneCellAnchor` with an EMU `<xdr:ext>` (PNG IHDR / JPEG
+  SOFn dimensions × 9525 EMU/px) — no column-width-dependent resize. Range
+  overloads anchor across two cells (`xdr:twoCellAnchor`), preserving per-image EMU
+  offsets `dx1/dy1/dx2/dy2`, the end cell exclusive (lesson #5). The
+  `FromCell`/`ToCell` read-back round-trips the 1-based addresses identically to the
+  NPOI engine; a one-cell anchor reports `ToCell == FromCell` and `Dx2 == Dy2 == 0`.
+- Magic-byte detection and validation mirror the NPOI engine exactly (PNG `89 50 4E
+  47 …`, JPEG `FF D8 FF`; `UnsupportedImageFormatException` otherwise), de-risking
+  the cutover. `IPicture.Underlying` (NPOI `XSSFPicture`) throws
+  `NotSupportedException` on the SDK engine, the same escape-hatch divergence as
+  `IWorkbook`/`ISheet`; the SDK package is reachable via `IWorkbook.OpenXmlDocument`.
+
+Picture fixtures (both anchor kinds) and an open-mutate-validate fixture (add a
+picture to an opened sheet carrying `<legacyDrawing>`) are added to the
+schema-validation gate (clean under `Microsoft365`). Connectors / shapes and the
+theme round-trip remain deferred to the rest of the drawings slice. No public symbol
+added; the PublicAPI snapshot is unchanged.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -204,7 +234,7 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
 `OpcPreservationTests`, `SchemaValidationTests`, `SchemaOrderCanonicalTests`,
 `MergeTests`, `NamedRangeTests`, `PaneTests`, `GroupingTests`,
-`SheetStructureTests`, `SheetProtectionTests`).
+`SheetStructureTests`, `SheetProtectionTests`, `PictureTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

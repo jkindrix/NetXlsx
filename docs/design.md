@@ -617,7 +617,8 @@ output, target `Microsoft365`; found the engine already schema-clean, including 
 `<rPr>` child order the handoff flagged) → ✅ structure (split across sessions):
 ✅ merges + named ranges; ✅ panes / grouping / visibility / gridlines / default
 column width / sheet protection (TabColor is not on `ISheet`, so it is out of scope
-without a new I-NN) → **drawings** ←NEXT →
+without a new I-NN) → **drawings** (split: ✅ pictures; connectors/shapes; theme
+round-trip ←NEXT) →
 CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
 decision rows) → source-gen runtime helpers.
@@ -791,6 +792,53 @@ within `Internal/OoxmlSchemaOrder.cs` + the conformance suite):
   a `Type[]` invites omitting — and name-keying ranks an element correctly whether an
   opened file round-trips it as its typed class or as an `OpenXmlUnknownElement`. The
   compile-time safety lost by dropping `typeof(...)` is recovered by the guard test.
+
+*Drawings slice — pictures (I-82 sub-slice, first of the drawings split, added
+2026-05-31).* The first part of the drawings surface lands on the SDK engine
+(`OoxmlSheet.Pictures.cs` + `OoxmlPicture.cs`); it adds no public symbol (the five
+`AddPicture` overloads and `ISheet.Pictures` are existing interface members newly
+implemented internally, so the snapshot gate stays green). The drawings slice is
+split across sessions per its size — connectors/shapes and the theme round-trip are
+the remaining halves.
+
+- **Part graph.** A picture introduces a *new part type*, not just a worksheet
+  attribute: each sheet's images live in a `DrawingsPart` (`xl/drawings/drawingN.xml`,
+  root `xdr:wsDr` = `WorksheetDrawing`) referenced by a worksheet `<drawing r:id>`
+  child; the bytes live in an `ImagePart` (`AddImagePart` + `FeedData`) referenced by
+  each picture's blip fill (`a:blip/@r:embed`). `GetOrCreateDrawing` creates the part
+  + relationship once per sheet and reuses it for subsequent pictures; `cNvPr/@id` is
+  allocated unique-within-drawing (max existing + 1) so it composes with the later
+  connector/shape sub-slice.
+- **`<drawing>` is schema-ordered.** It sits near the end of `CT_Worksheet`'s child
+  sequence (just before `<legacyDrawing>`), so it routes through
+  `OoxmlSchemaOrder.GetOrInsert` (SDK-quirk #8). Because pictures add a part graph,
+  the opened-file path matters more here than in any prior slice; the gate gains an
+  open-mutate-validate fixture that adds a picture to an opened sheet already carrying
+  a `<legacyDrawing>` (backed by a VML part) and asserts the new `<drawing>` slots in
+  *ahead* of it.
+- **Anchor strategy.** Single-cell overloads anchor at a cell's top-left at the
+  image's **natural pixel size** via an `xdr:oneCellAnchor` with an EMU `<xdr:ext>`
+  (PNG IHDR / JPEG SOFn dimensions × 9525 EMU/px). This is cleaner than the NPOI
+  engine's `CreatePicture` + `Resize()` (which depends on column-width metrics) and
+  renders identically — a fidelity win the schema-complete engine unlocks. Range
+  overloads anchor across two cells (`xdr:twoCellAnchor`) preserving per-image EMU
+  offsets `dx1/dy1/dx2/dy2`, the end cell exclusive (lesson #5). The `FromCell`/
+  `ToCell` read-back round-trips 1-based addresses identically to the NPOI engine
+  (`AddPicture("B3","D6",…)` → `FromCell "B3"` / `ToCell "D6"`); a one-cell anchor
+  reports `ToCell == FromCell` and `Dx2 == Dy2 == 0` (it has no distinct end cell;
+  the rendered size lives in `<xdr:ext>`, which `IPicture` does not expose, matching
+  the NPOI `IPicture` surface).
+- **Format detection + escape hatch.** Magic-byte detection and the validation
+  surface mirror the NPOI engine exactly (PNG `89 50 4E 47 …`, JPEG `FF D8 FF`;
+  `UnsupportedImageFormatException` for anything else; null / bad-address guards), so
+  the cutover is de-risked. `IPicture.Underlying` (NPOI `XSSFPicture`) throws
+  `NotSupportedException` on the SDK engine — the same escape-hatch divergence as
+  `IWorkbook`/`ISheet`; the SDK package is reachable via `IWorkbook.OpenXmlDocument`.
+- All picture fixtures (both anchor kinds + the open-mutate one) are added to the
+  schema-validation gate (clean under `Microsoft365`), and the behavior was
+  cross-checked against the NPOI-engine `PictureApiTests` /
+  `RowHeightAndPictureAnchorTests` / the `Pictures` section of
+  `ThemeReadAndDrawingIterationTests`.
 
 ### 6.2.13 Connectors — I-79, I-80
 
