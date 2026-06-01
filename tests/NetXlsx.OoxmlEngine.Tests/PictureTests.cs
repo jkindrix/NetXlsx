@@ -135,6 +135,30 @@ public class PictureTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // Pins the JPEG SOF dimension walk against a real multi-pixel frame: the only other
+    // JPEG fixture (TinyJpeg) is 1×1, indistinguishable from JpegDimensions' (1,1)
+    // fallback, so a broken SOF walk would pass every other JPEG test. Distinct width
+    // and height (3×2) also catch a transposed height/width read.
+    [Fact]
+    public void AddPicture_SingleCell_JPEG_Uses_The_Parsed_SOF_Dimensions()
+    {
+        // SOI (FF D8) + SOF0 (FF C0, len 000B, precision 08, height 0002, width 0003,
+        // 1 component) + EOI (FF D9). The bytes need only parse + round-trip, not render.
+        var jpeg = new byte[]
+        {
+            0xFF, 0xD8, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x02, 0x00, 0x03,
+            0x01, 0x01, 0x11, 0x00, 0xFF, 0xD9,
+        };
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("S").AddPicture("A1", jpeg).Format.Should().Be(ImageFormat.Jpeg);
+
+        var ext = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+            .SelectMany(p => p.GetPartsOfType<DrawingsPart>()).Single()
+            .WorksheetDrawing!.Descendants<XDR.Extent>().Single();
+        ext.Cx!.Value.Should().Be(3 * EmuPerPixel);   // width
+        ext.Cy!.Value.Should().Be(2 * EmuPerPixel);   // height
+    }
+
     // ---- Happy path: two-cell overloads -------------------------------------
 
     [Fact]
