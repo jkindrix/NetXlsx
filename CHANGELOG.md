@@ -225,6 +225,42 @@ schema-validation gate (clean under `Microsoft365`). Connectors / shapes and the
 theme round-trip remain deferred to the rest of the drawings slice. No public symbol
 added; the PublicAPI snapshot is unchanged.
 
+**Drawings slice — shapes + connectors (second sub-slice).** `ISheet.AddShape`,
+`ISheet.AddConnector`, and `ISheet.Connectors` are implemented on the SDK engine,
+appending into the same `xdr:wsDr` root the pictures sub-slice builds (no new
+part-type wiring; `xdr:wsDr` is not a strict-ordered container, so anchors append
+freely):
+
+- **Shapes** (`xdr:sp`) anchor across two cells with the end cell **exclusive** (the
+  picture/shape convention). The public `ShapeType` maps to the OOXML preset geometry
+  the NPOI engine emits — `rect` / `roundRect` / `ellipse` / `line` / `triangle` /
+  `diamond`; `fillColor` → `<a:solidFill>` (else `<a:noFill>`), `lineColor` →
+  `<a:ln><a:solidFill>`. `IShape` exposes only `Sheet`/`Type` (there is no
+  `ISheet.Shapes` read-back), so this is a write-only fidelity surface.
+- **Connectors** (`xdr:cxnSp`) anchor with the end cell **inclusive** (a connector's
+  NPOI anchor maps the end cell with −1, so a same-cell connector round-trips
+  `ToCell == FromCell`), preserving per-end EMU offsets. `ConnectorType` maps to the
+  preset connector ordinals (`straightConnector1` = 96 / `bentConnector3` = 98 /
+  `curvedConnector3` = 102, lesson #6); `lineColor`/`lineWidthPoints`/head+tail ends/
+  `flipH`/`flipV` emit the matching `<a:ln w=…>` and `<a:xfrm>` flags. A fixed
+  `<xdr:style>` block (lnRef idx 1 / `accent1`) matches the NPOI engine, so
+  `LineStyleRefIndex` reads `1` and `LineSchemeColor` falls back to `"accent1"`.
+  `ISheet.Connectors` reads them back with the full `IConnector` surface
+  (`Type`/`From`/`ToCell`/`Dx1..Dy2`/`FlipH`/`FlipV`/`Head`+`TailEnd`/`LineColor`/
+  `LineSchemeColor`/`LineWidthPoints`/`LineStyleRefIndex`).
+- The geometry is asserted against the **NPOI engine as the parity oracle**
+  (lesson #6: schema-valid ≠ positioned-correctly) — the SDK output emits the same
+  preset ordinal, EMU markers, and `<a:ln>` line props the NPOI engine emits for the
+  identical call, not merely valid XML. `IShape.Underlying` / `IConnector.Underlying`
+  (NPOI types) throw `NotSupportedException`, the same escape-hatch divergence as
+  pictures.
+
+A shapes+connectors schema-valid fixture and a connector open-mutate-validate fixture
+(add a connector to an opened sheet carrying `<legacyDrawing>`, exercising the shared
+`<drawing>` schema-ordered insert) are added to the gate (clean under `Microsoft365`).
+The theme round-trip remains deferred to the rest of the drawings slice. No public
+symbol added; the PublicAPI snapshot is unchanged.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against

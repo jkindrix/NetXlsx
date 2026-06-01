@@ -617,7 +617,7 @@ output, target `Microsoft365`; found the engine already schema-clean, including 
 `<rPr>` child order the handoff flagged) → ✅ structure (split across sessions):
 ✅ merges + named ranges; ✅ panes / grouping / visibility / gridlines / default
 column width / sheet protection (TabColor is not on `ISheet`, so it is out of scope
-without a new I-NN) → **drawings** (split: ✅ pictures; connectors/shapes; theme
+without a new I-NN) → **drawings** (split: ✅ pictures; ✅ connectors/shapes; theme
 round-trip ←NEXT) →
 CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
@@ -798,8 +798,8 @@ within `Internal/OoxmlSchemaOrder.cs` + the conformance suite):
 (`OoxmlSheet.Pictures.cs` + `OoxmlPicture.cs`); it adds no public symbol (the five
 `AddPicture` overloads and `ISheet.Pictures` are existing interface members newly
 implemented internally, so the snapshot gate stays green). The drawings slice is
-split across sessions per its size — connectors/shapes and the theme round-trip are
-the remaining halves.
+split across sessions per its size — ✅ connectors/shapes now land too (next note);
+the theme round-trip is the remaining half.
 
 - **Part graph.** A picture introduces a *new part type*, not just a worksheet
   attribute: each sheet's images live in a `DrawingsPart` (`xl/drawings/drawingN.xml`,
@@ -839,6 +839,51 @@ the remaining halves.
   cross-checked against the NPOI-engine `PictureApiTests` /
   `RowHeightAndPictureAnchorTests` / the `Pictures` section of
   `ThemeReadAndDrawingIterationTests`.
+
+*Drawings slice — shapes + connectors (I-82 sub-slice, second of the drawings split,
+added 2026-05-31).* `ISheet.AddShape` / `AddConnector` / `Connectors` land on the SDK
+engine (`OoxmlSheet.Shapes.cs` + `OoxmlShape.cs` + `OoxmlConnector.cs`); no public
+symbol added (existing interface members, snapshot gate stays green). Shapes and
+connectors append into the same `xdr:wsDr` root the pictures sub-slice builds — no new
+part-type wiring, and `xdr:wsDr` is **not** a strict-ordered container (anchors append
+freely), so they do not hit SDK-quirk #8 inside it; only the shared worksheet
+`<drawing>` child insert (owned by `GetOrCreateDrawing`) is schema-ordered.
+
+- **The NPOI engine is the parity oracle, not just the schema.** Per lesson #6,
+  schema-valid ≠ positioned-correctly: `OpenXmlValidator` proves a shape is well-formed
+  but not that its geometry is right. So the conformance tests assert the SDK engine
+  emits the **same `ST_ShapeType` preset, EMU markers, and `<a:ln>` line props** the
+  NPOI engine emits for the identical `AddShape`/`AddConnector` call (the NPOI oracle
+  XML was captured directly and matched element-by-element), in addition to
+  `AssertValid`. This is the general habit for every geometry/positioning surface.
+- **Shape (`xdr:sp`).** Two-cell anchor, end cell **exclusive** (the picture/shape
+  convention: NPOI `XSSFClientAnchor(…, c2, r2)`). `ShapeType` → OOXML preset geometry
+  (`rect` / `roundRect` / `ellipse` / `line` / `triangle` / `diamond` — the presets
+  the NPOI engine emits for its `ShapeTypes` ordinals); `spPr` order is
+  `xfrm(0)→prstGeom→(solidFill|noFill)→ln`; a minimal `txBody` follows. `IShape`
+  exposes only `Sheet`/`Type` (there is no `ISheet.Shapes` read-back), so this is a
+  write-only fidelity surface — but the emitted geometry is still oracle-checked.
+- **Connector (`xdr:cxnSp`).** Two-cell anchor, end cell **inclusive** — a connector's
+  NPOI anchor maps the end cell with −1 (`XSSFClientAnchor(…, c2-1, r2-1)`), so a
+  same-cell connector (`I41→I41`) round-trips `ToCell == FromCell`, *differing from*
+  shapes/pictures. `ConnectorType` → preset connector ordinals (`straightConnector1`
+  = 96 / `bentConnector3` = 98 / `curvedConnector3` = 102, lesson #6); `flipH`/`flipV`
+  → `<a:xfrm>` flags; `lineWidthPoints` → `<a:ln @w>` EMU; `lineColor` → `ln/solidFill`;
+  head/tail ends → `<a:headEnd>`/`<a:tailEnd>`. A fixed `<xdr:style>` block (lnRef
+  idx 1 / `accent1`, fill+effect idx 0, fontRef minor) matches NPOI, so the read-back
+  `LineStyleRefIndex == 1` and `LineSchemeColor` falls back to `"accent1"` exactly as
+  on the NPOI engine. `OoxmlConnector.FromElement` is the single parse path both
+  `AddConnector` and `Connectors` flow through, so the just-created and re-read views
+  cannot drift.
+- **Escape hatch.** `IShape.Underlying` (NPOI `XSSFSimpleShape`) and
+  `IConnector.Underlying` (NPOI `XSSFConnector`) throw `NotSupportedException`, the
+  same divergence as pictures; the SDK package is reachable via
+  `IWorkbook.OpenXmlDocument`.
+- A shapes+connectors schema-valid fixture and a connector open-mutate-validate
+  fixture (add a connector to an opened sheet carrying `<legacyDrawing>`, exercising
+  the shared schema-ordered `<drawing>` insert) are added to the gate (clean under
+  `Microsoft365`); behavior was cross-checked against the NPOI-engine `ShapeTests` /
+  `ConnectorTests` / the `Connectors` section of `ThemeReadAndDrawingIterationTests`.
 
 ### 6.2.13 Connectors — I-79, I-80
 
