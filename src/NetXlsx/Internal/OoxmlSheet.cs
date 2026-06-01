@@ -111,6 +111,83 @@ internal sealed class OoxmlSheet : ISheet
 
     internal OoxmlCell CellHandle(int row, int col) => new(this, row, col);
 
+    // ---- Column-formatting access over <cols> ------------------------------
+    // <cols> is column layout (width / hidden / default style). In schema order it
+    // sits between <sheetFormatPr> and <sheetData>, so it is inserted before
+    // <sheetData>. A <col> entry may span a [min,max] range; GetOrCreateColumn
+    // splits a spanning entry so a single column gets its own attributes.
+
+    private S.Columns GetOrCreateColumns()
+    {
+        var cols = Worksheet.GetFirstChild<S.Columns>();
+        if (cols is not null) return cols;
+        cols = new S.Columns();
+        var sheetData = Worksheet.GetFirstChild<S.SheetData>();
+        if (sheetData is not null) Worksheet.InsertBefore(cols, sheetData);
+        else Worksheet.AppendChild(cols);
+        return cols;
+    }
+
+    // Non-mutating lookup of the <col> entry covering a 1-based column, or null.
+    internal S.Column? FindColumn(int col)
+    {
+        var cols = Worksheet.GetFirstChild<S.Columns>();
+        if (cols is null) return null;
+        uint c = (uint)col;
+        foreach (var x in cols.Elements<S.Column>())
+            if (x.Min?.Value <= c && c <= x.Max?.Value) return x;
+        return null;
+    }
+
+    internal S.Column GetOrCreateColumn(int col)
+    {
+        var cols = GetOrCreateColumns();
+        uint c = (uint)col;
+        foreach (var existing in cols.Elements<S.Column>().ToList())
+        {
+            uint min = existing.Min?.Value ?? 0;
+            uint max = existing.Max?.Value ?? 0;
+            if (c < min || c > max) continue;
+            if (min == max) return existing;
+            return SplitColumn(cols, existing, c, min, max);
+        }
+        var fresh = new S.Column { Min = c, Max = c };
+        InsertColumnOrdered(cols, fresh, c);
+        return fresh;
+    }
+
+    // Splits a spanning <col> [min,max] so that `c` becomes its own single-column
+    // entry, preserving the original's attributes on every produced fragment.
+    private static S.Column SplitColumn(S.Columns cols, S.Column existing, uint c, uint min, uint max)
+    {
+        var mid = (S.Column)existing.CloneNode(true);
+        mid.Min = c; mid.Max = c;
+        if (c > min)
+        {
+            var left = (S.Column)existing.CloneNode(true);
+            left.Min = min; left.Max = c - 1;
+            cols.InsertBefore(left, existing);
+        }
+        cols.InsertBefore(mid, existing);
+        if (c < max)
+        {
+            var right = (S.Column)existing.CloneNode(true);
+            right.Min = c + 1; right.Max = max;
+            cols.InsertBefore(right, existing);
+        }
+        existing.Remove();
+        return mid;
+    }
+
+    private static void InsertColumnOrdered(S.Columns cols, S.Column fresh, uint c)
+    {
+        foreach (var x in cols.Elements<S.Column>())
+        {
+            if ((x.Min?.Value ?? 0) > c) { cols.InsertBefore(fresh, x); return; }
+        }
+        cols.AppendChild(fresh);
+    }
+
     // Populated cells (value / inline string / formula present) within a
     // rectangle, in row-major then ascending-column order.
     internal IEnumerable<OoxmlCell> EnumeratePopulated(int r1, int c1, int r2, int c2)

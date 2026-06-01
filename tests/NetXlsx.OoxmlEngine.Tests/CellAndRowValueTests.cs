@@ -234,11 +234,11 @@ public class CellAndRowValueTests
     }
 
     [Fact]
-    public void Deferred_Date_And_Formula_Setters_Throw_NotImplemented()
+    public void Deferred_Formula_Setter_Throws_NotImplemented()
     {
+        // SetDate landed with the styles slice; SetFormula is still deferred.
         using var wb = Workbook.CreateOoxml();
         var s = wb.AddSheet("S");
-        ((Action)(() => s["A1"].SetDate(new DateTime(2026, 5, 31)))).Should().Throw<NotImplementedException>();
         ((Action)(() => s["A1"].SetFormula("=1+1"))).Should().Throw<NotImplementedException>();
     }
 

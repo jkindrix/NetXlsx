@@ -104,15 +104,34 @@ internal sealed class OoxmlRange : IRange
         return this;
     }
 
-    // ---- Deferred (styles / merge slices; see I-82) ------------------------
+    // ---- Styling (styles slice) --------------------------------------------
+
+    public IRange Apply(CellStyle style)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(style);
+        // Dense: style every cell in the rectangle, materializing as needed —
+        // matches the NPOI engine and is required for merged-cell border
+        // rendering (lesson #4: borders render from boundary cells).
+        foreach (var cell in EnumerateAllCore())
+            cell.Style(style);
+        return this;
+    }
+
+    public IRange ApplyNamedStyle(string name)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        return Apply(_sheet.WorkbookInternal.ResolveNamedStyleOrThrow(name));
+    }
+
+    // ---- Deferred (merge slice; see I-82) ----------------------------------
 
     private static NotImplementedException NotYet([CallerMemberName] string? member = null)
         => new(
             $"IRange.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). Styling/merge land in later slices; track the " +
+            "(I-82 engine swap). Merge lands in a later slice; track the " +
             "swap in docs/design.md (I-82).");
 
-    public IRange Apply(CellStyle style) => throw NotYet();
-    public IRange ApplyNamedStyle(string name) => throw NotYet();
     public IRange Merge() => throw NotYet();
 }

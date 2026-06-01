@@ -6,7 +6,6 @@
 // the cell's (deferred) date/time setters, so they throw NotYet consistently.
 
 using System;
-using System.Runtime.CompilerServices;
 
 namespace NetXlsx;
 
@@ -46,16 +45,40 @@ internal sealed class OoxmlRow : IRow
     public IRow Set(int column, TimeOnly value) { Cell(column).SetTime(value); return this; }
     public IRow Set(int column, TimeSpan value) { Cell(column).SetDuration(value); return this; }
 
-    // ---- Deferred (layout slice; see I-82) ---------------------------------
+    // ---- Row layout (styles slice) -----------------------------------------
 
-    private static NotImplementedException NotYet([CallerMemberName] string? member = null)
-        => new(
-            $"IRow.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). Row layout (height/hidden) lands in a later slice; " +
-            "track the swap in docs/design.md (I-82).");
+    // Excel's default row height in points when a row carries no explicit height.
+    private const float DefaultHeightPoints = 15f;
 
-    public float HeightInPoints { get => throw NotYet(); set => throw NotYet(); }
-    public bool Hidden { get => throw NotYet(); set => throw NotYet(); }
+    private OoxmlWorkbook Wb => _sheet.WorkbookInternal;
+
+    public float HeightInPoints
+    {
+        get
+        {
+            Wb.ThrowIfDisposed();
+            return (float)(_sheet.FindRow(_index)?.Height?.Value ?? DefaultHeightPoints);
+        }
+        set
+        {
+            Wb.ThrowIfDisposed();
+            var row = _sheet.GetOrCreateRow(_index);
+            row.Height = value;
+            // customHeight is the user-pinned signal (lesson #7) — set it so the
+            // height survives round-trip regardless of value.
+            row.CustomHeight = true;
+        }
+    }
+
+    public bool Hidden
+    {
+        get { Wb.ThrowIfDisposed(); return _sheet.FindRow(_index)?.Hidden?.Value ?? false; }
+        set
+        {
+            Wb.ThrowIfDisposed();
+            _sheet.GetOrCreateRow(_index).Hidden = value ? true : null;
+        }
+    }
 
     public NPOI.XSSF.UserModel.XSSFRow Underlying => throw new NotSupportedException(
         "IRow.Underlying (NPOI XSSFRow) is not available on the Open XML SDK " +

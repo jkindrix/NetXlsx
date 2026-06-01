@@ -51,9 +51,17 @@ internal sealed class OoxmlCell : ICell
         get
         {
             Wb.ThrowIfDisposed();
-            return KindOf(Element);
+            var c = Element;
+            var k = KindOf(c);
+            // A numeric cell with a date/time number format is a Date (parity
+            // with the NPOI engine's DateUtil.IsCellDateFormatted classification).
+            return k == CellKind.Number && IsDateFormatted(c) ? CellKind.Date : k;
         }
     }
+
+    // True when the cell's applied style carries a date/time number format.
+    private bool IsDateFormatted(S.Cell? c)
+        => c is not null && Wb.StylePool.IsDateFormatted(c.StyleIndex?.Value ?? 0);
 
     private static CellKind KindOf(S.Cell? c)
     {
@@ -184,9 +192,15 @@ internal sealed class OoxmlCell : ICell
         return KindOf(c) == CellKind.Bool ? ReadBool(c!) : null;
     }
 
-    // GetDate is null on this engine: a date requires a date number-format
-    // style, which this slice does not write (styles slice). Correct, not a stub.
-    public DateTime? GetDate() { Wb.ThrowIfDisposed(); return null; }
+    public DateTime? GetDate()
+    {
+        Wb.ThrowIfDisposed();
+        var c = Element;
+        if (KindOf(c) != CellKind.Number || !IsDateFormatted(c)) return null;
+        // Result kind is always Unspecified (decision I17 — no timezone math).
+        return DateTime.SpecifyKind(Wb.FromSerial(ReadNumber(c!)), DateTimeKind.Unspecified);
+    }
+
     public DateOnly? GetDateOnly() => GetDate() is { } dt ? DateOnly.FromDateTime(dt) : null;
 
     public TimeOnly? GetTime()
@@ -244,25 +258,123 @@ internal sealed class OoxmlCell : ICell
         return v == "1" || string.Equals(v, "true", StringComparison.OrdinalIgnoreCase);
     }
 
+    // ---- Date / time setters (styles slice) --------------------------------
+    // A date in OOXML is a numeric serial plus a date number-format style. Each
+    // setter writes the serial and applies the workbook's default date/time/
+    // duration format if the cell carries no explicit style (decisions I-18/I-19,
+    // §7.9) — mirroring the NPOI engine's XssfCell.Values semantics.
+
+    public void SetDate(DateTime value)
+    {
+        Wb.ThrowIfDisposed();
+        // Decision I17: stored verbatim; no timezone conversion.
+        WriteSerial(Wb.ToSerial(value), OoxmlWorkbook.DateTimeStyleSpec);
+    }
+
+    public void SetDate(DateOnly value)
+    {
+        Wb.ThrowIfDisposed();
+        WriteSerial(Wb.ToSerial(value.ToDateTime(TimeOnly.MinValue)), OoxmlWorkbook.DateStyleSpec);
+    }
+
+    public void SetTime(TimeOnly value)
+    {
+        Wb.ThrowIfDisposed();
+        // Fraction-of-day; no epoch involved (§7.9).
+        WriteSerial(value.ToTimeSpan().TotalDays, OoxmlWorkbook.TimeStyleSpec);
+    }
+
+    public void SetDuration(TimeSpan value)
+    {
+        Wb.ThrowIfDisposed();
+        if (value < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(
+                nameof(value), value,
+                "Negative TimeSpan cannot be stored as Excel duration (decision I15). " +
+                "If a signed duration is required, store the value as a number and " +
+                "apply a custom format string via the styling API.");
+        WriteSerial(value.TotalDays, OoxmlWorkbook.DurationStyleSpec);
+    }
+
+    private void WriteSerial(double serial, CellStyle defaultStyle)
+    {
+        var c = _sheet.GetOrCreateCell(_row, _col);
+        c.RemoveAllChildren();
+        c.CellFormula = null;
+        c.DataType = null; // numeric is the default type
+        c.CellValue = new S.CellValue(serial.ToString("G17", CultureInfo.InvariantCulture));
+        // Apply the default date/time format only when the cell is unstyled
+        // (decision I-18: a user-set style is preserved).
+        if ((c.StyleIndex?.Value ?? 0) == 0)
+            c.StyleIndex = Wb.StylePool.GetOrCreate(defaultStyle);
+    }
+
+    // ---- Styling (styles slice) --------------------------------------------
+
+    public ICell Style(CellStyle style)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(style);
+
+        // Merge: non-null axes in `style` overlay the cell's current style; null
+        // axes inherit. CellStyle.Default (all-null) is a no-op. Resolved through
+        // the pool's dedup so equal merged styles share one cellXfs index (#4).
+        var c = _sheet.GetOrCreateCell(_row, _col);
+        var current = Wb.StylePool.ReadStyle(c.StyleIndex?.Value ?? 0);
+        var merged = Merge(current, style);
+        uint idx = Wb.StylePool.GetOrCreate(merged);
+        c.StyleIndex = idx == 0 ? null : idx;
+        return this;
+    }
+
+    public ICell NumberFormat(string format)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(format);
+        return Style(new CellStyle { NumberFormat = format });
+    }
+
+    public ICell ApplyNamedStyle(string name)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        return Style(Wb.ResolveNamedStyleOrThrow(name));
+    }
+
+    public CellStyle GetStyle()
+    {
+        Wb.ThrowIfDisposed();
+        return Wb.StylePool.ReadStyle(Element?.StyleIndex?.Value ?? 0);
+    }
+
+    private static CellStyle Merge(CellStyle existing, CellStyle overlay) => new()
+    {
+        Bold = overlay.Bold ?? existing.Bold,
+        Italic = overlay.Italic ?? existing.Italic,
+        Underline = overlay.Underline ?? existing.Underline,
+        FontName = overlay.FontName ?? existing.FontName,
+        FontSize = overlay.FontSize ?? existing.FontSize,
+        FontColor = overlay.FontColor ?? existing.FontColor,
+        Background = overlay.Background ?? existing.Background,
+        BackgroundTheme = overlay.BackgroundTheme ?? existing.BackgroundTheme,
+        NumberFormat = overlay.NumberFormat ?? existing.NumberFormat,
+        HorizontalAlignment = overlay.HorizontalAlignment ?? existing.HorizontalAlignment,
+        VerticalAlignment = overlay.VerticalAlignment ?? existing.VerticalAlignment,
+        WrapText = overlay.WrapText ?? existing.WrapText,
+        Borders = overlay.Borders ?? existing.Borders,
+    };
+
     // ---- Deferred surface (lands slice by slice; see I-82) -----------------
 
     private static NotImplementedException NotYet([CallerMemberName] string? member = null)
         => new(
             $"ICell.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). It lands in a later slice (dates/formulas/styles/" +
-            "comments/hyperlinks/rich text); track the swap in docs/design.md (I-82).");
+            "(I-82 engine swap). It lands in a later slice (formulas/comments/" +
+            "hyperlinks/rich text); track the swap in docs/design.md (I-82).");
 
     public void SetRichText(RichText value) => throw NotYet();
-    public void SetDate(DateTime value) => throw NotYet();
-    public void SetDate(DateOnly value) => throw NotYet();
-    public void SetTime(TimeOnly value) => throw NotYet();
-    public void SetDuration(TimeSpan value) => throw NotYet();
     public void SetFormula(string formula) => throw NotYet();
 
-    public ICell ApplyNamedStyle(string name) => throw NotYet();
-    public ICell Style(CellStyle style) => throw NotYet();
-    public ICell NumberFormat(string format) => throw NotYet();
-    public CellStyle GetStyle() => throw NotYet();
     public ICell Comment(string text, string? author = null) => throw NotYet();
     public string? GetComment() => throw NotYet();
     public string? GetCommentAuthor() => throw NotYet();

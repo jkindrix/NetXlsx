@@ -41,9 +41,89 @@ internal sealed class OoxmlWorkbook : IWorkbook
     private readonly WorkbookOptions _options;
     private readonly Dictionary<string, OoxmlSheet> _sheetsByName = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<OoxmlSheet> _sheetsByIndex = new();
+    private OoxmlStylePool? _stylePool;
+    private Dictionary<string, CellStyle>? _namedStyles;
+    private bool? _date1904;
     private bool _disposed;
 
     internal WorkbookOptions Options => _options;
+
+    /// <summary>
+    /// The workbook's style pool (xl/styles.xml), materialized on first use.
+    /// On a created workbook this writes the Excel default scaffolding and the
+    /// option-supplied default font; on an opened workbook it adopts the file's
+    /// existing stylesheet (preserving its default font, lesson #8).
+    /// </summary>
+    internal OoxmlStylePool StylePool =>
+        _stylePool ??= OoxmlStylePool.Attach(
+            _document.WorkbookPart ?? throw new InvalidOperationException("Workbook has no workbook part."),
+            _options);
+
+    // Default number-format styles for date/time/duration cells (mirrors the
+    // NPOI engine's DateStyle/DateTimeStyle/TimeStyle/DurationStyle, decisions
+    // I-18/I-19, §7.9). Applied to an otherwise-unstyled cell by the date setters.
+    internal static CellStyle DateStyleSpec { get; } = new() { NumberFormat = "yyyy-mm-dd" };
+    internal static CellStyle DateTimeStyleSpec { get; } = new() { NumberFormat = "yyyy-mm-dd hh:mm:ss" };
+    internal static CellStyle TimeStyleSpec { get; } = new() { NumberFormat = "h:mm:ss" };
+    internal static CellStyle DurationStyleSpec { get; } = new() { NumberFormat = "[h]:mm:ss" };
+
+    /// <summary>
+    /// Whether the workbook uses the 1904 date system (workbookPr/@date1904).
+    /// On an opened workbook the file is authoritative (lesson #9); on a created
+    /// workbook it reflects <see cref="WorkbookOptions.DateSystem"/>.
+    /// </summary>
+    internal bool Date1904
+    {
+        get
+        {
+            if (_date1904 is { } cached) return cached;
+            var pr = _document.WorkbookPart?.Workbook?.GetFirstChild<S.WorkbookProperties>();
+            bool v = pr?.Date1904?.Value ?? false;
+            _date1904 = v;
+            return v;
+        }
+    }
+
+    // ---- Excel date-serial conversion (1900/1904 epochs) --------------------
+    // Matches the NPOI engine across the full Excel-representable range. The 1900
+    // system reproduces Excel's fictitious 1900-02-29 leap day: dates on/after
+    // 1900-03-01 carry the +1 phantom-day offset.
+
+    private static readonly DateTime Epoch1900 = new(1899, 12, 31);
+    private static readonly DateTime Epoch1904 = new(1904, 1, 1);
+    private static readonly DateTime LeapBugThreshold = new(1900, 3, 1);
+
+    internal double ToSerial(DateTime value)
+    {
+        if (Date1904) return (value - Epoch1904).TotalDays;
+        double serial = (value - Epoch1900).TotalDays;
+        if (value >= LeapBugThreshold) serial += 1; // phantom 1900-02-29
+        return serial;
+    }
+
+    internal DateTime FromSerial(double serial)
+    {
+        DateTime dt;
+        if (Date1904)
+        {
+            dt = Epoch1904.AddDays(serial);
+        }
+        else
+        {
+            double s = serial >= 60 ? serial - 1 : serial; // remove phantom 1900-02-29
+            dt = Epoch1900.AddDays(s);
+        }
+        return RoundToMillisecond(dt);
+    }
+
+    // The fraction-of-day serial (stored as a G17 double) accumulates sub-tick
+    // error on the round-trip; round to the nearest millisecond so 13:45:00 does
+    // not come back as 13:44:59.9999997. Mirrors NPOI's millisecond-resolution dates.
+    private static DateTime RoundToMillisecond(DateTime dt)
+    {
+        long ticks = (dt.Ticks + (TimeSpan.TicksPerMillisecond / 2)) / TimeSpan.TicksPerMillisecond * TimeSpan.TicksPerMillisecond;
+        return new DateTime(ticks, dt.Kind);
+    }
 
     private OoxmlWorkbook(SpreadsheetDocument document, MemoryStream backing, WorkbookOptions options)
     {
@@ -63,11 +143,18 @@ internal sealed class OoxmlWorkbook : IWorkbook
             var document = SpreadsheetDocument.Create(backing, SpreadsheetDocumentType.Workbook);
             var wbPart = document.AddWorkbookPart();
             wbPart.Workbook = new S.Workbook();
+            // workbookPr (date system, lesson #9) must precede <sheets> in schema
+            // order — insert it before appending the sheets container.
+            if (options.DateSystem == DateSystem.Excel1904)
+                wbPart.Workbook.AppendChild(new S.WorkbookProperties { Date1904 = true });
             wbPart.Workbook.AppendChild(new S.Sheets());
-            // WorkbookOptions (default font, 1904 date system) are applied in the
-            // styles / cells slices, where the stylesheet and workbookPr parts are
-            // modeled. Stored now so those slices have them; not applied yet.
-            return new OoxmlWorkbook(document, backing, options);
+
+            var wb = new OoxmlWorkbook(document, backing, options);
+            // Materialize the stylesheet now so font index 0 reflects the
+            // workbook's default font/size (styles slice). On Open the pool adopts
+            // the file's stylesheet instead, preserving its default font.
+            _ = wb.StylePool;
+            return wb;
         }
         catch
         {
@@ -330,10 +417,67 @@ internal sealed class OoxmlWorkbook : IWorkbook
     public INamedRange AddNamedRange(string name, string formula, string? sheetScope = null) => throw NotYet();
     public IReadOnlyList<INamedRange> NamedRanges => throw NotYet();
 
-    public StylePoolDiagnostics GetStylePoolDiagnostics() => throw NotYet();
-    public void RegisterStyle(string name, CellStyle style) => throw NotYet();
-    public CellStyle? GetRegisteredStyle(string name) => throw NotYet();
-    public IReadOnlyCollection<string> RegisteredStyleNames => throw NotYet();
+    // ---- Style pool diagnostics + named-style registry (styles slice) ------
+    //
+    // The named-style registry is in-memory: RegisterStyle records the name so
+    // ApplyNamedStyle can resolve it. Persisting named styles into OOXML's
+    // cellStyles panel so they survive a save/open round-trip is the NPOI
+    // engine's I-67 behavior; the SDK equivalent is deferred to a follow-up
+    // slice (tracked in docs/design.md I-82). Runtime resolution within a single
+    // workbook session works fully today.
+
+    private Dictionary<string, CellStyle> NamedStyles =>
+        _namedStyles ??= new Dictionary<string, CellStyle>(StringComparer.OrdinalIgnoreCase);
+
+    public StylePoolDiagnostics GetStylePoolDiagnostics()
+    {
+        ThrowIfDisposed();
+        var pool = StylePool;
+        return new StylePoolDiagnostics(
+            styleHits: pool.StyleHitCount,
+            styleMisses: pool.StyleMissCount,
+            fontHits: pool.FontHitCount,
+            fontMisses: pool.FontMissCount,
+            uniqueStyles: pool.UniqueStyles,
+            uniqueFonts: pool.UniqueFonts);
+    }
+
+    public void RegisterStyle(string name, CellStyle style)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(style);
+        if (name.Length == 0)
+            throw new ArgumentException("Style name cannot be empty.", nameof(name));
+        NamedStyles[name] = style;
+    }
+
+    public CellStyle? GetRegisteredStyle(string name)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+        return NamedStyles.TryGetValue(name, out var s) ? s : null;
+    }
+
+    public IReadOnlyCollection<string> RegisteredStyleNames
+    {
+        get { ThrowIfDisposed(); return NamedStyles.Keys; }
+    }
+
+    /// <summary>
+    /// Resolves a registered style name to its <see cref="CellStyle"/>, throwing
+    /// the canonical "no such name" error. Shared by ICell/IRange ApplyNamedStyle.
+    /// </summary>
+    internal CellStyle ResolveNamedStyleOrThrow(string name)
+    {
+        var style = GetRegisteredStyle(name);
+        if (style is null)
+            throw new ArgumentException(
+                $"No style is registered under '{name}'. " +
+                "Use IWorkbook.RegisterStyle before referencing the name.",
+                nameof(name));
+        return style;
+    }
 
     public void Protect(WorkbookProtection? options = null) => throw NotYet();
     public void ProtectWithPassword(string password, WorkbookProtection? options = null) => throw NotYet();
