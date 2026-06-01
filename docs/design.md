@@ -608,7 +608,11 @@ bool values, indexers, Range, AppendRow/Row, Column) → ✅ cell styles (new
 `GetStyle`/`ApplyNamedStyle`, `IRange.Apply`, `IColumn` width/hidden/style, `IRow`
 height/hidden; unblocks `SetDate`/`SetTime`/`SetDuration` + `GetDate`/`Kind==Date`
 via the 1900/1904 serial + date-format detection; applies `DefaultFont`/`Excel1904`
-on create) → **rich text** ←NEXT → merges/named ranges/panes/grouping → drawings →
+on create) → ✅ rich text (`SetRichText`/`GetRichText` as inline `<is>` runs; each
+run's `<rPr>` built by the style pool's run-property helper; an empty-style run
+gets no `<rPr>` so it inherits the cell font — lesson #10 — and the OPC-preservation
+gate, lesson #13, is confirmed on the SDK engine via `OpcPreservationTests`) →
+**merges / named ranges / panes / grouping** ←NEXT → drawings →
 CF/validation/tables/autofilter/sort → charts → streaming (the `OpenXmlWriter`
 forward-only shape may need small public-API tweaks — surface those as their own
 decision rows) → source-gen runtime helpers.

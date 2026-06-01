@@ -70,7 +70,30 @@ date cell returns the raw serial rather than a format-rendered string (needs
 a number-format renderer); named styles resolve in-memory but do not yet
 persist into OOXML's `cellStyles` panel across save/open (the SDK equivalent
 of the NPOI engine's I-67 round-trip); `IColumn.AutoSize` (needs font
-metrics). Rich text, comments, hyperlinks, and formulas remain deferred.
+metrics). Comments, hyperlinks, and formulas remain deferred.
+
+**Rich text slice.** The SDK engine now reads and writes multi-run formatted
+strings: `ICell.SetRichText(RichText)` / `GetRichText()`. A rich-text value
+is written as an inline rich string (`<c t="inlineStr"><is>` with one `<r>`
+per `RichTextRun`); each run's `<rPr>` carries its font axes inline
+(bold/italic/underline/size/color/`rFont`), built by the style pool's
+run-property helper. The marquee semantic (lesson #10): a run whose
+`RichTextStyle` is empty is written with **no `<rPr>`**, so it inherits the
+cell font — faithfully modeling the unformatted-prefix-run inheritance that
+NPOI's fully-explicit run fonts could not preserve (the exact bug XlsxCodeGen
+patched). A rich-text cell's `Kind` is `CellKind.String` and `GetString()`
+returns the concatenated run text; `GetRichText()` returns `null` for a plain
+string or non-string cell (it reads inline `<is>` runs and, on opened files,
+shared-string `<si>` runs). Empty-text runs contribute no formatting run, and
+the cell-text-length limit is enforced on the concatenated text.
+
+**OPC preservation gate on the SDK engine (lesson #13).** Confirmed
+structurally that an `OpenOoxml` → `Save` round-trip preserves every OPC part
+NetXlsx does not model — the 70-85% file-size drop observed on real files is
+pure SDK deflate recompression, not data loss (verified against all five
+stress files: part sets preserved exactly, e.g. 50/50, 36/36, 17/17). A new
+`OpcPreservationTests` builds a CI-safe fixture carrying an unmodeled custom
+XML part and asserts the part set and the part's bytes survive Open → Save.
 
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
@@ -78,7 +101,8 @@ focused **v2.0.0** cutover slice, gated on the full suite passing against
 the SDK engine. See `docs/design.md` I-82.
 
 Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
-`CellAndRowValueTests`, `CellStyleTests`).
+`CellAndRowValueTests`, `CellStyleTests`, `RichTextTests`,
+`OpcPreservationTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 
