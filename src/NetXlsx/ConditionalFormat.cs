@@ -134,7 +134,11 @@ public sealed class ConditionalFormat
         if (Style.Bold == true || Style.Italic == true)
         {
             var ff = rule.CreateFontFormatting();
-            ff.SetFontStyle(Style.Bold == true, Style.Italic == true);
+            // IFontFormatting.SetFontStyle's parameter order is (italic, bold) —
+            // POI's signature, not (bold, italic). Passing them swapped made a
+            // Bold CF style render Italic and vice versa; caught by the
+            // cross-engine emission-parity harness (I-82).
+            ff.SetFontStyle(Style.Italic == true, Style.Bold == true);
         }
 
         if (Style.Background is { } bg)
