@@ -313,7 +313,8 @@ internal sealed partial class OoxmlSheet : ISheet
     public int ConditionalFormattingCount => throw NotYet();
     public void RemoveConditionalFormatting(int index) => throw NotYet();
 
-    public void SortRange(string a1Range, params SortKey[] keys) => throw NotYet();
+    // SortRange lands in OoxmlSheet.Sort.cs (I-82 CF/validation/tables/
+    // autofilter/sort slice).
 
     // Merges (MergeCells / MergeCellsStyled / UnmergeCells / MergedRanges) land
     // in OoxmlSheet.Merges.cs (I-82 structure slice).

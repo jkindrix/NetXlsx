@@ -230,6 +230,22 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Slice 7: sort ------------------------------------------------------
+
+    [Fact]
+    public void Sorted_Range_Is_Schema_Valid()
+    {
+        // SortRange re-homes <c> elements across rows; rows must keep
+        // ascending @r order and cells ascending column order afterwards.
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("b"); s["B1"].SetNumber(2); s["C1"].SetString("outside");
+        s["A2"].SetString("a"); s["B2"].SetNumber(1);
+        s["A3"].Style(new CellStyle { Bold = true });   // styled blank moves too
+        s.SortRange("A1:B3", SortKey.Asc(1));
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Drawings (slice 6): pictures ---------------------------------------
 
     [Fact]

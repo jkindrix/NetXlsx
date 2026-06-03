@@ -347,4 +347,28 @@ public class CrossEngineDifferentialTests
             wb => wb["S"].Pictures
                 .Select(p => new AnchorObs(p.FromCell, p.ToCell, p.Dx1, p.Dy1, p.Dx2, p.Dy2))
                 .ToArray()));
+
+    // ---- SortRange (lesson #12: stable, blanks last, numbers before strings) --
+
+    [Fact]
+    public void Sorted_Range_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                // Mixed kinds + a tie (rows 2/3 tie on column A; column B is
+                // the secondary key) + a fully blank row 5 inside the range.
+                s["A1"].SetString("B"); s["B1"].SetNumber(2);
+                s["A2"].SetString("A"); s["B2"].SetNumber(3);
+                s["A3"].SetString("A"); s["B3"].SetNumber(1);
+                s["A4"].SetNumber(5); s["B4"].SetBool(true);
+                s.SortRange("A1:B5", SortKey.Asc(1), SortKey.Asc(2));
+            },
+            wb =>
+            {
+                var s = wb["S"];
+                return Enumerable.Range(1, 5)
+                    .Select(r => $"{s[r, 1].Kind}|{s[r, 1].GetString()}|{s[r, 2].Kind}|{s[r, 2].GetString()}")
+                    .ToArray();
+            }));
 }
