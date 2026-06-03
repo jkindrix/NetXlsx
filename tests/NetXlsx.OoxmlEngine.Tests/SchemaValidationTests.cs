@@ -818,6 +818,77 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb, FileFormatVersions.Office2019);
     }
 
+    // ---- The STRICT-FLOOR TRIPWIRE (advisor O-9, resolved 2026-06-03) --------
+    //
+    // The support posture is "Excel 2007+ base-SML compat; future extension parts
+    // must be mc:Ignorable-wrapped" — NOT a hard floor. Office2007 is the
+    // strictest level the engine's full output currently validates under, so a
+    // kitchen-sink workbook spanning every landed surface is held to it here. The
+    // FIRST slice that emits an unwrapped post-2007 construct trips this fixture,
+    // forcing the conscious wrap-or-raise-the-floor decision (surface it to the
+    // operator) instead of a silent compat regression. The primary gate stays
+    // Microsoft365; this is the other end of the bracket.
+
+    [Fact]
+    public void Kitchen_Sink_Output_Validates_Under_The_Office2007_Strict_Floor()
+    {
+        using var wb = Workbook.CreateOoxml();
+
+        // Values, styles, dates, rich text, merges, structure.
+        var s = wb.AddSheet("Data");
+        s["A1"].SetString("name"); s["B1"].SetString("qty");
+        s["A1"].Style(new CellStyle { Bold = true, Background = Color.FromRgb(0xDD, 0xDD, 0xDD) });
+        s["A2"].SetString("item"); s["B2"].SetNumber(1.5);
+        s["B2"].NumberFormat("#,##0.00");
+        s["A3"].SetDate(new DateTime(2026, 6, 3));
+        s["A4"].SetRichText(new RichText(
+            new RichTextRun("plain", RichTextStyle.Default),
+            new RichTextRun(" fancy", new RichTextStyle { Italic = true })));
+        s.MergeCellsStyled("A6:B6", new CellStyle { Bold = true });
+        s.FreezeRows(1);
+        s.GroupRows(2, 4);
+        wb.AddNamedRange("Items", "Data!$A$2:$A$4");
+
+        // Formulas / comments / hyperlinks / protection (this slice).
+        s["C2"].SetFormula("=SUM(B2:B4)");
+        s["A2"].Comment("flagged", "alice");
+        s["C1"].Hyperlink("https://example.com", display: "docs");
+        s.Protect("pw");
+        wb.ProtectWithPassword("secret");
+
+        // Structured data: table, autofilter+sort live on separate sheets (one
+        // autoFilter per sheet; tables own their range).
+        var t = wb.AddSheet("Tbl");
+        t["A1"].SetString("Region"); t["B1"].SetString("Rev");
+        t["A2"].SetString("EU"); t["B2"].SetNumber(100);
+        var table = t.AddTable("A1:B2", "Sales", TableStyles.Medium2);
+        table.AddTotalsRow();
+        table.SetColumnTotal("Rev", TotalsRowFunction.Sum);
+
+        var f = wb.AddSheet("Filt");
+        f["A1"].SetString("h"); f["A2"].SetString("x"); f["A3"].SetString("y");
+        f.SetAutoFilter("A1:A3");
+        f.SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"));
+        f.SortRange("A2:A3", SortKey.Asc(1));
+
+        // CF + validation.
+        f.AddConditionalFormatting("A2:A3",
+            ConditionalFormat.CellValueEqual("\"x\"", new CellStyle { Bold = true }));
+        f.AddValidation("B1:B3", DataValidation.List("a", "b"));
+
+        // Drawings: picture (both anchors), shape, connector, chart.
+        var d = wb.AddSheet("Draw");
+        d["A1"].SetString("Jan"); d["B1"].SetNumber(100);
+        d["A2"].SetString("Feb"); d["B2"].SetNumber(150);
+        d.AddPicture("D1", OnePixelPng, ImageFormat.Png);
+        d.AddPicture("D4", "F8", OnePixelPng, ImageFormat.Png);
+        d.AddShape(ShapeType.Rectangle, "H1", "J4", fillColor: Color.FromRgb(255, 0, 0));
+        d.AddConnector(ConnectorType.Straight, "H6", "J8", lineColor: Color.FromRgb(0, 0, 0));
+        d.AddChart(ChartType.Column, "L1", "S15", "A1:A2", "B1:B2", "Revenue");
+
+        OpenXmlValidationGate.AssertValid(wb, FileFormatVersions.Office2007);
+    }
+
     // ---- OpenOoxml -> Save round-trip ---------------------------------------
     //
     // CI-safe stand-in for a "real stress file" round-trip: the project commits no
