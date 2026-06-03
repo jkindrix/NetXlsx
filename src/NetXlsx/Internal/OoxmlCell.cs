@@ -225,29 +225,42 @@ internal sealed class OoxmlCell : ICell
     {
         var t = c.DataType?.Value;
         if (t == S.CellValues.SharedString)
-        {
-            if (int.TryParse(c.CellValue?.InnerText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx))
-                return ResolveSharedString(idx) ?? string.Empty;
-            return string.Empty;
-        }
+            return ResolveSharedStringItem(c).InnerText;
         if (t == S.CellValues.InlineString)
             return c.InlineString?.InnerText ?? string.Empty;
         // t == String (formula-string cached) or anything else: raw value text.
         return c.CellValue?.InnerText ?? string.Empty;
     }
 
-    private string? ResolveSharedString(int index)
+    // Resolves a shared-string cell's <v> index to its <si> element, failing loud
+    // on a malformed reference (non-integer, negative, or out of range) rather than
+    // silently substituting "" (decision I-83 — fail-loud parity with the NPOI
+    // engine, which throws here). OOXML defines no default for a corrupt
+    // shared-string index, so a silent default would hide data corruption — exactly
+    // the silent truncation the library's honesty discipline forbids. Reached only
+    // after KindOf classified the cell as a (shared) string, so a failure here is
+    // genuine file corruption, never a normal type mismatch.
+    private S.SharedStringItem ResolveSharedStringItem(S.Cell c)
     {
-        var sst = Wb.OpenXmlDocument?.WorkbookPart?.SharedStringTablePart?.SharedStringTable;
-        return sst?.Elements<S.SharedStringItem>().ElementAtOrDefault(index)?.InnerText;
+        var raw = c.CellValue?.InnerText;
+        if (!int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx) || idx < 0)
+            throw new MalformedFileException(
+                $"cell {Address}: shared-string index '{raw}' is not a non-negative integer");
+        return SharedStringItemAt(idx)
+            ?? throw new MalformedFileException(
+                $"cell {Address}: shared-string index {idx} is out of range");
     }
 
-    private static double ReadNumber(S.Cell c)
+    // Reads a numeric cell's <v>, failing loud on an unparseable value rather than
+    // silently substituting 0 (decision I-83 — fail-loud parity with the NPOI
+    // engine). Only reached once KindOf has classified the cell as Number, so a
+    // parse failure here is genuine file corruption, never a normal type mismatch.
+    private double ReadNumber(S.Cell c)
     {
         var text = c.CellValue?.InnerText;
-        return double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double v)
-            ? v
-            : 0.0;
+        if (double.TryParse(text, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double v))
+            return v;
+        throw new MalformedFileException($"cell {Address}: numeric value '{text}' is not a valid number");
     }
 
     private static bool ReadBool(S.Cell c)
@@ -370,8 +383,8 @@ internal sealed class OoxmlCell : ICell
         }
         else if (t == S.CellValues.SharedString)
         {
-            if (int.TryParse(c.CellValue?.InnerText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int idx))
-                rawRuns = SharedStringItemAt(idx)?.Elements<S.Run>();
+            // Fail loud on a corrupt index (decision I-83), consistent with ReadString.
+            rawRuns = ResolveSharedStringItem(c).Elements<S.Run>();
         }
         if (rawRuns is null) return null;
 

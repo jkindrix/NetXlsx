@@ -207,10 +207,10 @@ internal sealed partial class OoxmlSheet
     {
         var from = anchor.GetFirstChild<XDR.FromMarker>()!;
         var to = anchor.GetFirstChild<XDR.ToMarker>()!;
-        int fc = ParseMarkerInt(from.ColumnId), fco = ParseMarkerInt(from.ColumnOffset);
-        int fr = ParseMarkerInt(from.RowId), fro = ParseMarkerInt(from.RowOffset);
-        int tc = ParseMarkerInt(to.ColumnId), tco = ParseMarkerInt(to.ColumnOffset);
-        int tr = ParseMarkerInt(to.RowId), tro = ParseMarkerInt(to.RowOffset);
+        int fc = ParseMarker(from.ColumnId), fco = ParseMarker(from.ColumnOffset);
+        int fr = ParseMarker(from.RowId), fro = ParseMarker(from.RowOffset);
+        int tc = ParseMarker(to.ColumnId), tco = ParseMarker(to.ColumnOffset);
+        int tr = ParseMarker(to.RowId), tro = ParseMarker(to.RowOffset);
         var (data, format) = ReadImage(dp, pic);
         return new OoxmlPicture(_workbook, this, format,
             CellAddress.Format(fr + 1, fc + 1), CellAddress.Format(tr + 1, tc + 1),
@@ -220,8 +220,8 @@ internal sealed partial class OoxmlSheet
     private OoxmlPicture ReadOneCell(DrawingsPart dp, XDR.OneCellAnchor anchor, XDR.Picture pic)
     {
         var from = anchor.GetFirstChild<XDR.FromMarker>()!;
-        int fc = ParseMarkerInt(from.ColumnId), fco = ParseMarkerInt(from.ColumnOffset);
-        int fr = ParseMarkerInt(from.RowId), fro = ParseMarkerInt(from.RowOffset);
+        int fc = ParseMarker(from.ColumnId), fco = ParseMarker(from.ColumnOffset);
+        int fr = ParseMarker(from.RowId), fro = ParseMarker(from.RowOffset);
         var (data, format) = ReadImage(dp, pic);
         // A one-cell anchor has no distinct end cell — surface ToCell == FromCell,
         // Dx2 == Dy2 == 0 (the rendered size lives in <xdr:ext>, which IPicture
@@ -251,10 +251,6 @@ internal sealed partial class OoxmlSheet
         };
         return (data, format);
     }
-
-    private static int ParseMarkerInt(DocumentFormat.OpenXml.OpenXmlLeafTextElement? el) =>
-        int.TryParse(el?.Text, System.Globalization.NumberStyles.Integer,
-            System.Globalization.CultureInfo.InvariantCulture, out int v) ? v : 0;
 
     // ---- Image helpers ------------------------------------------------------
 

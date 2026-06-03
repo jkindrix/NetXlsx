@@ -224,6 +224,15 @@ internal sealed partial class OoxmlSheet
     // sub-slice (OoxmlSheet.Pictures.cs); GetOrCreateDrawing() owns the DrawingsPart
     // + the schema-ordered worksheet <drawing> child.
 
+    // Parses a drawing-anchor marker leaf (xdr:col / xdr:row / xdr:colOff / xdr:rowOff),
+    // failing loud on a missing or non-integer value rather than silently substituting 0
+    // (decision I-83 — fail-loud parity with the NPOI engine, which rejects a corrupt
+    // anchor on open). CT_Marker requires all four children, so an absent or unparseable
+    // marker is genuine file corruption; a silent 0 would mis-place the drawing. Shared
+    // with the pictures sub-slice (OoxmlSheet.Pictures.cs read-back) and connectors.
     internal static int ParseMarker(DocumentFormat.OpenXml.OpenXmlLeafTextElement? el) =>
-        int.TryParse(el?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v : 0;
+        int.TryParse(el?.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
+            ? v
+            : throw new MalformedFileException(
+                $"drawing anchor marker '{el?.Text}' is not a valid integer");
 }
