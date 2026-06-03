@@ -9,10 +9,11 @@
 // Implemented across slices: string / number / bool set + get, Kind, Clear, the
 // numeric-interpretation getters (GetTime/GetDuration), the address members
 // (cells & rows); date/time setters + styling (cell styles); rich text
-// (SetRichText/GetRichText, this slice — inline <r> runs, with empty-style runs
-// inheriting the cell font per lesson #10). Deferred (throw NotYet): SetFormula,
-// comments, hyperlinks land in later slices. GetFormula/GetError return null
-// here, which is correct: this engine cannot yet produce formula or error cells.
+// (SetRichText/GetRichText — inline <r> runs, with empty-style runs inheriting
+// the cell font per lesson #10); SetFormula/GetFormula plus comments and
+// hyperlinks (formulas/comments/hyperlinks slice — the annotation surfaces
+// delegate to the sheet-level part helpers). GetError returns null, which is
+// correct: this engine cannot yet produce error cells.
 
 using System;
 using System.Collections.Generic;
@@ -217,9 +218,9 @@ internal sealed class OoxmlCell : ICell
         return num is null ? null : TimeSpan.FromDays(num.Value);
     }
 
-    // Formula cells exist on this engine via opened files and the table
-    // totals-row writer (SetFormula itself is a later slice). Mirrors the
-    // NPOI engine: "=" + the formula body, null for non-formula cells.
+    // Mirrors the NPOI engine: "=" + the formula body, null for non-formula
+    // cells. Reads back SetFormula cells, table totals-row formulas, and
+    // formula cells from opened files alike.
     public string? GetFormula()
     {
         Wb.ThrowIfDisposed();
@@ -467,6 +468,70 @@ internal sealed class OoxmlCell : ICell
         Borders = overlay.Borders ?? existing.Borders,
     };
 
+    // ---- Formulas (formulas/comments/hyperlinks slice) ----------------------
+
+    public void SetFormula(string formula)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(formula);
+
+        // Strip an optional leading '=' so callers can write either "=A1+B1"
+        // or "A1+B1" — same normalization as the NPOI engine.
+        var body = formula.Length > 0 && formula[0] == '=' ? formula.Substring(1) : formula;
+        if (body.Length == 0)
+            throw new FormulaException("formula body is empty (expected '=...' or a non-empty expression)");
+        ValidateFormulaStructure(formula, body);
+
+        var c = _sheet.GetOrCreateCell(_row, _col);
+        c.RemoveAllChildren();
+        c.DataType = null;
+        // Same <c><f> shape the table totals-row writer emits. Per design
+        // decision #46 and §7.8: no cached <v> — Excel recalculates on open.
+        // (NPOI emits an empty <v/> here; both forms mean "no cached value".)
+        c.CellFormula = new S.CellFormula(body);
+    }
+
+    // NPOI runs its full formula parser on SetFormula and surfaces failures as
+    // FormulaException. The Open XML SDK has no formula parser, so this engine
+    // validates structure only: balanced parentheses and terminated string /
+    // quoted-sheet-name literals. Structurally broken formulas (the corruption
+    // Excel rejects with a repair prompt) fail loud; semantic errors NPOI's
+    // parser would catch (e.g. "=1+") are left to Excel, which is the actual
+    // arbiter of formula validity. Documented divergence — see design.md I-82.
+    private static void ValidateFormulaStructure(string original, string body)
+    {
+        int depth = 0;
+        char literal = '\0'; // '"' inside a string, '\'' inside a quoted sheet name
+        for (int i = 0; i < body.Length; i++)
+        {
+            char ch = body[i];
+            if (literal != '\0')
+            {
+                if (ch == literal)
+                {
+                    // A doubled quote is the escape form inside both literals.
+                    if (i + 1 < body.Length && body[i + 1] == literal) i++;
+                    else literal = '\0';
+                }
+                continue;
+            }
+            switch (ch)
+            {
+                case '"':
+                case '\'': literal = ch; break;
+                case '(': depth++; break;
+                case ')':
+                    if (--depth < 0) throw FormulaParseError(original, "unbalanced ')'");
+                    break;
+            }
+        }
+        if (literal != '\0') throw FormulaParseError(original, "unterminated quoted literal");
+        if (depth != 0) throw FormulaParseError(original, "unbalanced '('");
+    }
+
+    private static FormulaException FormulaParseError(string original, string reason)
+        => new($"failed to parse formula '{original}': {reason}");
+
     // ---- Deferred surface (lands slice by slice; see I-82) -----------------
 
     private static NotImplementedException NotYet([CallerMemberName] string? member = null)
@@ -474,8 +539,6 @@ internal sealed class OoxmlCell : ICell
             $"ICell.{member} is not yet implemented on the Open XML SDK engine " +
             "(I-82 engine swap). It lands in a later slice (formulas/comments/" +
             "hyperlinks/rich text); track the swap in docs/design.md (I-82).");
-
-    public void SetFormula(string formula) => throw NotYet();
 
     public ICell Comment(string text, string? author = null) => throw NotYet();
     public string? GetComment() => throw NotYet();
