@@ -22,11 +22,50 @@ namespace NetXlsx;
 /// </summary>
 public sealed class DataValidation
 {
+    // Engine-agnostic descriptor (I-82 engine swap): the Open XML SDK engine
+    // cannot call the NPOI-typed Build closure, so each factory also captures
+    // the OOXML CT_DataValidation axes (type / operator / formula1 / formula2)
+    // directly. The NPOI engine keeps using Build; the SDK engine reads these.
+
+    /// <summary>Internal: the OOXML <c>@type</c> family.</summary>
+    internal enum ConstraintKind
+    {
+        List,
+        Whole,
+        Decimal,
+        Date,
+        TextLength,
+        Custom,
+    }
+
+    /// <summary>Internal: the OOXML <c>@operator</c>; None for list/custom.</summary>
+    internal enum CompareOp
+    {
+        None,
+        Between,
+        Equal,
+        GreaterThan,
+        LessThan,
+        LessThanOrEqual,
+        GreaterThanOrEqual,
+    }
+
     private readonly Func<IDataValidationHelper, IDataValidationConstraint> _build;
 
-    private DataValidation(Func<IDataValidationHelper, IDataValidationConstraint> build)
+    internal ConstraintKind Kind { get; }
+    internal CompareOp Operator { get; }
+    internal string Formula1 { get; }
+    internal string? Formula2 { get; }
+
+    private DataValidation(
+        Func<IDataValidationHelper, IDataValidationConstraint> build,
+        ConstraintKind kind, CompareOp op, string formula1, string? formula2 = null)
     {
         _build = build;
+        Kind = kind;
+        Operator = op;
+        Formula1 = formula1;
+        Formula2 = formula2;
     }
 
     /// <summary>Internal: materialize this rule against a sheet's helper.</summary>
@@ -46,7 +85,11 @@ public sealed class DataValidation
         ArgumentNullException.ThrowIfNull(values);
         if (values.Length == 0)
             throw new ArgumentException("List validation requires at least one value.", nameof(values));
-        return new DataValidation(h => h.CreateExplicitListConstraint(values));
+        return new DataValidation(
+            h => h.CreateExplicitListConstraint(values),
+            // OOXML encodes an explicit list as a quoted comma-joined formula1
+            // ("Red,Green,Blue") — the same encoding NPOI's constraint emits.
+            ConstraintKind.List, CompareOp.None, "\"" + string.Join(",", values) + "\"");
     }
 
     /// <summary>
@@ -62,32 +105,34 @@ public sealed class DataValidation
         ArgumentNullException.ThrowIfNull(formula);
         if (formula.Length == 0)
             throw new ArgumentException("Formula reference cannot be empty.", nameof(formula));
-        return new DataValidation(h => h.CreateFormulaListConstraint(formula));
+        return new DataValidation(
+            h => h.CreateFormulaListConstraint(formula),
+            ConstraintKind.List, CompareOp.None, formula);
     }
 
     // ---- Integer ------------------------------------------------------
 
     /// <summary>Accepts integer values in <c>[min, max]</c> (inclusive).</summary>
     public static DataValidation IntegerBetween(int min, int max) =>
-        Numeric(ValidationType.INTEGER, OperatorType.BETWEEN, min.ToString(System.Globalization.CultureInfo.InvariantCulture), max.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Numeric(ValidationType.INTEGER, OperatorType.BETWEEN, ConstraintKind.Whole, CompareOp.Between, min.ToString(System.Globalization.CultureInfo.InvariantCulture), max.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     /// <summary>Accepts only integers equal to <paramref name="value"/>.</summary>
     public static DataValidation IntegerEqual(int value) =>
-        Numeric(ValidationType.INTEGER, OperatorType.EQUAL, value.ToString(System.Globalization.CultureInfo.InvariantCulture), null);
+        Numeric(ValidationType.INTEGER, OperatorType.EQUAL, ConstraintKind.Whole, CompareOp.Equal, value.ToString(System.Globalization.CultureInfo.InvariantCulture), null);
 
     /// <summary>Accepts integers strictly greater than <paramref name="value"/>.</summary>
     public static DataValidation IntegerGreaterThan(int value) =>
-        Numeric(ValidationType.INTEGER, OperatorType.GREATER_THAN, value.ToString(System.Globalization.CultureInfo.InvariantCulture), null);
+        Numeric(ValidationType.INTEGER, OperatorType.GREATER_THAN, ConstraintKind.Whole, CompareOp.GreaterThan, value.ToString(System.Globalization.CultureInfo.InvariantCulture), null);
 
     /// <summary>Accepts integers strictly less than <paramref name="value"/>.</summary>
     public static DataValidation IntegerLessThan(int value) =>
-        Numeric(ValidationType.INTEGER, OperatorType.LESS_THAN, value.ToString(System.Globalization.CultureInfo.InvariantCulture), null);
+        Numeric(ValidationType.INTEGER, OperatorType.LESS_THAN, ConstraintKind.Whole, CompareOp.LessThan, value.ToString(System.Globalization.CultureInfo.InvariantCulture), null);
 
     // ---- Decimal ------------------------------------------------------
 
     /// <summary>Accepts numeric values in <c>[min, max]</c> (inclusive).</summary>
     public static DataValidation DecimalBetween(double min, double max) =>
-        Numeric(ValidationType.DECIMAL, OperatorType.BETWEEN,
+        Numeric(ValidationType.DECIMAL, OperatorType.BETWEEN, ConstraintKind.Decimal, CompareOp.Between,
             min.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
             max.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
 
@@ -103,7 +148,10 @@ public sealed class DataValidation
             OperatorType.BETWEEN,
             $"DATE({start.Year},{start.Month},{start.Day})",
             $"DATE({end.Year},{end.Month},{end.Day})",
-            null));
+            null),
+            ConstraintKind.Date, CompareOp.Between,
+            $"DATE({start.Year},{start.Month},{start.Day})",
+            $"DATE({end.Year},{end.Month},{end.Day})");
 
     // ---- Text length --------------------------------------------------
 
@@ -112,14 +160,18 @@ public sealed class DataValidation
         new(h => h.CreateTextLengthConstraint(
             OperatorType.LESS_OR_EQUAL,
             max.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            null));
+            null),
+            ConstraintKind.TextLength, CompareOp.LessThanOrEqual,
+            max.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     /// <summary>Accepts strings whose length is &gt;= <paramref name="min"/>.</summary>
     public static DataValidation TextLengthAtLeast(int min) =>
         new(h => h.CreateTextLengthConstraint(
             OperatorType.GREATER_OR_EQUAL,
             min.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            null));
+            null),
+            ConstraintKind.TextLength, CompareOp.GreaterThanOrEqual,
+            min.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     // ---- Custom -------------------------------------------------------
 
@@ -136,11 +188,13 @@ public sealed class DataValidation
         ArgumentNullException.ThrowIfNull(formula);
         if (formula.Length == 0)
             throw new ArgumentException("Custom validation formula cannot be empty.", nameof(formula));
-        return new DataValidation(h => h.CreateCustomConstraint(formula));
+        return new DataValidation(
+            h => h.CreateCustomConstraint(formula),
+            ConstraintKind.Custom, CompareOp.None, formula);
     }
 
     // ---- Internal -----------------------------------------------------
 
-    private static DataValidation Numeric(int validationType, int op, string f1, string? f2) =>
-        new(h => h.CreateNumericConstraint(validationType, op, f1, f2));
+    private static DataValidation Numeric(int validationType, int op, ConstraintKind kind, CompareOp cmp, string f1, string? f2) =>
+        new(h => h.CreateNumericConstraint(validationType, op, f1, f2), kind, cmp, f1, f2);
 }

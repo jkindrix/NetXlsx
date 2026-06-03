@@ -272,6 +272,47 @@ public class SchemaValidationTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ---- Slice 7: data validation --------------------------------------------
+
+    [Fact]
+    public void Data_Validations_All_Families_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("h");
+        s.AddValidation("A2:A5", DataValidation.List("Red", "Green", "Blue"));
+        s.AddValidation("B2:B5", DataValidation.ListFromRange("$Z$1:$Z$9"));
+        s.AddValidation("C2:C5", DataValidation.IntegerBetween(1, 10));
+        s.AddValidation("D2:D5", DataValidation.DecimalBetween(0.5, 9.5));
+        s.AddValidation("E2:E5", DataValidation.DateBetween(new DateOnly(2024, 1, 1), new DateOnly(2024, 12, 31)));
+        s.AddValidation("F2:F5", DataValidation.TextLengthAtMost(10));
+        s.AddValidation("G2:G5", DataValidation.Custom("ISNUMBER(G2)"));
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_Validation_To_An_Opened_NPOI_File_Keeps_Schema_Order()
+    {
+        // Open-mutate-validate (SDK-quirk #8): an NPOI-written sheet always
+        // carries <pageMargins>, which FOLLOWS <dataValidations> in
+        // CT_Worksheet — the insert must land before it, not append.
+        var path = Path.Combine(Path.GetTempPath(), $"netxlsx-schema-dv-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.Create())   // NPOI engine on purpose
+            {
+                wb.AddSheet("S")["A1"].SetString("h");
+                wb.Save(path);
+            }
+            using (var wb = Workbook.OpenOoxml(path))
+            {
+                wb["S"].AddValidation("A2:A5", DataValidation.IntegerBetween(1, 10));
+                OpenXmlValidationGate.AssertValid(wb);
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     // ---- Slice 7: sort ------------------------------------------------------
 
     [Fact]

@@ -330,7 +330,8 @@ internal sealed partial class OoxmlSheet : ISheet
     // HasAutoFilter / AutoFilterRange) lands in OoxmlSheet.AutoFilter.cs
     // (I-82 CF/validation/tables/autofilter/sort slice).
 
-    public void AddValidation(string a1Range, DataValidation validation) => throw NotYet();
+    // AddValidation lands in OoxmlSheet.Validation.cs (I-82 CF/validation/
+    // tables/autofilter/sort slice).
 
     // AddPicture overloads land in OoxmlSheet.Pictures.cs (I-82 drawings slice).
 
