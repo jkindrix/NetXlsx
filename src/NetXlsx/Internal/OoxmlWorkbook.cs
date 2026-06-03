@@ -25,7 +25,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
@@ -405,15 +404,6 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         ObjectDisposedException.ThrowIf(_disposed, nameof(IWorkbook));
     }
 
-    // ---- Not-yet-implemented surface (lands slice by slice; see I-82) -------
-
-    private static NotImplementedException NotYet([CallerMemberName] string? member = null)
-        => new(
-            $"IWorkbook.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). It lands in a later slice; until then use the " +
-            "legacy engine (Workbook.Create/Open) for this operation, or track the " +
-            "swap in docs/design.md (I-82).");
-
     // Named ranges (AddNamedRange / NamedRanges) land in OoxmlWorkbook.Names.cs
     // (I-82 structure slice).
 
@@ -517,13 +507,8 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         return style;
     }
 
-    public void Protect(WorkbookProtection? options = null) => throw NotYet();
-    public void ProtectWithPassword(string password, WorkbookProtection? options = null) => throw NotYet();
-    public void Unprotect() => throw NotYet();
-    public bool IsProtected => throw NotYet();
-
+    // Protect / ProtectWithPassword / Unprotect / IsProtected / IsMacroEnabled
+    // live in OoxmlWorkbook.Protection.cs (formulas/comments/hyperlinks slice).
     // SetThemeXml / GetThemeXml / ResolveThemeColor / GetThemeLineWidthEmu live in
     // OoxmlWorkbook.Theme.cs (drawings slice — theme round-trip).
-
-    public bool IsMacroEnabled => throw NotYet();
 }

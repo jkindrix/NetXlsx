@@ -15,7 +15,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using DocumentFormat.OpenXml.Packaging;
 using S = DocumentFormat.OpenXml.Spreadsheet;
 
@@ -218,15 +217,6 @@ internal sealed partial class OoxmlSheet : ISheet
         }
         return max;
     }
-
-    // ---- Not-yet-implemented surface (lands slice by slice; see I-82) -------
-
-    private static NotImplementedException NotYet([CallerMemberName] string? member = null)
-        => new(
-            $"ISheet.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). It lands in a later slice; until then use the " +
-            "legacy engine (Workbook.Create/Open) for this operation, or track " +
-            "the swap in docs/design.md (I-82).");
 
     public ICell this[string a1]
     {

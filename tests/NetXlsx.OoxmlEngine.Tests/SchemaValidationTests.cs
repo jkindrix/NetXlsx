@@ -574,6 +574,38 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    [Fact]
+    public void Workbook_Protection_With_Password_Is_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("S");
+        wb.ProtectWithPassword("secret",
+            new WorkbookProtection { Structure = true, Windows = true, Revision = true });
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Protecting_An_Opened_Workbook_Carrying_BookViews_Keeps_Schema_Order()
+    {
+        // Open-mutate-validate (SDK-quirk #8): <workbookProtection> precedes
+        // <bookViews> in CT_Workbook, and every Excel/NPOI-authored file carries
+        // a <bookViews>; inject one to simulate that opened file — Protect must
+        // slot the new element AHEAD of it, not append after <sheets>.
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("S");
+        var workbook = wb.OpenXmlDocument!.WorkbookPart!.Workbook!;
+        workbook.InsertBefore(new S.BookViews(new S.WorkbookView()), workbook.GetFirstChild<S.Sheets>());
+
+        wb.ProtectWithPassword("secret");
+
+        var children = workbook.ChildElements.ToList();
+        int protIdx = children.FindIndex(c => c is S.WorkbookProtection);
+        int viewsIdx = children.FindIndex(c => c is S.BookViews);
+        protIdx.Should().BeGreaterThanOrEqualTo(0);
+        protIdx.Should().BeLessThan(viewsIdx);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Schema-ordered insertion into OPENED containers (SDK-quirk #8) ------
     //
     // Every fixture above validates a workbook the engine created from scratch,
