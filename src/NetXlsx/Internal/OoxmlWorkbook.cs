@@ -92,9 +92,13 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     private static readonly DateTime Epoch1904 = new(1904, 1, 1);
     private static readonly DateTime LeapBugThreshold = new(1900, 3, 1);
 
-    internal double ToSerial(DateTime value)
+    internal double ToSerial(DateTime value) => ToSerial(value, Date1904);
+
+    // Static form shared with the streaming engine (slice 9), whose date system
+    // comes from StreamingOptions rather than a live workbookPr element.
+    internal static double ToSerial(DateTime value, bool date1904)
     {
-        if (Date1904) return (value - Epoch1904).TotalDays;
+        if (date1904) return (value - Epoch1904).TotalDays;
         double serial = (value - Epoch1900).TotalDays;
         if (value >= LeapBugThreshold) serial += 1; // phantom 1900-02-29
         return serial;

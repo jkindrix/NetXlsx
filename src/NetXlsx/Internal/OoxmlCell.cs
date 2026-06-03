@@ -497,7 +497,8 @@ internal sealed class OoxmlCell : ICell
     // Excel rejects with a repair prompt) fail loud; semantic errors NPOI's
     // parser would catch (e.g. "=1+") are left to Excel, which is the actual
     // arbiter of formula validity. Documented divergence — see design.md I-82.
-    private static void ValidateFormulaStructure(string original, string body)
+    // Internal: shared with the streaming engine's SetFormula (slice 9).
+    internal static void ValidateFormulaStructure(string original, string body)
     {
         int depth = 0;
         char literal = '\0'; // '"' inside a string, '\'' inside a quoted sheet name

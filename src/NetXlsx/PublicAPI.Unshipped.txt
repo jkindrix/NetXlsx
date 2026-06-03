@@ -117,3 +117,4 @@ NetXlsx.IWorkbook.OpenXmlDocument.get -> DocumentFormat.OpenXml.Packaging.Spread
 static NetXlsx.Workbook.CreateOoxml(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.OpenOoxml(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.OpenOoxml(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
+static NetXlsx.Workbook.CreateStreamingOoxml(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!

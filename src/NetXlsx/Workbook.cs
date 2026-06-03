@@ -117,6 +117,26 @@ public static class Workbook
         return OoxmlWorkbook.Open(stream, leaveOpen, options ?? new WorkbookOptions());
     }
 
+    /// <summary>
+    /// Creates a new, empty <b>streaming</b> workbook on the Open XML SDK engine
+    /// (decision I-82) — the counterpart to <see cref="CreateStreaming"/>, which
+    /// uses the legacy NPOI SXSSF writer. Rows stream forward-only to per-sheet
+    /// temp files through <c>OpenXmlWriter</c>; memory stays bounded by
+    /// <see cref="StreamingOptions.RowAccessWindowSize"/>. <c>Save</c> is
+    /// single-shot: the worksheet XML is finalized and the package assembled
+    /// once, after which the workbook rejects further writes (fail-loud, where
+    /// NPOI silently discards them). The NPOI escape hatches
+    /// (<see cref="IStreamingWorkbook.Underlying"/> /
+    /// <see cref="IStreamingSheet.Underlying"/>) throw
+    /// <see cref="NotSupportedException"/> on this engine.
+    /// </summary>
+    /// <param name="options">Streaming-specific knobs (row-access window size,
+    /// temp-file compression). Defaults match <see cref="CreateStreaming"/>.</param>
+    public static IStreamingWorkbook CreateStreamingOoxml(StreamingOptions? options = null)
+    {
+        return new OoxmlStreamingWorkbook(options ?? new StreamingOptions());
+    }
+
     /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a file path.</summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>

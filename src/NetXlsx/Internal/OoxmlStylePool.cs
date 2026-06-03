@@ -94,6 +94,22 @@ internal sealed class OoxmlStylePool
         return pool;
     }
 
+    /// <summary>
+    /// Builds a pool over a detached default stylesheet — no package exists yet.
+    /// Used by the streaming engine (slice 9), which allocates cellXfs indices
+    /// while rows are written forward-only and attaches the finished stylesheet
+    /// to the WorkbookStylesPart only at Save-time assembly.
+    /// </summary>
+    internal static OoxmlStylePool CreateDetached(WorkbookOptions options)
+    {
+        var pool = new OoxmlStylePool(BuildDefaultStylesheet(options), options);
+        pool.InitializeCursors();
+        return pool;
+    }
+
+    /// <summary>The pool's stylesheet (for Save-time attachment of a detached pool).</summary>
+    internal S.Stylesheet Stylesheet => _ss;
+
     private static S.Stylesheet BuildDefaultStylesheet(WorkbookOptions options)
     {
         var defaultFont = new S.Font(
