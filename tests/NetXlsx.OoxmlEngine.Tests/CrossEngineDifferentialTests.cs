@@ -459,4 +459,109 @@ public class CrossEngineDifferentialTests
                     .Select(r => $"{s[r, 1].Kind}|{s[r, 1].GetString()}|{s[r, 2].Kind}|{s[r, 2].GetString()}")
                     .ToArray();
             }));
+
+    // ---- Formulas (formulas/comments/hyperlinks slice) ---------------------
+
+    [Fact]
+    public void Formula_Cell_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetNumber(10);
+                s["A2"].SetNumber(20);
+                s["A3"].SetFormula("=SUM(A1:A2)");
+            },
+            wb => (wb["S"]["A3"].GetFormula(), wb["S"]["A3"].Kind)));
+
+    [Fact]
+    public void Empty_Formula_Body_Rejection_Agrees()
+        => AssertAgree(Both(
+            wb => wb.AddSheet("S"),
+            wb =>
+            {
+                try { wb["S"]["A1"].SetFormula("="); return "no-throw"; }
+                catch (FormulaException) { return "FormulaException"; }
+            }));
+
+    [Fact]
+    public void Structurally_Broken_Formula_Rejection_Agrees()
+        => AssertAgree(Both(
+            wb => wb.AddSheet("S"),
+            wb =>
+            {
+                // "=SUM(" is the overlap of NPOI's full parse and the SDK
+                // engine's structural validation — both throw FormulaException.
+                try { wb["S"]["A1"].SetFormula("=SUM("); return "no-throw"; }
+                catch (FormulaException) { return "FormulaException"; }
+            }));
+
+    // ---- Comments (formulas/comments/hyperlinks slice) ---------------------
+
+    [Fact]
+    public void Comment_Text_And_Author_Agree()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s["B2"].SetString("data");
+                s["B2"].Comment("reviewer flagged");          // default author (I11)
+                s["C3"].Comment("second note", "alice");
+            },
+            wb => (wb["S"]["B2"].GetComment(), wb["S"]["B2"].GetCommentAuthor(),
+                   wb["S"]["C3"].GetComment(), wb["S"]["C3"].GetCommentAuthor(),
+                   wb["S"]["A1"].GetComment())));
+
+    // ---- Hyperlinks (formulas/comments/hyperlinks slice) -------------------
+
+    [Fact]
+    public void Hyperlink_Targets_And_Cell_Text_Agree()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                wb.AddSheet("Other");
+                s["D1"].Hyperlink("https://example.com", display: "Example");
+                s["D2"].Hyperlink("mailto:foo@example.com");
+                s["D3"].Hyperlink("#Other!A1");
+                s["D4"].SetString("Click me");
+                s["D4"].Hyperlink("HTTPS://Example.COM/MixedCase");
+            },
+            wb =>
+            {
+                var s = wb["S"];
+                return new[]
+                {
+                    $"{s["D1"].GetHyperlink()}|{s["D1"].GetString()}",
+                    $"{s["D2"].GetHyperlink()}|{s["D2"].GetString()}",
+                    $"{s["D3"].GetHyperlink()}",
+                    // Verbatim target preservation — no URI canonicalization.
+                    $"{s["D4"].GetHyperlink()}|{s["D4"].GetString()}",
+                    $"{s["E9"].GetHyperlink() ?? "<null>"}",
+                };
+            }));
+
+    // ---- Workbook protection (formulas/comments/hyperlinks slice rider) ----
+
+    [Fact]
+    public void Workbook_Protection_State_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                wb.AddSheet("S");
+                wb.ProtectWithPassword("hunter2",
+                    new WorkbookProtection { Structure = true, Windows = true });
+            },
+            wb => wb.IsProtected));
+
+    [Fact]
+    public void Unprotected_Workbook_State_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                wb.AddSheet("S");
+                wb.Protect();
+                wb.Unprotect();
+            },
+            wb => wb.IsProtected));
 }

@@ -233,14 +233,8 @@ public class CellAndRowValueTests
         s.Column("AB").Index.Should().Be(28);
     }
 
-    [Fact]
-    public void Deferred_Formula_Setter_Throws_NotImplemented()
-    {
-        // SetDate landed with the styles slice; SetFormula is still deferred.
-        using var wb = Workbook.CreateOoxml();
-        var s = wb.AddSheet("S");
-        ((Action)(() => s["A1"].SetFormula("=1+1"))).Should().Throw<NotImplementedException>();
-    }
+    // (The cells & rows slice's Deferred_Formula_Setter_Throws_NotImplemented
+    // guard retired when SetFormula landed — FormulaTests carries its coverage.)
 
     [Fact]
     public void SetString_Over_Length_Limit_Throws()
