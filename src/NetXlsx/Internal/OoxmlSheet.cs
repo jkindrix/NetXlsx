@@ -303,7 +303,7 @@ internal sealed partial class OoxmlSheet : ISheet
     // default column width land in OoxmlSheet.Structure.cs (I-82 structure slice).
     // Sheet protection lands in OoxmlSheet.Protection.cs.
 
-    public IChart AddChart(ChartType type, string startCell, string endCell, string categoryRange, string valueRange, string? title = null) => throw NotYet();
+    // AddChart lands in OoxmlSheet.Charts.cs (I-82 charts slice).
 
     // Pictures (AddPicture overloads + Pictures read-back) land in
     // OoxmlSheet.Pictures.cs; shapes/connectors (AddShape, AddConnector,

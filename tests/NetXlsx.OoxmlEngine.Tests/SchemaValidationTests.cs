@@ -447,6 +447,46 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Charts (slice 8) -----------------------------------------------------
+
+    [Fact]
+    public void Charts_All_Six_Types_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        foreach (ChartType type in Enum.GetValues<ChartType>())
+        {
+            var s = wb.AddSheet("D" + type);
+            if (type == ChartType.Scatter)
+            {
+                s["A1"].SetNumber(1); s["B1"].SetNumber(10);
+                s["A2"].SetNumber(2); s["B2"].SetNumber(20);
+            }
+            else
+            {
+                s["A1"].SetString("Jan"); s["B1"].SetNumber(100);
+                s["A2"].SetString("Feb"); s["B2"].SetNumber(150);
+            }
+            s.AddChart(type, "D1", "K15", "A1:A2", "B1:B2", title: "T-" + type);
+        }
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_A_Chart_Next_To_Existing_Drawings_Is_Schema_Valid()
+    {
+        // The chart's graphicFrame anchors into the SAME xdr:wsDr the pictures /
+        // shapes build (xdr:wsDr is not strict-ordered, so this exercises part
+        // wiring rather than OoxmlSchemaOrder — the worksheet <drawing> child is
+        // already covered by the pictures open-mutate fixture).
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("Jan"); s["B1"].SetNumber(1);
+        s.AddPicture("M1", OnePixelPng, ImageFormat.Png);
+        s.AddShape(ShapeType.Rectangle, "M5", "N8");
+        s.AddChart(ChartType.Column, "D1", "K15", "A1:A1", "B1:B1");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // A full 12-slot clrScheme + fontScheme + fmtScheme (3 of each list) — the
     // minimum a CT_OfficeStyleSheet theme requires to validate. Used to prove the
     // ThemePart the engine writes via SetThemeXml is schema-valid in-package. NB:
