@@ -217,8 +217,17 @@ internal sealed class OoxmlCell : ICell
         return num is null ? null : TimeSpan.FromDays(num.Value);
     }
 
-    // No formula / error cells are producible on this engine yet; null is correct.
-    public string? GetFormula() { Wb.ThrowIfDisposed(); return null; }
+    // Formula cells exist on this engine via opened files and the table
+    // totals-row writer (SetFormula itself is a later slice). Mirrors the
+    // NPOI engine: "=" + the formula body, null for non-formula cells.
+    public string? GetFormula()
+    {
+        Wb.ThrowIfDisposed();
+        var body = Element?.CellFormula?.Text;
+        return string.IsNullOrEmpty(body) ? null : "=" + body;
+    }
+
+    // No error cells are producible on this engine yet; null is correct.
     public CellError? GetError() { Wb.ThrowIfDisposed(); return null; }
 
     private string ReadString(S.Cell c)

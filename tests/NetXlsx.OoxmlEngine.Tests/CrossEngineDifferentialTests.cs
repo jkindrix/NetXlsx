@@ -386,6 +386,38 @@ public class CrossEngineDifferentialTests
                 NameCount = wb.NamedRanges.Count,
             }));
 
+    // ---- Tables (rich public read-back: name/address/columns/style/totals) --
+
+    [Fact]
+    public void Table_With_Totals_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("Region"); s["B1"].SetString("Revenue");
+                s["A2"].SetString("EU"); s["B2"].SetNumber(100);
+                s["A3"].SetString("US"); s["B3"].SetNumber(200);
+                var t = s.AddTable("A1:B3", "Sales", TableStyles.Medium2);
+                t.AddTotalsRow();
+                t.SetColumnTotalLabel("Region", "Total");
+                t.SetColumnTotal("Revenue", TotalsRowFunction.Sum);
+            },
+            wb =>
+            {
+                var t = wb["S"].Tables.Single();
+                return new
+                {
+                    t.Name,
+                    Display = t.DisplayName,
+                    t.Address,
+                    Columns = t.ColumnNames.ToArray(),
+                    t.HasTotalsRow,
+                    Style = t.StyleName,
+                    Label = wb["S"]["A4"].GetString(),
+                    Formula = wb["S"]["B4"].GetFormula(),
+                };
+            }));
+
     // ---- Conditional formatting (count is the only public read-back;
     // emission parity lives in ConditionalFormatTests) -----------------------
 

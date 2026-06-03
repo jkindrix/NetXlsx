@@ -272,6 +272,44 @@ public class SchemaValidationTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ---- Slice 7: tables -------------------------------------------------------
+
+    [Fact]
+    public void Table_With_Style_And_Totals_Is_Schema_Valid()
+    {
+        // Also exercises the table PART (the validator walks all parts) —
+        // including the schema-required <table @id> NPOI 2.7.3 omits.
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("Region"); s["B1"].SetString("Revenue");
+        s["A2"].SetString("EU"); s["B2"].SetNumber(100);
+        s["A3"].SetString("US"); s["B3"].SetNumber(200);
+        var t = s.AddTable("A1:B3", "Sales", TableStyles.Medium2);
+        t.AddTotalsRow();
+        t.SetColumnTotalLabel("Region", "Total");
+        t.SetColumnTotal("Revenue", TotalsRowFunction.Sum);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_Table_To_An_Opened_Sheet_Carrying_ExtLst_Keeps_Schema_Order()
+    {
+        // Open-mutate-validate (SDK-quirk #8): <tableParts> is the second-to-
+        // last CT_Worksheet child — the only legal sibling after it is
+        // <extLst>, so inject one and require the insert to land before it.
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("H"); s["A2"].SetString("v");
+        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        ws.AppendChild(new S.WorksheetExtensionList());
+
+        s.AddTable("A1:A2", "T");
+
+        ws.ChildElements[ws.ChildElements.Count - 1].Should().BeOfType<S.WorksheetExtensionList>(
+            "the <tableParts> insert must slot before the existing <extLst>");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Slice 7: conditional formatting --------------------------------------
 
     [Fact]

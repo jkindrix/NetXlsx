@@ -322,10 +322,9 @@ internal sealed partial class OoxmlSheet : ISheet
 
     // Hidden / ShowGridlines / DefaultColumnWidth land in OoxmlSheet.Structure.cs.
 
-    public ITable AddTable(string a1Range, string name, string? style = null) => throw NotYet();
-    public IReadOnlyList<ITable> Tables => throw NotYet();
-    public bool TryGetTable(string name, [MaybeNullWhen(false)] out ITable table) => throw NotYet();
-    public void RemoveTable(ITable table) => throw NotYet();
+    // Tables (AddTable / Tables / TryGetTable / RemoveTable) land in
+    // OoxmlSheet.Tables.cs + OoxmlTable.cs (I-82 CF/validation/tables/
+    // autofilter/sort slice).
 
     // AutoFilter (SetAutoFilter / ClearAutoFilter / per-column criteria /
     // HasAutoFilter / AutoFilterRange) lands in OoxmlSheet.AutoFilter.cs
