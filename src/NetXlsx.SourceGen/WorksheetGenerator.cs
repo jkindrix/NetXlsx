@@ -334,9 +334,16 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             return $"s_conv_{p.Name}.Read({cellExpr})";
         }
 
-        // shared throw expression for "required cell missing / wrong type"
+        // shared throw expression for "required cell missing / wrong type".
+        // The header is embedded in a generated *interpolated* string literal, so it
+        // must escape the backslash/quote (literal-breaking) AND the braces (would be
+        // read as interpolation holes) — otherwise a [Column] header containing any of
+        // ", \, { or } emits code that does not compile.
+        string escapedHeader = p.Column!.HeaderName
+            .Replace("\\", "\\\\").Replace("\"", "\\\"")
+            .Replace("{", "{{").Replace("}", "}}");
         string ThrowExpr(string expected) =>
-            $"throw new global::NetXlsx.WorkbookException($\"Row {{r}} column '{p.Column!.HeaderName}' expected {expected} but got {{({cellExpr}).Kind}}.\")";
+            $"throw new global::NetXlsx.WorkbookException($\"Row {{r}} column '{escapedHeader}' expected {expected} but got {{({cellExpr}).Kind}}.\")";
 
         return p.UnderlyingSpecialType switch
         {

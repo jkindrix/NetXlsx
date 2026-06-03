@@ -186,4 +186,37 @@ public class NotAnnotated
         output.GeneratedSources.Should().BeEmpty();
         output.GeneratorDiagnostics.Should().BeEmpty();
     }
+
+    [Fact]
+    public void Header_With_Quote_Backslash_And_Braces_Emits_Compilable_Code()
+    {
+        // Regression: the wrong-type throw expression interpolates the [Column] header
+        // into a generated *interpolated* string literal. A header containing ", \, {
+        // or } must be escaped (quote/backslash break the literal; braces would be read
+        // as interpolation holes) or the generated code fails to compile. Header here is
+        // a"b\c{d}.
+        const string src = @"
+using NetXlsx;
+namespace T;
+[Worksheet]
+public partial class Row
+{
+    [Column(""a\""b\\c{d}"")] public int A { get; set; }
+}";
+        var output = GeneratorHarness.Run(src);
+
+        output.GeneratedSources.Should().NotBeEmpty();
+        // Ignore the harness's one benign gap — the generated ReadRows body reaches
+        // sheet.Underlying (NPOI XSSFSheet), which this minimal reference set omits
+        // (CS0012). Any OTHER error means the header escaping is wrong: an unescaped
+        // quote/backslash is a syntax error, an unescaped brace is CS0103 (the literal
+        // is read as an interpolation hole referencing an undefined name).
+        output.CompilationDiagnostics.Should().NotContain(
+            d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error && d.Id != "CS0012",
+            "a header with quote, backslash, or brace characters must be escaped into the generated literal");
+
+        // The escaped header is present verbatim in the generated throw expression.
+        var generated = string.Concat(output.GeneratedSources.Select(s => s.Source));
+        generated.Should().Contain(@"a\""b\\c{{d}}");
+    }
 }
