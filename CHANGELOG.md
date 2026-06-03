@@ -418,6 +418,48 @@ surface remain:
   wrap-or-raise-the-floor decision. The primary schema gate remains
   `Microsoft365`.
 
+**Streaming write slice (slice 9 — the SXSSF replacement).** The last big
+surface on the SDK engine: the `IStreamingWorkbook` / `IStreamingSheet` /
+`IStreamingRow` / `IStreamingCell` contract (decision #7 / I-13), reached
+through the new additive factory:
+
+- `Workbook.CreateStreamingOoxml(StreamingOptions? options = null)` — the
+  Open XML SDK counterpart to `CreateStreaming`, which stays NPOI-backed
+  until cutover. **No `IStreaming*` interface change was needed**: the I-13
+  surface is already append-only across rows, and within-window cell
+  mutation maps directly onto the `RowAccessWindowSize` buffering SXSSF
+  itself performs — the forward-only `OpenXmlWriter` shape is honored, not
+  papered over.
+- Each sheet streams its worksheet XML into its own temp file through an
+  `OpenXmlPartWriter` as rows leave the bounded window; `Save` assembles the
+  package by feeding the finished worksheet bytes into the parts — memory
+  stays bounded end-to-end. `RowAccessWindowSize`, `CompressTempFiles`
+  (gzip temp files), `DateSystem`, and the default-font options are all
+  honored.
+- Cell emission matches the random-access SDK engine: inline strings with
+  space preservation, G17 invariant numbers, no cached `<v>` under formulas
+  (#46), `SetDate` = serial + default datetime format when unstyled. Styles
+  dedup through the same pool semantics (#4/#29) via a detached stylesheet
+  attached at Save.
+- Fail-loud contract (documented divergences from NPOI's SXSSF, probed
+  before implementing): `Save` is single-shot on both engines, but NPOI
+  leaks `ObjectDisposedException` from writer internals on a second save
+  and silently DISCARDS rows appended after save or writes to
+  window-evicted rows — the SDK engine throws a deliberate
+  `InvalidOperationException` at all three sites (I-83 honesty). A failed
+  save to a bad path does not burn the single shot. The NPOI escape hatches
+  (`Underlying`) throw `NotSupportedException` on this engine.
+- The two slice oracles: a cross-engine streaming differential (same
+  dataset streamed through both engines, both outputs reopened through both
+  readers, all four projections equal) and a forward-only/bounded-memory
+  guard (a window-evicted row rejects writes — re-introducing hidden
+  buffering breaks the test). Streamed output is schema-valid under
+  `Microsoft365`.
+
+The SDK engine's remaining stub inventory is now exactly:
+`IColumn.AutoSize` (font metrics) plus the within-surface deferrals
+(date-cell `GetString` rendering; named-style OOXML persistence).
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -432,7 +474,7 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `DataValidationTests`, `ConditionalFormatTests`, `TableApiTests`,
 `ChartTests`, `FormulaTests`, `CommentTests`, `HyperlinkTests`,
 `WorkbookProtectionTests`, `CrossEngineDifferentialTests`,
-`CrossEngineMalformedInputTests`).
+`CrossEngineMalformedInputTests`, `StreamingEngineTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

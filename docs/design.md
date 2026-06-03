@@ -1110,6 +1110,71 @@ shape geometry). Implementation notes:
   trips it, forcing a conscious wrap-or-raise-the-floor decision. The
   primary gate remains `Microsoft365`.
 
+*Streaming write slice (I-82 sub-slice, slice 9, added 2026-06-03).* The SXSSF
+replacement — the last big surface on the SDK engine. Reached through the new
+additive factory **`Workbook.CreateStreamingOoxml(StreamingOptions?)`** (the
+parallel-engine rule-2 pattern, like `CreateOoxml`); `CreateStreaming` stays
+NPOI-routed until cutover. The anticipated architectural risk — reconciling the
+I-13 `IStreaming*` type split against the SDK's forward-only `OpenXmlWriter` —
+resolved with **zero public-API change**: the I-13 surface was already
+append-only across rows, and within-window mutation maps exactly onto the
+`RowAccessWindowSize` buffering SXSSF itself performs, so no internal buffering
+fakes random access. Implementation notes:
+
+- **Architecture** (`OoxmlStreamingWorkbook/Sheet/Row/Cell.cs`): each sheet
+  streams its worksheet XML into its OWN temp file through an
+  `OpenXmlPartWriter` as rows flush out of the bounded window (the SXSSF
+  temp-file model — bounded memory, interleaved multi-sheet writes, no
+  concurrent-package-stream constraint). `Save` finalizes every sheet's XML
+  and assembles the package: `SpreadsheetDocument.Create` + workbook DOM +
+  the detached style pool's stylesheet + `WorksheetPart.FeedData(tempFile)`
+  per sheet — worksheet bytes stream from temp file to package, never a
+  whole-sheet DOM. `StreamingOptions.CompressTempFiles` is honored via
+  GZipStream over the temp file. Buffered rows are plain values
+  (`StreamingRowBuffer`/`StreamingCellData`), materialized into `<row>`/`<c>`
+  only at flush; the cell shapes mirror the random-access SDK engine exactly
+  (inline strings + space preservation, G17 invariant numbers, `1`/`0`
+  booleans, no cached `<v>` on formulas per #46, `SetDate` = serial + the
+  default datetime format when unstyled).
+- **Styles**: new `OoxmlStylePool.CreateDetached` builds the pool over an
+  unattached default stylesheet (no package exists during writing); cellXfs
+  indices are allocated live and the stylesheet attaches to the
+  `WorkbookStylesPart` at assembly. Dedup semantics unchanged (#4/#29).
+  `Style()` merge mirrors the NPOI streaming engine's
+  `MergeOverlayOverExisting`: only `NumberFormat` falls back to the cell's
+  current style; other axes come from the overlay verbatim (streaming keeps
+  no read-back).
+- **Single-shot Save + fail-loud divergences** (probed against NPOI before
+  implementing): NPOI's second `Save` leaks `ObjectDisposedException`
+  ("Cannot write to a closed TextWriter") from `SheetDataWriter` internals —
+  the SDK engine throws a deliberate up-front `InvalidOperationException`
+  (same fail-loud contract, honest message). NPOI silently ACCEPTS
+  `AppendRow`/cell writes after Save and writes to window-evicted rows — the
+  data is discarded; the SDK engine fails loud on all three (I-83 honesty
+  discipline; one-sided strictness divergences, all pinned in
+  `StreamingEngineTests`). A failed `Save` to a bad path does NOT burn the
+  single shot (the target opens before finalization). The NPOI escape
+  hatches (`IStreamingWorkbook.Underlying`/`IStreamingSheet.Underlying`)
+  throw `NotSupportedException` on this engine.
+- **Emission divergences from NPOI streaming** (conformance-positive, all
+  reopen-equivalent): no stale `<dimension ref="A1"/>` (NPOI never updates
+  it; the element is schema-optional and omitted — a forward-only writer
+  cannot know the extent up front), no default
+  `<sheetViews>`/`<sheetFormatPr>`/`<pageMargins>` boilerplate, no empty
+  `sharedStrings.xml` part (strings are inline on both engines), no
+  explicit `t="n"` on numeric cells, no literal BOM glitch inside
+  `<sheetData>` (an NPOI artifact), no cached `<v>0</v>` under formulas.
+- **The two slice oracles** (advisor, 2026-06-03): (1) cross-engine
+  streaming differential — the same dataset streamed through BOTH streaming
+  engines, both outputs reopened through BOTH random-access engines, all
+  four projections asserted equal (`Streaming_Output_Agrees_Across_Engines_
+  And_Readers`); (2) forward-only/bounded-memory guard — a row evicted from
+  a 2-row window REJECTS writes; if buffering ever silently re-grows to fake
+  random access the eviction throw disappears and the guard fails
+  (`Row_Evicted_From_The_Window_Rejects_Writes`). Schema gate: streamed
+  output (incl. an empty sheet, sparse skipped rows, 1904 epoch, gzip temp
+  files) validates under `Microsoft365`.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
