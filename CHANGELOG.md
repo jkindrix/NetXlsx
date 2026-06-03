@@ -288,6 +288,29 @@ completing the drawings slice:
   unchanged. **This completes the drawings slice** — the next slice is conditional
   formatting / data validation / tables / autofilter / sort.
 
+**Cross-engine differential harness + malformed-input fail-loud parity (I-83).**
+The single biggest cutover de-risk: a `CrossEngineDifferentialTests` harness now
+runs the **same scenario through both engines** (`Create()`/`Open()` = NPOI vs
+`CreateOoxml()`/`OpenOoxml()` = SDK) and asserts they agree, across cell
+values/kinds, 1900/1904 dates, rich-text runs, cell styles, merges, named ranges,
+sheet visibility/gridlines, column width/hidden, row height/hidden, and two-cell
+picture anchors. It compares semantically (not byte-identical XML), projecting out
+the engines' legitimate unset-axis materialization differences (NPOI resolves an
+unset number format to `"General"` / an unsized run to `FontSize 11`; the SDK
+preserves the inherit semantic as `null`).
+
+Its malformed-input half feeds hand-corrupted files through both engines and found
+the SDK engine **silently defaulting** where NPOI **fails loud** — a corrupt
+shared-string `<v>` index read back `""`, an unparseable numeric `<v>` read back
+`0`, a non-integer drawing-anchor marker read back as column 0 (mis-placing the
+drawing). **Decision I-83 aligns the SDK engine to fail loud** with
+`MalformedFileException` at these sites (shared-string index resolution, numeric
+parse, anchor markers — all in `Internal/Ooxml*.cs`), restoring the library's
+fail-loud honesty contract. OOXML defines no default for any of these corrupt
+values. A corrupt boolean value was reviewed and deliberately left lenient (both
+engines already read `false`). No public symbol added; no behavior change on
+well-formed files.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -298,7 +321,8 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `OpcPreservationTests`, `SchemaValidationTests`, `SchemaOrderCanonicalTests`,
 `MergeTests`, `NamedRangeTests`, `PaneTests`, `GroupingTests`,
 `SheetStructureTests`, `SheetProtectionTests`, `PictureTests`,
-`ShapeConnectorTests`, `ThemeTests`).
+`ShapeConnectorTests`, `ThemeTests`, `CrossEngineDifferentialTests`,
+`CrossEngineMalformedInputTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

@@ -916,6 +916,52 @@ symbol added (existing interface members, snapshot gate stays green).
   cutover. **This completes the drawings slice;** the next slice is conditional
   formatting / data validation / tables / autofilter / sort.
 
+*Cross-engine differential harness + malformed-input fail-loud parity — I-82
+sub-decision, **I-83** (added 2026-06-03).* The single biggest cutover de-risk
+(advisor O-13 / D-11): NPOI↔SDK parity had been maintained only by hand
+cross-checking, with no test running the **same scenario through both engines**.
+`CrossEngineDifferentialTests` now builds each scenario via the public API,
+round-trips it (`Save`→`Open`) through both factory pairs (`Create()`/`Open()` =
+NPOI, `CreateOoxml()`/`OpenOoxml()` = SDK), reads an observable projection, and
+asserts the engines agree — across cell values/kinds, 1900/1904 dates, rich-text
+runs, cell styles, merges, named ranges, sheet visibility/gridlines, column
+width/hidden, row height/hidden, and two-cell picture anchors (cells + EMU offsets).
+
+- **Compared semantically, not byte-identical XML.** The engines legitimately
+  differ on unset-axis materialization: NPOI eagerly resolves a cell that set no
+  number format to `"General"` and an unsized rich-text run to `FontSize 11`, while
+  the SDK faithfully preserves the inherit semantic as `null` (SDK-quirk #6 /
+  lesson #10 — the SDK is the more faithful of the two here). The harness projects
+  each scenario to the axes it sets and pulls those defaults out, **documenting the
+  divergence rather than hiding it**. `Row(int)`/`Column(int)` were confirmed
+  1-based on both engines.
+
+- **Malformed-input parity is the load-bearing half** — well-formed round-trips
+  never fire the default branch, so they cannot surface a silent default. Feeding
+  hand-corrupted files through both engines exposed the SDK engine **silently
+  defaulting** where NPOI **fails loud**: a corrupt shared-string `<v>` index
+  (non-integer / out-of-range / negative / empty) read back `""`; an unparseable
+  numeric `<v>` read back `0`; a non-integer drawing-anchor marker
+  (`xdr:col/row/colOff/rowOff`) read back column 0, mis-placing the drawing. This
+  contradicts the library's most-praised property (fail loud, nothing silently
+  truncates).
+
+  **I-83: the SDK engine is aligned to NPOI's fail-loud contract on malformed
+  input** — it throws `MalformedFileException` rather than substituting a default.
+  OOXML defines no default for any of these corrupt values, so a silent substitution
+  would hide data corruption. The aligned sites (all in `Internal/Ooxml*.cs`, never
+  the NPOI `Xssf*.cs`): shared-string index resolution (centralized into one
+  fail-loud helper shared by `ReadString` + `ReadRuns`), numeric-value parse
+  (`ReadNumber`), and drawing-anchor markers (`OoxmlSheet.ParseMarker`, with the
+  duplicate `ParseMarkerInt` de-duped onto it). Each cell-value site is reached only
+  *after* `KindOf` has classified the cell, so a parse failure there is genuine
+  corruption, never a normal type mismatch. The NPOI engine leaks the raw framework
+  exception (`FormatException` / `ArgumentOutOfRangeException`) — a pre-existing
+  trait left unchanged; the asserted parity is that **neither** engine silently
+  defaults. A corrupt boolean `<v>` was reviewed and **deliberately left lenient**
+  (both engines already read `false`, neither throws) and is pinned as a
+  regression guard.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
