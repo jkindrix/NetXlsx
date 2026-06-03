@@ -272,6 +272,56 @@ public class SchemaValidationTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
+    // ---- Slice 7: conditional formatting --------------------------------------
+
+    [Fact]
+    public void Conditional_Formatting_All_Families_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        for (int r = 1; r <= 5; r++) s[r, 1].SetNumber(r * 10);
+        s.AddConditionalFormatting("A1:A5",
+            ConditionalFormat.CellValueGreaterThan("30", new CellStyle { Background = Color.FromRgb(0xFF, 0xC7, 0xCE) }),
+            ConditionalFormat.CellValueBetween("10", "20", new CellStyle { Bold = true, Italic = true }));
+        s.AddConditionalFormatting("B1:B5",
+            ConditionalFormat.Formula("ISNUMBER(B1)", new CellStyle { Bold = true }));
+        s.AddConditionalFormatting("C1:C5",
+            ConditionalFormat.ColorScale(Color.FromRgb(0xF8, 0x69, 0x6B), Color.FromRgb(0xFF, 0xEB, 0x84), Color.FromRgb(0x63, 0xBE, 0x7B)));
+        s.AddConditionalFormatting("D1:D5",
+            ConditionalFormat.ColorScale(Color.FromRgb(255, 0, 0), Color.FromRgb(0, 255, 0)));
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_CF_To_An_Opened_Sheet_Carrying_Merges_And_Validations_Keeps_Schema_Order()
+    {
+        // Open-mutate-validate (SDK-quirk #8) for the 0..* insert path:
+        // <conditionalFormatting> must land AFTER an existing <mergeCells>
+        // and BEFORE an existing <dataValidations>; a second add must land
+        // after the first (same-rank append).
+        var path = Path.Combine(Path.GetTempPath(), $"netxlsx-schema-cf-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.CreateOoxml())
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("h");
+                s.MergeCells("C1:D1");
+                s.AddValidation("E1:E5", DataValidation.IntegerBetween(1, 10));
+                wb.Save(path);
+            }
+            using (var wb = Workbook.OpenOoxml(path))
+            {
+                wb["S"].AddConditionalFormatting("A1:A5",
+                    ConditionalFormat.CellValueGreaterThan("1", new CellStyle { Bold = true }));
+                wb["S"].AddConditionalFormatting("B1:B5",
+                    ConditionalFormat.Formula("ISNUMBER(B1)", new CellStyle { Italic = true }));
+                OpenXmlValidationGate.AssertValid(wb);
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     // ---- Slice 7: data validation --------------------------------------------
 
     [Fact]

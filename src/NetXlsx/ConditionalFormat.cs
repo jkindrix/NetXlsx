@@ -22,6 +22,25 @@ public sealed class ConditionalFormat
     internal Color? MidColor { get; }
     internal Color? MaxColor { get; }
 
+    /// <summary>
+    /// Internal: the OOXML <c>ST_ConditionalFormattingOperator</c> name for
+    /// <see cref="Operator"/>, or <c>null</c> when no operator applies. Lives
+    /// here so the Open XML SDK engine (I-82) never references the NPOI
+    /// <see cref="ComparisonOperator"/> type.
+    /// </summary>
+    internal string? OperatorName => Operator switch
+    {
+        ComparisonOperator.Between => "between",
+        ComparisonOperator.NotBetween => "notBetween",
+        ComparisonOperator.Equal => "equal",
+        ComparisonOperator.NotEqual => "notEqual",
+        ComparisonOperator.GreaterThan => "greaterThan",
+        ComparisonOperator.LessThan => "lessThan",
+        ComparisonOperator.GreaterThanOrEqual => "greaterThanOrEqual",
+        ComparisonOperator.LessThanOrEqual => "lessThanOrEqual",
+        _ => null,
+    };
+
     private ConditionalFormat(RuleKind kind, ComparisonOperator? op = null,
         string? formula1 = null, string? formula2 = null, CellStyle? style = null,
         Color? minColor = null, Color? midColor = null, Color? maxColor = null)

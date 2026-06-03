@@ -309,9 +309,10 @@ internal sealed partial class OoxmlSheet : ISheet
     // OoxmlSheet.Pictures.cs; shapes/connectors (AddShape, AddConnector,
     // Connectors) land in OoxmlSheet.Shapes.cs (I-82 drawings slice).
 
-    public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules) => throw NotYet();
-    public int ConditionalFormattingCount => throw NotYet();
-    public void RemoveConditionalFormatting(int index) => throw NotYet();
+    // Conditional formatting (AddConditionalFormatting /
+    // ConditionalFormattingCount / RemoveConditionalFormatting) lands in
+    // OoxmlSheet.ConditionalFormatting.cs (I-82 CF/validation/tables/
+    // autofilter/sort slice).
 
     // SortRange lands in OoxmlSheet.Sort.cs (I-82 CF/validation/tables/
     // autofilter/sort slice).

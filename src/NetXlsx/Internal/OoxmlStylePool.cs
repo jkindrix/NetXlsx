@@ -568,6 +568,63 @@ internal sealed class OoxmlStylePool
         s.Bold is null && s.Italic is null && s.Underline is null
         && s.FontName is null && s.FontSize is null && s.Color is null;
 
+    // ---- Differential formats (<dxfs>, for conditional formatting) ----------
+    //
+    // A cfRule's style is a dxf (differential format) in styles.xml, referenced
+    // by @dxfId. Only the axes the NPOI engine's ApplyStyle honors are modeled
+    // (decision I-73): Bold / Italic (a <font> with flag elements) and
+    // Background (a solid <patternFill> with fgColor + bgColor indexed 64 —
+    // the NPOI shape, proven to render in Excel). Unlike NPOI, which allocates
+    // a fresh dxf per rule (the oracle dump shows three identical fills),
+    // structurally equal dxfs dedup to one entry per the pool's #4 discipline.
+
+    private readonly Dictionary<(bool Bold, bool Italic, Color? Background), uint> _dxfPool = new();
+
+    internal uint GetOrCreateDifferentialFormat(CellStyle style)
+    {
+        var key = (Bold: style.Bold == true, Italic: style.Italic == true, style.Background);
+        if (_dxfPool.TryGetValue(key, out uint existing)) return existing;
+
+        var dxf = new S.DifferentialFormat();
+        if (key.Bold || key.Italic)
+        {
+            var font = new S.Font();
+            if (key.Bold) font.AppendChild(new S.Bold());
+            if (key.Italic) font.AppendChild(new S.Italic());
+            dxf.AppendChild(font);
+        }
+        if (style.Background is { } bg)
+        {
+            dxf.AppendChild(new S.Fill(new S.PatternFill(
+                ToColor<S.ForegroundColor>(bg),
+                new S.BackgroundColor { Indexed = 64u })
+            { PatternType = S.PatternValues.Solid }));
+        }
+
+        var dxfs = GetOrCreateDxfs();
+        dxfs.AppendChild(dxf);
+        uint id = (uint)dxfs.Elements<S.DifferentialFormat>().Count() - 1;
+        dxfs.Count = id + 1;
+        _dxfPool[key] = id;
+        return id;
+    }
+
+    private S.DifferentialFormats GetOrCreateDxfs()
+    {
+        var existing = _ss.GetFirstChild<S.DifferentialFormats>();
+        if (existing is not null) return existing;
+        // CT_Stylesheet order: … cellStyles, dxfs, tableStyles, colors, extLst —
+        // insert before the first trailing sibling an opened file may carry
+        // (quirk #3: the stylesheet is order-constrained and AppendChild does
+        // not reorder).
+        var dxfs = new S.DifferentialFormats { Count = 0u };
+        var successor = _ss.ChildElements.FirstOrDefault(e =>
+            e is S.TableStyles || e is S.Colors || e is S.StylesheetExtensionList);
+        if (successor is null) _ss.AppendChild(dxfs);
+        else _ss.InsertBefore(dxfs, successor);
+        return dxfs;
+    }
+
     // ---- Helpers ------------------------------------------------------------
 
     private static bool IsEmpty(CellStyle s) =>

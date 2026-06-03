@@ -159,6 +159,18 @@ internal static class OoxmlSchemaOrder
         return InsertOrdered(workbook, factory(), WorkbookRank);
     }
 
+    /// <summary>
+    /// Always inserts <paramref name="child"/> (never reuses an existing one) at
+    /// its correct CT_Worksheet position — for 0..* children like
+    /// &lt;conditionalFormatting&gt;, where GetOrInsert's singleton shape would
+    /// wrongly return the first existing element. A new element lands AFTER any
+    /// existing same-rank siblings (InsertOrdered only displaces on strictly
+    /// greater rank), preserving document order among repeats.
+    /// </summary>
+    internal static T Insert<T>(S.Worksheet worksheet, T child)
+        where T : OpenXmlElement
+        => InsertOrdered(worksheet, child, WorksheetRank);
+
     private static T InsertOrdered<T>(OpenXmlElement parent, T child, Dictionary<string, int> rank)
         where T : OpenXmlElement
     {

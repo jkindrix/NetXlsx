@@ -386,6 +386,24 @@ public class CrossEngineDifferentialTests
                 NameCount = wb.NamedRanges.Count,
             }));
 
+    // ---- Conditional formatting (count is the only public read-back;
+    // emission parity lives in ConditionalFormatTests) -----------------------
+
+    [Fact]
+    public void Conditional_Formatting_Count_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                for (int r = 1; r <= 5; r++) s[r, 1].SetNumber(r * 10);
+                s.AddConditionalFormatting("A1:A5",
+                    ConditionalFormat.CellValueGreaterThan("30", new CellStyle { Bold = true }));
+                s.AddConditionalFormatting("B1:B5",
+                    ConditionalFormat.Formula("ISNUMBER(B1)", new CellStyle { Italic = true }));
+                s.RemoveConditionalFormatting(0);
+            },
+            wb => wb["S"].ConditionalFormattingCount));
+
     // ---- SortRange (lesson #12: stable, blanks last, numbers before strings) --
 
     [Fact]
