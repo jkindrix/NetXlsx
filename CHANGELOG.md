@@ -359,6 +359,29 @@ rule styled Bold rendered Italic in Excel and vice versa (invisible when
 both flags were set). Found by the new cross-engine emission-parity test,
 which asserts the two engines' emitted cfRule + dxf shapes agree.
 
+**Charts slice.** The SDK engine now carries `ISheet.AddChart` (I-75) for
+all six `ChartType`s — line, bar, column, pie, scatter, area — plus
+`IChart.SetTitle`, oracle-checked against the NPOI engine's emitted chart
+XML and pinned by a cross-engine emission-parity test:
+
+- A chart lands as a `ChartPart` referenced from an `xdr:graphicFrame` in a
+  two-cell anchor (end cell exclusive, the picture/shape convention). The
+  series caches (`strCache`/`numCache`) snapshot the referenced cells at
+  `AddChart` time with NPOI's exact skip semantics: `ptCount` covers the
+  full range; only type-matching cells emit a point (date cells count as
+  numeric serials). References are sheet-qualified absolute, quoted when
+  needed, single-cell ranges collapsed.
+- `IChart.Underlying` (NPOI `XSSFChart`) throws `NotSupportedException` on
+  the SDK engine — the same escape-hatch divergence as
+  `IPicture`/`IShape`/`IConnector`/`ITable`.
+- Documented divergences from NPOI cosmetics/nonconformities (the schema
+  gate wins): the pie `dPt` accent list is emitted in CT_PieSer schema
+  order; no dangling axes on pie charts; scatter charts plot on two value
+  axes per ECMA-376 (NPOI pairs a category axis); drawing `cNvPr` ids are
+  unique-nonzero (NPOI emits the invalid `id="0"`); the chart part lives at
+  `xl/drawings/charts/chartN.xml` (relationship-resolved; NPOI/Excel use
+  `xl/charts/`).
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -371,7 +394,8 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `SheetStructureTests`, `SheetProtectionTests`, `PictureTests`,
 `ShapeConnectorTests`, `ThemeTests`, `SortTests`, `AutoFilterTests`,
 `DataValidationTests`, `ConditionalFormatTests`, `TableApiTests`,
-`CrossEngineDifferentialTests`, `CrossEngineMalformedInputTests`).
+`ChartTests`, `CrossEngineDifferentialTests`,
+`CrossEngineMalformedInputTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

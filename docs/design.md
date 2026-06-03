@@ -1013,6 +1013,40 @@ validations and CF). Implementation notes that matter for the cutover:
   table totals writer, which authors `<c><f>…</f></c>` at the DOM level
   (the public `SetFormula` remains a later slice).
 
+*Charts slice (I-82 sub-slice, added 2026-06-03).* The SDK engine now carries
+`ISheet.AddChart` for all six `ChartType`s plus `IChart.SetTitle` (I-75), in
+`OoxmlSheet.Charts.cs` + `OoxmlChart.cs`. A chart is a `ChartPart` hung off
+the sheet's `DrawingsPart`, referenced by r:id from an `xdr:graphicFrame` in
+a `twoCellAnchor` whose end cell is EXCLUSIVE (the picture/shape convention —
+checked against the NPOI oracle per SDK-quirk #10, not assumed). The chart
+XML was oracle-dumped from the NPOI engine for all six types before
+implementing (SDK-quirk #11 habit). Implementation notes:
+
+- **Caches snapshot the grid at `AddChart` time** with NPOI's `DataSources`
+  semantics: `ptCount` = the full range size; only type-matching cells get a
+  `<c:pt>` (string cells in `strCache`; numeric *and date* cells in
+  `numCache` — a date is a serial); empty/bool/formula/mismatched cells are
+  skipped. Refs are sheet-qualified absolute (`Data!$A$1:$A$4`), quoted when
+  the sheet name needs it, single-cell ranges collapsed (`Data!$A$1`).
+- **`IChart.Underlying` (NPOI `XSSFChart`) throws `NotSupportedException`**
+  on the SDK engine — the established escape-hatch divergence
+  (IPicture/IShape/IConnector/ITable precedent).
+- **Documented divergences from NPOI** (all conformance-positive, none
+  observable through the public API): the pie `dPt` accent-cycle list is
+  emitted in CT_PieSer schema order (BEFORE `cat`; NPOI writes it after
+  `val`, which is schema-nonconformant); no dangling `catAx`/`valAx` pair on
+  pie charts (NPOI emits axes no `pieChart` `axId` references); scatter
+  charts plot on TWO value axes per ECMA-376 (NPOI pairs the x axis with a
+  `catAx`, so its "scatter" scales categorically); `cNvPr` ids are
+  unique-nonzero (NPOI emits `id="0"`, invalid per ST_DrawingElementId —
+  SDK-quirk #9); `editAs="twoCell"` omitted (the schema default). The SDK
+  also parks the part at `xl/drawings/charts/chartN.xml` (NPOI/Excel use
+  `xl/charts/`) — OPC-relationship-resolved, location is immaterial.
+- Parity is pinned by `Chart_Emission_Agrees_Across_Engines`
+  (emission-projection, normalizing the divergences above) since charts have
+  no public read-back beyond `IChart` itself, plus schema-gate fixtures for
+  all six types under `Microsoft365`.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
