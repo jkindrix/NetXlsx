@@ -19,7 +19,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using DocumentFormat.OpenXml;
 using S = DocumentFormat.OpenXml.Spreadsheet;
 
@@ -532,19 +531,55 @@ internal sealed class OoxmlCell : ICell
     private static FormulaException FormulaParseError(string original, string reason)
         => new($"failed to parse formula '{original}': {reason}");
 
-    // ---- Deferred surface (lands slice by slice; see I-82) -----------------
+    // ---- Comments (formulas/comments/hyperlinks slice) ----------------------
+    // The sheet partial owns the comments part + VML popup shape
+    // (OoxmlSheet.Comments.cs); the cell is a thin delegating facade.
 
-    private static NotImplementedException NotYet([CallerMemberName] string? member = null)
-        => new(
-            $"ICell.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). It lands in a later slice (formulas/comments/" +
-            "hyperlinks/rich text); track the swap in docs/design.md (I-82).");
+    public ICell Comment(string text, string? author = null)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(text);
+        _sheet.SetComment(_row, _col, text, author);
+        return this;
+    }
 
-    public ICell Comment(string text, string? author = null) => throw NotYet();
-    public string? GetComment() => throw NotYet();
-    public string? GetCommentAuthor() => throw NotYet();
-    public ICell Hyperlink(string target, string? display = null) => throw NotYet();
-    public string? GetHyperlink() => throw NotYet();
+    public string? GetComment()
+    {
+        Wb.ThrowIfDisposed();
+        return _sheet.GetComment(_row, _col);
+    }
+
+    public string? GetCommentAuthor()
+    {
+        Wb.ThrowIfDisposed();
+        return _sheet.GetCommentAuthor(_row, _col);
+    }
+
+    // ---- Hyperlinks (formulas/comments/hyperlinks slice) --------------------
+    // The sheet partial owns the <hyperlink> element + package relationship
+    // (OoxmlSheet.Hyperlinks.cs); the cell owns the display-text semantics —
+    // an explicit display replaces the cell text, no display on an empty cell
+    // falls back to the raw target so the cell isn't blank (NPOI parity).
+
+    public ICell Hyperlink(string target, string? display = null)
+    {
+        Wb.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(target);
+        if (target.Length == 0)
+            throw new ArgumentException("target cannot be empty", nameof(target));
+
+        _sheet.SetHyperlink(_row, _col, target, display);
+
+        if (display is not null) SetString(display);
+        else if (KindOf(Element) == CellKind.Empty) SetString(target);
+        return this;
+    }
+
+    public string? GetHyperlink()
+    {
+        Wb.ThrowIfDisposed();
+        return _sheet.GetHyperlink(_row, _col);
+    }
 
     public NPOI.XSSF.UserModel.XSSFCell Underlying => throw new NotSupportedException(
         "ICell.Underlying (NPOI XSSFCell) is not available on the Open XML SDK " +

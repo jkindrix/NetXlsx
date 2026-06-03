@@ -249,4 +249,113 @@ public class CrossEngineMalformedInputTests
         }
         finally { File.Delete(path); }
     }
+
+    // ---- annotation corruption (formulas/comments/hyperlinks slice) --------
+
+    private static string AnnotatedFile()
+    {
+        var path = TempPath();
+        using (var wb = Workbook.Create())
+        {
+            var s = wb.AddSheet("S");
+            s["A1"].Hyperlink("https://example.com");
+            s["B2"].Comment("note", "alice");
+            wb.Save(path);
+        }
+        return path;
+    }
+
+    [Fact]
+    public void Dangling_Hyperlink_RelId_Fails_Loud_On_Both()
+    {
+        // A <hyperlink r:id> with no matching relationship is genuine corruption
+        // with no OOXML fallback. NPOI rejects the file at OPEN; the SDK engine
+        // rejects it when the link is resolved (I-83) — neither silently drops
+        // or substitutes the target.
+        var path = AnnotatedFile();
+        try
+        {
+            RewriteEntry(path, "xl/worksheets/sheet1.xml",
+                x => x.Replace("<hyperlink ref=\"A1\" r:id=\"rId", "<hyperlink ref=\"A1\" r:id=\"rIdZZ"),
+                required: true);
+
+            Action npoi = () => { using var wb = Workbook.Open(path); _ = wb["S"]["A1"].GetHyperlink(); };
+            Action sdk = () => { using var wb = Workbook.OpenOoxml(path); _ = wb["S"]["A1"].GetHyperlink(); };
+            npoi.Should().Throw<Exception>("NPOI rejects the dangling r:id at open");
+            sdk.Should().Throw<MalformedFileException>("the SDK engine fails loud at resolution (I-83)");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Hyperlink_With_Neither_RelId_Nor_Location_Is_Lenient_On_Both()
+    {
+        // CT_Hyperlink makes both @r:id and @location optional, so the
+        // degenerate carrying neither is schema-legal and meaningless — both
+        // engines report "no hyperlink" (null) rather than throwing. Reviewed
+        // under I-83 and deliberately left lenient; pinned as a regression guard.
+        var path = AnnotatedFile();
+        try
+        {
+            RewriteEntry(path, "xl/worksheets/sheet1.xml", x =>
+            {
+                int i = x.IndexOf("<hyperlink ref=\"A1\"", StringComparison.Ordinal);
+                int e = x.IndexOf("/>", i, StringComparison.Ordinal);
+                return x[..i] + "<hyperlink ref=\"A1\"" + x[e..];
+            }, required: true);
+
+            string? npoi, sdk;
+            using (var wb = Workbook.Open(path)) npoi = wb["S"]["A1"].GetHyperlink();
+            using (var wb = Workbook.OpenOoxml(path)) sdk = wb["S"]["A1"].GetHyperlink();
+            npoi.Should().BeNull();
+            sdk.Should().BeNull();
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Comment_AuthorId_OutOfRange_Fails_Loud_On_Both()
+    {
+        // GetCommentAuthor on an authorId past the <authors> list: NPOI throws
+        // ArgumentOutOfRangeException; the SDK engine throws
+        // MalformedFileException (I-83). GetComment (the text) stays readable
+        // on both — the corruption is confined to the author resolution.
+        var path = AnnotatedFile();
+        try
+        {
+            RewriteEntry(path, "xl/comments1.xml",
+                x => x.Replace("authorId=\"1\"", "authorId=\"99\""), required: true);
+
+            Action npoi = () => { using var wb = Workbook.Open(path); _ = wb["S"]["B2"].GetCommentAuthor(); };
+            Action sdk = () => { using var wb = Workbook.OpenOoxml(path); _ = wb["S"]["B2"].GetCommentAuthor(); };
+            npoi.Should().Throw<Exception>();
+            sdk.Should().Throw<MalformedFileException>();
+
+            string? npoiText, sdkText;
+            using (var wb = Workbook.Open(path)) npoiText = wb["S"]["B2"].GetComment();
+            using (var wb = Workbook.OpenOoxml(path)) sdkText = wb["S"]["B2"].GetComment();
+            sdkText.Should().Be(npoiText).And.Be("note");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Comment_AuthorId_NonInteger_Fails_Loud_On_Sdk()
+    {
+        // The one deliberate STRICTNESS divergence in this slice: NPOI's XML
+        // deserializer silently coerces a non-integer @authorId to 0 and reports
+        // author "" — exactly the silent-default substitution I-83 forbids. The
+        // SDK engine fails loud instead. Pinned one-sided (no NPOI assertion on
+        // the author value: it is a silent default, not a contract).
+        var path = AnnotatedFile();
+        try
+        {
+            RewriteEntry(path, "xl/comments1.xml",
+                x => x.Replace("authorId=\"1\"", "authorId=\"xyz\""), required: true);
+
+            Action sdk = () => { using var wb = Workbook.OpenOoxml(path); _ = wb["S"]["B2"].GetCommentAuthor(); };
+            sdk.Should().Throw<MalformedFileException>();
+        }
+        finally { File.Delete(path); }
+    }
 }

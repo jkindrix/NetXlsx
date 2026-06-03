@@ -534,6 +534,46 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Formulas / hyperlinks (formulas/comments/hyperlinks slice) ----------
+
+    [Fact]
+    public void Formula_Cells_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetNumber(10);
+        s["A2"].SetNumber(20);
+        s["A3"].SetFormula("=SUM(A1:A2)");                  // no cached <v> (#46)
+        s["B1"].SetFormula("=IF(A1>5,\"big\",\"small\")");  // string literals
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Hyperlinks_External_And_Internal_Are_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        wb.AddSheet("Other");
+        var s = wb.AddSheet("S");
+        s["A1"].Hyperlink("https://example.com", display: "Example");
+        s["A2"].Hyperlink("mailto:foo@example.com");
+        s["A3"].Hyperlink("#Other!A1");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Comments_Are_Schema_Valid()
+    {
+        // The validator walks the WorksheetCommentsPart (typed); the VML
+        // drawing part is a raw <xml> island with no typed root, so its shape
+        // is covered by CommentTests' part-graph assertions instead.
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["B2"].SetString("data");
+        s["B2"].Comment("reviewer flagged");
+        s["C3"].Comment("second note", "alice");
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
     // ---- Schema-ordered insertion into OPENED containers (SDK-quirk #8) ------
     //
     // Every fixture above validates a workbook the engine created from scratch,
@@ -695,6 +735,33 @@ public class SchemaValidationTests
         int legacyIdx = children.FindIndex(c => c is S.LegacyDrawing);
         drawingIdx.Should().BeGreaterThanOrEqualTo(0);
         drawingIdx.Should().BeLessThan(legacyIdx);
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Adding_A_Hyperlink_To_An_Opened_Sheet_Carrying_PageMargins_Keeps_Schema_Order()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("v");
+
+        // <pageMargins> follows <hyperlinks> in CT_Worksheet and is ubiquitous in
+        // real files (NPOI and Excel both emit it); the engine does not model it,
+        // so inject one to simulate the opened file. The first Hyperlink call must
+        // slot the new <hyperlinks> container AHEAD of it.
+        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        ws.AppendChild(new S.PageMargins
+        {
+            Left = 0.7, Right = 0.7, Top = 0.75, Bottom = 0.75, Header = 0.3, Footer = 0.3,
+        });
+
+        s["A1"].Hyperlink("https://example.com");
+
+        var children = ws.ChildElements.ToList();
+        int linksIdx = children.FindIndex(c => c is S.Hyperlinks);
+        int marginsIdx = children.FindIndex(c => c is S.PageMargins);
+        linksIdx.Should().BeGreaterThanOrEqualTo(0);
+        linksIdx.Should().BeLessThan(marginsIdx);
         OpenXmlValidationGate.AssertValid(wb);
     }
 
