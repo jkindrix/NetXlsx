@@ -230,6 +230,48 @@ public class SchemaValidationTests
         OpenXmlValidationGate.AssertValid(wb);
     }
 
+    // ---- Slice 7: autofilter -------------------------------------------------
+
+    [Fact]
+    public void AutoFilter_With_Column_Criteria_Is_Schema_Valid()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        s["A1"].SetString("Region"); s["B1"].SetString("Rev"); s["C1"].SetString("Note");
+        s["A2"].SetString("EU"); s["B2"].SetNumber(100); s["C2"].SetString("x");
+        s.SetAutoFilter("A1:C2");
+        s.SetAutoFilterColumn(0, FilterCriteria.EqualTo("EU").Or(FilterCriteria.EqualTo("US")));
+        s.SetAutoFilterColumn(1, FilterCriteria.Between(10, 200));   // and="1"
+        s.SetAutoFilterColumn(2, FilterCriteria.Contains("foo"));    // wildcards
+        OpenXmlValidationGate.AssertValid(wb);
+    }
+
+    [Fact]
+    public void Setting_AutoFilter_On_An_Opened_Sheet_Carrying_MergeCells_Keeps_Schema_Order()
+    {
+        // Open-mutate-validate (SDK-quirk #8): <autoFilter> must insert BEFORE
+        // an existing <mergeCells> — a legal sibling that follows it in
+        // CT_Worksheet — not blindly append after <sheetData>.
+        var path = Path.Combine(Path.GetTempPath(), $"netxlsx-schema-af-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.CreateOoxml())
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("h1"); s["B1"].SetString("h2");
+                s.MergeCells("A3:B3");
+                wb.Save(path);
+            }
+            using (var wb = Workbook.OpenOoxml(path))
+            {
+                wb["S"].SetAutoFilter("A1:B2");
+                wb["S"].SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"));
+                OpenXmlValidationGate.AssertValid(wb);
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
     // ---- Slice 7: sort ------------------------------------------------------
 
     [Fact]

@@ -185,6 +185,44 @@ public class CrossEngineMalformedInputTests
         finally { File.Delete(path); }
     }
 
+    // ---- autoFilter @ref corruption (slice 7) ------------------------------
+
+    [Fact]
+    public void Corrupt_AutoFilter_Ref_Fails_Loud_On_Both()
+    {
+        // SetAutoFilterColumn parses the existing <autoFilter @ref> to bound
+        // the column offset; both engines route the corrupt range through
+        // CellAddress.ParseRange and fail loud (SDK-quirk #13 diligence: a new
+        // opened-file leaf parse must never silently default).
+        var path = TempPath();
+        try
+        {
+            using (var wb = Workbook.Create())
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("h");
+                s.SetAutoFilter("A1:B2");
+                wb.Save(path);
+            }
+            RewriteEntry(path, "xl/worksheets/sheet1.xml",
+                x => x.Replace("ref=\"A1:B2\"", "ref=\"NOT_A_RANGE\""), required: true);
+
+            Action npoi = () =>
+            {
+                using var wb = Workbook.Open(path);
+                wb["S"].SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"));
+            };
+            Action sdk = () =>
+            {
+                using var wb = Workbook.OpenOoxml(path);
+                wb["S"].SetAutoFilterColumn(0, FilterCriteria.EqualTo("x"));
+            };
+            npoi.Should().Throw<Exception>();
+            sdk.Should().Throw<InvalidCellAddressException>();
+        }
+        finally { File.Delete(path); }
+    }
+
     // ---- deliberately-lenient paths reviewed and LEFT at parity -----------
 
     // A corrupt boolean <v> is already at parity: BOTH engines read it as false

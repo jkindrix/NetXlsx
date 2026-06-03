@@ -348,6 +348,44 @@ public class CrossEngineDifferentialTests
                 .Select(p => new AnchorObs(p.FromCell, p.ToCell, p.Dx1, p.Dy1, p.Dx2, p.Dy2))
                 .ToArray()));
 
+    // ---- AutoFilter (incl. the hidden _xlnm._FilterDatabase name) ----------
+
+    [Fact]
+    public void AutoFilter_State_And_FilterDatabase_Name_Agree()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("Region"); s["B1"].SetString("Rev");
+                s["A2"].SetString("EU"); s["B2"].SetNumber(100);
+                s.SetAutoFilter("A1:B2");
+                s.SetAutoFilterColumn(0, FilterCriteria.EqualTo("EU"));
+            },
+            wb => new
+            {
+                Has = wb["S"].HasAutoFilter,
+                Range = wb["S"].AutoFilterRange,
+                Names = wb.NamedRanges.Select(n => $"{n.Name}|{n.Formula}|{n.SheetScope}").ToArray(),
+            }));
+
+    [Fact]
+    public void Cleared_AutoFilter_State_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("h");
+                s.SetAutoFilter("A1:B2");
+                s.ClearAutoFilter();
+            },
+            wb => new
+            {
+                Has = wb["S"].HasAutoFilter,
+                Range = wb["S"].AutoFilterRange,
+                // Both engines leave the stale _FilterDatabase name in place.
+                NameCount = wb.NamedRanges.Count,
+            }));
+
     // ---- SortRange (lesson #12: stable, blanks last, numbers before strings) --
 
     [Fact]

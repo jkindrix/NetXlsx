@@ -85,6 +85,35 @@ internal sealed partial class OoxmlWorkbook
         }
     }
 
+    // Creates or updates Excel's hidden built-in _xlnm._FilterDatabase name for
+    // a sheet (one per localSheetId — NPOI's XSSFSheet.SetAutoFilter parity).
+    // Bypasses AddNamedRange deliberately: built-in names are exempt from the
+    // user-name validation and the workbook-wide uniqueness rule (each filtered
+    // sheet carries its own same-text name, discriminated by localSheetId).
+    internal void SetFilterDatabaseName(string sheetName, string refersTo)
+    {
+        int idx = IndexOfSheet(sheetName);
+        if (idx < 0) throw new InvalidOperationException($"sheet '{sheetName}' not found.");
+
+        var container = GetOrCreateDefinedNames();
+        foreach (var existing in container.Elements<S.DefinedName>())
+        {
+            if (string.Equals(existing.Name?.Value, "_xlnm._FilterDatabase", StringComparison.OrdinalIgnoreCase)
+                && existing.LocalSheetId?.Value == (uint)idx)
+            {
+                existing.Text = refersTo;
+                return;
+            }
+        }
+        container.AppendChild(new S.DefinedName
+        {
+            Name = "_xlnm._FilterDatabase",
+            LocalSheetId = (uint)idx,
+            Hidden = true,
+            Text = refersTo,
+        });
+    }
+
     private S.DefinedNames? DefinedNamesContainer()
         => _document.WorkbookPart?.Workbook?.GetFirstChild<S.DefinedNames>();
 

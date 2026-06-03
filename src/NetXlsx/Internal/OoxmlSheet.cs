@@ -326,12 +326,9 @@ internal sealed partial class OoxmlSheet : ISheet
     public bool TryGetTable(string name, [MaybeNullWhen(false)] out ITable table) => throw NotYet();
     public void RemoveTable(ITable table) => throw NotYet();
 
-    public void SetAutoFilter(string a1Range) => throw NotYet();
-    public void ClearAutoFilter() => throw NotYet();
-    public void SetAutoFilterColumn(int columnOffset, FilterCriteria criteria) => throw NotYet();
-    public void ClearAutoFilterColumn(int columnOffset) => throw NotYet();
-    public bool HasAutoFilter => throw NotYet();
-    public string? AutoFilterRange => throw NotYet();
+    // AutoFilter (SetAutoFilter / ClearAutoFilter / per-column criteria /
+    // HasAutoFilter / AutoFilterRange) lands in OoxmlSheet.AutoFilter.cs
+    // (I-82 CF/validation/tables/autofilter/sort slice).
 
     public void AddValidation(string a1Range, DataValidation validation) => throw NotYet();
 
