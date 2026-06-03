@@ -1047,6 +1047,69 @@ implementing (SDK-quirk #11 habit). Implementation notes:
   no public read-back beyond `IChart` itself, plus schema-gate fixtures for
   all six types under `Microsoft365`.
 
+*Formulas / comments / hyperlinks + workbook protection slice (I-82 sub-slice,
+added 2026-06-03).* Closes every remaining `ICell` stub and the non-streaming
+`IWorkbook` stubs on the SDK engine. All NPOI shapes were oracle-dumped before
+implementing (SDK-quirk #11 habit; the dump is what surfaced NPOI's empty
+`<v/>` on fresh formulas, the empty zero-index `<author>`, and the exact VML
+shape geometry). Implementation notes:
+
+- **`ICell.SetFormula`** (`OoxmlCell.cs`) converges on the slice-7 table
+  totals-row `<c><f>` shape with **no cached `<v>`** (§7.8 / decision #46;
+  NPOI writes an empty `<v/>` — both mean "no cached value", normalized in
+  the parity projection). **Documented divergence:** NPOI runs a full formula
+  parse and throws `FormulaException` on anything unparseable; the Open XML
+  SDK has no formula parser, so the SDK engine validates *structure* only —
+  balanced parentheses and terminated string / quoted-sheet-name literals
+  (doubled-quote escapes honored). Structural breakage (what Excel rejects
+  with a repair prompt) fails loud with the same exception type and original
+  text; semantic errors NPOI's parser would catch (e.g. `=1+`) are left to
+  Excel, the actual arbiter. `=SUM(` — the overlap of both validators — is
+  the cross-engine-pinned rejection case.
+- **`ICell.Comment`/`GetComment`/`GetCommentAuthor`** (`OoxmlSheet.Comments.cs`):
+  a `WorksheetCommentsPart` (authors + `<comment ref>` text) PLUS the VML
+  legacy drawing that *is* the popup box — a `VmlDrawingPart` wired by a
+  schema-ordered `<legacyDrawing r:id>`; Excel shows no comment without it.
+  The VML island is raw XML manipulated as an `XDocument` through the part
+  stream (SDK-quirk #12); shape geometry matches NPOI exactly (hidden
+  `#_x0000_t202` note box, anchor `c,0,r,0,c+2,0,r+3,0`, ids `_x0000_s1025+`
+  collision-safe against opened files). Re-commenting mutates in place and
+  reuses the popup shape. Conformance-positive divergences: no empty
+  zero-index `<author>` artifact, no empty xdr drawing part
+  (`CreateDrawingPatriarch` side effect) — both invisible publicly.
+- **`ICell.Hyperlink`/`GetHyperlink`** (`OoxmlSheet.Hyperlinks.cs`): the I13
+  scheme sniff verbatim — http(s)/mailto/file become EXTERNAL package
+  relationships referenced by `r:id`; `#Sheet!Range` becomes `@location`
+  ('#' stripped); anything else rejected. `<hyperlinks>` routes through
+  `OoxmlSchemaOrder` (open-mutate fixture injects `<pageMargins>`). Targets
+  are stored VERBATIM — the packaging layer writes `Uri.OriginalString` into
+  the .rels Target and round-trips it, so a mixed-case URL survives
+  untouched (probed before implementing; cross-engine-pinned). Replace
+  semantics delete the superseded relationship.
+- **`IWorkbook.Protect`/`ProtectWithPassword`/`Unprotect`/`IsProtected`**
+  (`OoxmlWorkbook.Protection.cs`, I-54 + I-65): `<workbookProtection>` is a
+  schema-ordered CT_Workbook child; flags set explicitly from the options
+  (never schema-default-dependent); the password verifier reuses the sheet
+  slice's `LegacyPasswordHash`, pinned byte-for-byte against NPOI's
+  `CreateXorVerifier1` (`hunter2` → `C258`). `Unprotect` removes the element
+  (vs NPOI's all-flags-false stub — publicly indistinguishable).
+  **`IsMacroEnabled`** reads `DocumentType == MacroEnabledWorkbook` (the
+  same content-type signal NPOI checks); the macro-enabled CREATE factory
+  stays NPOI-routed until cutover.
+- **Fail-loud read paths (I-83 diligence, pinned in the malformed harness):**
+  a dangling hyperlink `r:id` and an out-of-range comment `authorId` throw
+  `MalformedFileException`. A non-integer `authorId` is the slice's one
+  deliberate STRICTNESS divergence: NPOI's deserializer silently coerces it
+  to author 0 (reporting the empty author "") — precisely the silent-default
+  substitution I-83 forbids — so the SDK engine fails loud where NPOI does
+  not. The neither-`r:id`-nor-`location` hyperlink degenerate is
+  schema-legal and lenient (null) on both engines.
+- **O-9 strict-floor tripwire** landed alongside: a kitchen-sink workbook
+  spanning every implemented surface validates under `Office2007` (the
+  strictest currently-green level); the first unwrapped post-2007 construct
+  trips it, forcing a conscious wrap-or-raise-the-floor decision. The
+  primary gate remains `Microsoft365`.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp

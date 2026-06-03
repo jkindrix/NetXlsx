@@ -382,6 +382,42 @@ XML and pinned by a cross-engine emission-parity test:
   `xl/drawings/charts/chartN.xml` (relationship-resolved; NPOI/Excel use
   `xl/charts/`).
 
+**Formulas / comments / hyperlinks + workbook protection slice.** Closes
+every remaining `ICell` stub and the non-streaming `IWorkbook` stubs on the
+SDK engine — only `IColumn.AutoSize` (font metrics) and the streaming
+surface remain:
+
+- `ICell.SetFormula` writes the bare `<c><f>` shape with no cached value
+  (design §7.8 / #46). The SDK has no formula parser (NPOI does), so the
+  engine validates *structure* — balanced parentheses and terminated
+  string/quoted-sheet-name literals — failing loud with `FormulaException`
+  on the breakage Excel would reject; semantic validity stays Excel's call.
+  Documented divergence under I-82.
+- `ICell.Comment`/`GetComment`/`GetCommentAuthor` build the full two-part
+  comment graph: the comments part (authors deduped, text preserved) plus
+  the VML legacy-drawing popup shape wired by a schema-ordered
+  `<legacyDrawing r:id>` — geometry matching NPOI exactly, collision-safe
+  shape ids on opened files, mutate-in-place replace semantics.
+- `ICell.Hyperlink`/`GetHyperlink` reproduce the I13 scheme sniff:
+  http(s)/mailto/file as external package relationships, `#Sheet!Range` as
+  `@location`, everything else rejected. Targets round-trip VERBATIM (no
+  URI canonicalization); replacing a link removes the superseded
+  relationship.
+- `IWorkbook.Protect`/`ProtectWithPassword`/`Unprotect`/`IsProtected`
+  (I-54/I-65) write the schema-ordered `<workbookProtection>` with explicit
+  flags and the legacy 16-bit XOR verifier (byte-identical to NPOI's, so
+  passwords stay cross-engine compatible); `IsMacroEnabled` reads the
+  document content type, detecting NPOI-authored `.xlsm` files.
+- New fail-loud parse sites per I-83: a dangling hyperlink `r:id` and an
+  out-of-range comment `authorId` throw `MalformedFileException`; a
+  non-integer `authorId` fails loud too (NPOI silently coerces it to the
+  empty author — the silent default I-83 forbids; deliberately stricter).
+- The O-9 strict-floor tripwire: a kitchen-sink workbook spanning every
+  implemented surface now validates under `Office2007` in CI, so the first
+  unwrapped post-2007 extension construct forces a conscious
+  wrap-or-raise-the-floor decision. The primary schema gate remains
+  `Microsoft365`.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -394,7 +430,8 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `SheetStructureTests`, `SheetProtectionTests`, `PictureTests`,
 `ShapeConnectorTests`, `ThemeTests`, `SortTests`, `AutoFilterTests`,
 `DataValidationTests`, `ConditionalFormatTests`, `TableApiTests`,
-`ChartTests`, `CrossEngineDifferentialTests`,
+`ChartTests`, `FormulaTests`, `CommentTests`, `HyperlinkTests`,
+`WorkbookProtectionTests`, `CrossEngineDifferentialTests`,
 `CrossEngineMalformedInputTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
