@@ -109,7 +109,11 @@ public class ThemeTests
             {
                 var back = wb.GetThemeXml();
                 back.Should().NotBeNull();
-                Encoding.UTF8.GetString(back!).Should().Contain("<a:accent3>");
+                // Byte-equality (not a substring probe): pins the load-bearing "read the
+                // part stream, never materialize ThemePart.Theme" property (lesson #2 /
+                // SDK-quirk #12) so a future refactor to ThemePart.Theme.OuterXml can't
+                // silently drift whitespace/ordering through the file round-trip.
+                back.Should().Equal(TinyTheme);
                 // Resolution survives the reopen — the part relationship is intact.
                 wb.ResolveThemeColor("accent3").Should().Be(Color.FromRgb(0x00, 0x00, 0xFF));
             }
