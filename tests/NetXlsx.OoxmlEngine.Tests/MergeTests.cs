@@ -130,6 +130,20 @@ public class MergeTests
     }
 
     [Fact]
+    public void Range_Merge_Delegates_To_The_Sheet_Surface()
+    {
+        using var wb = Workbook.CreateOoxml();
+        var s = wb.AddSheet("S");
+        var range = s.Range("B2:D4").Merge();
+
+        range.Should().NotBeNull();
+        s.MergedRanges.Should().ContainSingle().Which.Should().Be("B2:D4");
+        // Same contract as MergeCells: an overlapping merge throws.
+        Action act = () => s.Range("C3:E5").Merge();
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
     public void Merges_RoundTrip_Through_Save_Open()
     {
         var path = TempXlsxPath();

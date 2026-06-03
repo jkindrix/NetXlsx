@@ -9,7 +9,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 
 namespace NetXlsx;
 
@@ -125,13 +124,14 @@ internal sealed class OoxmlRange : IRange
         return Apply(_sheet.WorkbookInternal.ResolveNamedStyleOrThrow(name));
     }
 
-    // ---- Deferred (merge slice; see I-82) ----------------------------------
+    // ---- Merging ------------------------------------------------------------
 
-    private static NotImplementedException NotYet([CallerMemberName] string? member = null)
-        => new(
-            $"IRange.{member} is not yet implemented on the Open XML SDK engine " +
-            "(I-82 engine swap). Merge lands in a later slice; track the " +
-            "swap in docs/design.md (I-82).");
-
-    public IRange Merge() => throw NotYet();
+    public IRange Merge()
+    {
+        Wb.ThrowIfDisposed();
+        // Delegates to the sheet's merge surface (same overlap/1x1 contract;
+        // NPOI-engine parity — XssfRange.Merge does exactly this).
+        _sheet.MergeCells(Address);
+        return this;
+    }
 }
