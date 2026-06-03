@@ -962,6 +962,57 @@ width/hidden, row height/hidden, and two-cell picture anchors (cells + EMU offse
   (both engines already read `false`, neither throws) and is pinned as a
   regression guard.
 
+*CF / data validation / tables / autofilter / sort slice (I-82 sub-slice, added
+2026-06-03).* The SDK engine now carries the full structured-data surface —
+`SortRange` (I-72), AutoFilter incl. per-column criteria (I-56/I-66), data
+validation (I-55), conditional formatting (I-73), and Excel tables incl. totals
+rows (I-51/I-64) — each implemented in a focused `OoxmlSheet.<Feature>.cs`
+partial (+ `OoxmlTable.cs`), oracle-checked against the NPOI engine's emitted
+XML (SDK-quirk #11 habit), schema-gated with the open-mutate fixture required
+per SDK-quirk #8, and covered by the cross-engine differential harness (or an
+emission-parity projection where the surface has no public read-back —
+validations and CF). Implementation notes that matter for the cutover:
+
+- **The CF 0..\* carry-forward is resolved**: `OoxmlSchemaOrder.Insert<T>`
+  always creates + positions (a repeat lands after existing same-rank
+  siblings); `GetOrInsert` remains the 0..1-singleton path used by
+  `<autoFilter>`, `<dataValidations>`, and `<tableParts>`.
+- **SortRange moves elements, not values**: in-range `<c>` elements are
+  detached and re-homed with updated `@r`, so style indexes, inline rich
+  text, and formula text travel verbatim — the I-72 formula caveat holds by
+  construction. Comparison keys mirror NPOI's `CellSnapshot.Compare` exactly.
+- **AutoFilter maintains `_xlnm._FilterDatabase`** (a hidden built-in defined
+  name per filtered sheet, discriminated by `localSheetId`) via an internal
+  workbook hook that bypasses user-name validation/uniqueness — built-in
+  names repeat across sheets by design. `ClearAutoFilter` leaves the stale
+  name (NPOI/Excel-tolerated); a range re-set keeps existing filter columns.
+- **`DataValidation` + `ConditionalFormat` gained engine-agnostic internal
+  descriptors** (`Kind`/`Operator`/formulas; `OperatorName`) so
+  `Internal/Ooxml*.cs` never references NPOI types — the NPOI-typed
+  closures/maps stay for the legacy engine; no public-API change.
+- **CF dxf styles live in the style pool** (`GetOrCreateDifferentialFormat`),
+  modeling exactly the axes the NPOI `ApplyStyle` honors (bold/italic font,
+  solid background fill in NPOI's fgColor+bgColor-indexed-64 shape), deduped
+  per the pool's #4 discipline. The `<dxfs>` slot respects CT_Stylesheet
+  order (before `tableStyles`/`colors`/`extLst`).
+- **Documented divergences from NPOI** (all conformance-positive, none
+  observable through the public API): schema-default attributes omitted
+  (`aboveAverage`, `showButton`, `errorStyle`, …); conformant 8-digit ARGB
+  colors where NPOI emits 6; no meaningless `dxfId` on colorScale rules; CF
+  priorities allocated max+1 (NPOI's count+1 mints duplicate priorities
+  after a removal — observed in the oracle dump); tables EMIT the
+  schema-required `<table @id>` NPOI 2.7.3 omits; `<tableParts @count>` /
+  `<dataValidations @count>` kept in sync.
+- **The emission-parity harness caught a real NPOI-engine bug**: NPOI's
+  `IFontFormatting.SetFontStyle` takes `(italic, bold)` and
+  `ConditionalFormat.ApplyStyle` passed `(bold, italic)` — a Bold CF style
+  rendered Italic and vice versa. Fixed (`fix:` commit alongside the slice);
+  pinned by `Cf_Emission_Agrees_Across_Engines`.
+- **`ICell.GetFormula` is now implemented on the SDK engine** (`"="` + body,
+  NPOI parity) — formula cells became producible via opened files and the
+  table totals writer, which authors `<c><f>…</f></c>` at the DOM level
+  (the public `SetFormula` remains a later slice).
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp

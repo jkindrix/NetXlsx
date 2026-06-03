@@ -311,6 +311,54 @@ values. A corrupt boolean value was reviewed and deliberately left lenient (both
 engines already read `false`). No public symbol added; no behavior change on
 well-formed files.
 
+**CF / data validation / tables / autofilter / sort slice.** The SDK engine
+now carries the full structured-data surface, each feature oracle-checked
+against the NPOI engine's emitted XML and covered by the differential harness:
+
+- `ISheet.SortRange` (I-72): stable in-memory sort with NPOI's exact
+  comparison semantics (blanks last, numbers before strings,
+  ordinal-ignore-case, FALSE < TRUE). The engine detaches and re-homes the
+  in-range `<c>` elements, so styles, inline rich text, and formula text move
+  verbatim by construction (including the documented formula caveat —
+  references are NOT relocated).
+- AutoFilter (I-56/I-66): `SetAutoFilter` / `ClearAutoFilter` / per-column
+  `FilterCriteria` / `HasAutoFilter` / `AutoFilterRange`. Also
+  creates/updates Excel's hidden `_xlnm._FilterDatabase` built-in name
+  (NPOI parity, oracle-pinned: quoted-when-needed sheet name, no 1×1
+  collapse, name survives `ClearAutoFilter`, filter columns survive a range
+  re-set).
+- Data validation (I-55): every `DataValidation` factory family. The type
+  gains an engine-agnostic internal descriptor (the OOXML
+  type/operator/formula axes) alongside its NPOI-typed closure — no public
+  change; the explicit-list quoted-join encoding matches NPOI exactly.
+- Conditional formatting (I-73): cellIs / expression / colorScale rules with
+  dxf (differential-format) styles modeled in the style pool (deduped,
+  unlike NPOI's one-per-rule). Documented divergences from NPOI cosmetics:
+  schema-default attributes omitted, conformant 8-digit ARGB colors, no
+  meaningless dxfId on colorScale rules, and rule priorities allocated
+  max+1 so a remove-then-add can never mint NPOI's duplicate priorities.
+- Excel tables (I-51/I-64): `AddTable` / `Tables` / `TryGetTable` /
+  `RemoveTable` + the full `ITable` surface incl. the totals-row lifecycle
+  (SUBTOTAL 100-series codes, custom formulas, labels). The engine EMITS the
+  schema-required `<table @id>` that NPOI 2.7.3 omits. `ICell.GetFormula`
+  now reads formula cells back (`"="` + body, NPOI parity) — formula cells
+  are producible on this engine via opened files and the totals writer.
+
+`<conditionalFormatting>` is the first 0..* member of CT_Worksheet's strict
+child sequence the engine writes; `OoxmlSchemaOrder` gains an `Insert`
+companion that always creates + positions (repeats keep document order),
+alongside the existing `GetOrInsert` for 0..1 singletons. Every new
+strict-ordered element has an open-mutate-validate schema fixture
+(SDK-quirk #8), and the new opened-file parse site (autoFilter `@ref`) is
+checked by the malformed-input harness (SDK-quirk #13).
+
+**Fixed: conditional-format Bold/Italic swap on the NPOI engine.** NPOI's
+`IFontFormatting.SetFontStyle` takes `(italic, bold)` — POI's parameter
+order — but `ConditionalFormat.ApplyStyle` passed `(bold, italic)`, so a CF
+rule styled Bold rendered Italic in Excel and vice versa (invisible when
+both flags were set). Found by the new cross-engine emission-parity test,
+which asserts the two engines' emitted cfRule + dxf shapes agree.
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -321,8 +369,9 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `OpcPreservationTests`, `SchemaValidationTests`, `SchemaOrderCanonicalTests`,
 `MergeTests`, `NamedRangeTests`, `PaneTests`, `GroupingTests`,
 `SheetStructureTests`, `SheetProtectionTests`, `PictureTests`,
-`ShapeConnectorTests`, `ThemeTests`, `CrossEngineDifferentialTests`,
-`CrossEngineMalformedInputTests`).
+`ShapeConnectorTests`, `ThemeTests`, `SortTests`, `AutoFilterTests`,
+`DataValidationTests`, `ConditionalFormatTests`, `TableApiTests`,
+`CrossEngineDifferentialTests`, `CrossEngineMalformedInputTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 
