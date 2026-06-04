@@ -6,8 +6,8 @@
 //
 // v0.3.x date-time slice: every cell type the API supports
 // (DateTime, DateOnly, TimeOnly, TimeSpan) gets a default number format
-// from XssfWorkbook's lazy style cache. Callers can override via the
-// .Underlying escape hatch until the styling API lands.
+// from the workbook's lazy style cache. Callers can override via
+// ICell.NumberFormat(string) / ICell.Style(CellStyle).
 
 using System;
 using System.Threading.Tasks;
