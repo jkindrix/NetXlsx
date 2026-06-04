@@ -16,21 +16,29 @@ internal sealed class OoxmlRange : IRange
 {
     private readonly OoxmlSheet _sheet;
 
+    private readonly int _firstRow;
+    private readonly int _lastRow;
+    private readonly int _firstCol;
+    private readonly int _lastCol;
+
     internal OoxmlRange(OoxmlSheet sheet, int row1, int col1, int row2, int col2)
     {
         _sheet = sheet;
-        FirstRow = Math.Min(row1, row2);
-        LastRow = Math.Max(row1, row2);
-        FirstCol = Math.Min(col1, col2);
-        LastCol = Math.Max(col1, col2);
+        _firstRow = Math.Min(row1, row2);
+        _lastRow = Math.Max(row1, row2);
+        _firstCol = Math.Min(col1, col2);
+        _lastCol = Math.Max(col1, col2);
     }
 
     private OoxmlWorkbook Wb => _sheet.WorkbookInternal;
 
-    public int FirstRow { get; }
-    public int LastRow { get; }
-    public int FirstCol { get; }
-    public int LastCol { get; }
+    // Disposed-workbook guards per decision #42 — every IRange member,
+    // including the bounds, throws after the owning workbook is disposed
+    // (pinned by DisposedWorkbookMatrixTests on the NPOI engine).
+    public int FirstRow { get { Wb.ThrowIfDisposed(); return _firstRow; } }
+    public int LastRow { get { Wb.ThrowIfDisposed(); return _lastRow; } }
+    public int FirstCol { get { Wb.ThrowIfDisposed(); return _firstCol; } }
+    public int LastCol { get { Wb.ThrowIfDisposed(); return _lastCol; } }
 
     public string Address { get { Wb.ThrowIfDisposed(); return CellAddress.FormatRange(FirstRow, FirstCol, LastRow, LastCol); } }
     public int Count { get { Wb.ThrowIfDisposed(); return (LastRow - FirstRow + 1) * (LastCol - FirstCol + 1); } }
@@ -67,29 +75,36 @@ internal sealed class OoxmlRange : IRange
         return this;
     }
 
+    /// <summary>
+    /// Runtime-type-dispatched value assignment — mirrors the NPOI engine's
+    /// <c>XssfRange.ApplyValue</c> scalar set and exception wording exactly
+    /// (the "is not a supported scalar" message is a pinned v1 contract).
+    /// </summary>
     private static void ApplyValue(ICell cell, object value)
     {
         switch (value)
         {
-            case string s: cell.SetString(s); break;
-            case bool b: cell.SetBool(b); break;
-            case byte n: cell.SetNumber((double)n); break;
-            case sbyte n: cell.SetNumber((double)n); break;
-            case short n: cell.SetNumber((double)n); break;
-            case int n: cell.SetNumber(n); break;
-            case long n: cell.SetNumber(n); break;
-            case float n: cell.SetNumber((double)n); break;
-            case double n: cell.SetNumber(n); break;
-            case decimal n: cell.SetNumber(n); break;
-            case DateTime dt: cell.SetDate(dt); break;
-            case DateOnly d: cell.SetDate(d); break;
-            case TimeOnly t: cell.SetTime(t); break;
-            case TimeSpan ts: cell.SetDuration(ts); break;
+            case string s:       cell.SetString(s); break;
+            case bool b:         cell.SetBool(b); break;
+            case int i:          cell.SetNumber(i); break;
+            case long l:         cell.SetNumber(l); break;
+            case short sh:       cell.SetNumber((int)sh); break;
+            case byte by:        cell.SetNumber((int)by); break;
+            case sbyte sb:       cell.SetNumber((int)sb); break;
+            case ushort us:      cell.SetNumber((int)us); break;
+            case uint ui:        cell.SetNumber((long)ui); break;
+            case ulong ul:       cell.SetNumber((long)ul); break;
+            case double d:       cell.SetNumber(d); break;
+            case float f:        cell.SetNumber((double)f); break;
+            case decimal m:      cell.SetNumber(m); break;
+            case DateTime dt:    cell.SetDate(dt); break;
+            case DateOnly d1:    cell.SetDate(d1); break;
+            case TimeOnly t:     cell.SetTime(t); break;
+            case TimeSpan ts:    cell.SetDuration(ts); break;
             default:
                 throw new ArgumentException(
-                    $"Unsupported value type '{value.GetType()}' for IRange.Value. " +
-                    "Supported: string, bool, numeric (byte/sbyte/short/int/long/float/double/decimal), " +
-                    "DateTime, DateOnly, TimeOnly, TimeSpan, or null to clear.",
+                    $"IRange.Value: type '{value.GetType()}' is not a supported scalar. " +
+                    $"Use the typed setters on ICell for custom types, or pass null to clear.",
                     nameof(value));
         }
     }
