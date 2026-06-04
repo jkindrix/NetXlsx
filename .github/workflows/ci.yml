@@ -55,14 +55,16 @@ jobs:
           path: '**/TestResults/**/coverage.cobertura.xml'
           if-no-files-found: ignore
 
-  # Strict failure-path test for IColumn.AutoSize() per design decision I3.
-  # Runs on an Ubuntu host with all font packages purged so SixLabors.Fonts
-  # has nothing to fall back to and AutoSize must throw MissingFontException.
-  # Without this gate, a future NPOI / SixLabors update that silently
-  # accepts a font-less environment (and produces wrong widths) wouldn't
-  # surface until a user reports it.
+  # Headless AutoSize gate, v2.0.0 contract (decision I-84, superseding I3):
+  # on an Ubuntu host with all font packages purged, AutoSize for an
+  # embedded-metrics font must SUCCEED with the same deterministic width as
+  # everywhere else (the embedded numeric tables need no installed fonts),
+  # and a font outside the embedded set must throw MissingFontException
+  # naming the font. Without this gate, a regression that reintroduces an
+  # environment-dependent measurement path wouldn't surface until a user's
+  # container deployment reports wrong widths.
   headless-no-fonts:
-    name: headless-no-fonts (AutoSize MissingFontException gate)
+    name: headless-no-fonts (AutoSize I-84 embedded-metrics gate)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -87,7 +89,7 @@ jobs:
           font_count=$(find /usr/share /usr/local/share /etc -name '*.ttf' -o -name '*.otf' 2>/dev/null | wc -l)
           echo "Font files remaining: $font_count"
           if [ "$font_count" -gt 0 ]; then
-            echo "::warning::Expected 0 font files after purge, found $font_count. The MissingFontException assertion may not fire."
+            echo "::warning::Expected 0 font files after purge, found $font_count. The no-fonts half of the I-84 gate is weakened."
           fi
 
       - name: Restore

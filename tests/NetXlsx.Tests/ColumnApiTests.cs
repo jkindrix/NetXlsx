@@ -174,59 +174,50 @@ public class ColumnApiTests
     // ---- AutoSize -----------------------------------------------------
 
     [Fact]
-    public void AutoSize_Either_Sizes_The_Column_Or_Throws_MissingFontException()
+    public void AutoSize_Sizes_The_Column_Deterministically()
     {
-        // AutoSize requires font metrics; on a headless CI without fonts
-        // we get MissingFontException (decision I3). Either outcome is
-        // acceptable — failing silently is not. The dedicated
-        // HeadlessNoFonts trait covers the *strict* failure-path
-        // assertion; this test stays accept-either so dev-box runs
-        // (which have fonts) don't flake.
+        // I-84 (superseding I3's environment dependence): AutoSize measures
+        // with EMBEDDED font-metric tables, so the default font sizes
+        // deterministically on every host — fonts installed or not.
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
         sheet["A1"].SetString("hello");
         var col = sheet.Column("A");
-        double widthBefore = col.WidthUnits;
 
-        try
-        {
-            col.AutoSize();
-            // Success path: width should be a positive finite value.
-            col.WidthUnits.Should().BeGreaterThan(0);
-        }
-        catch (MissingFontException ex)
-        {
-            ex.Message.Should().Contain("AutoSize");
-        }
+        col.AutoSize();
+
+        col.WidthUnits.Should().BeGreaterThan(0);
     }
 
     /// <summary>
-    /// Strict failure-path test: in a known headless-no-fonts CI job,
-    /// AutoSize **must** throw <see cref="MissingFontException"/> — the
-    /// design promise is "fail loud, not silently produce wrong widths"
-    /// (decision I3). This test is excluded from regular CI via the
-    /// <c>HeadlessNoFonts</c> trait; the dedicated CI job filters
-    /// <c>Trait=HeadlessNoFonts</c> and runs only this test in an
-    /// environment where fonts have been removed.
+    /// The headless-no-fonts CI job pins decision I-84's headline win: on a
+    /// host with NO fonts installed, AutoSize for an embedded-metrics font
+    /// (the default, Calibri) succeeds with the same deterministic width as
+    /// everywhere else — no fontconfig, no <c>libgdiplus</c>. Before v2.0.0
+    /// this job pinned the opposite (I3: MissingFontException on a no-fonts
+    /// host); I-84's embedded tables superseded that environment dependence.
+    /// The fail-loud half of I-84 — a font OUTSIDE the embedded set throws
+    /// <see cref="MissingFontException"/> naming the font — is pinned here
+    /// too, and is environment-independent by construction.
     /// </summary>
     [Fact]
     [Trait("Category", "HeadlessNoFonts")]
-    public void AutoSize_Must_Throw_MissingFontException_When_NoFonts_Available()
+    public void AutoSize_Works_On_A_NoFonts_Host_And_Fails_Loud_For_Unknown_Fonts()
     {
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
         sheet["A1"].SetString("hello");
         var col = sheet.Column("A");
 
-        Action act = () => col.AutoSize();
-        act.Should().Throw<MissingFontException>(
-            "design decision I3 — AutoSize on a headless-no-fonts host must " +
-            "fail loud with installation guidance, not silently produce " +
-            "wrong widths. If this assertion fires in your environment, " +
-            "either install a font stack (apt-get install fontconfig " +
-            "fonts-dejavu-core libgdiplus) or use IColumn.Width(double) " +
-            "with an explicit width.")
-            .Which.Message.Should().Contain("AutoSize");
+        col.AutoSize();
+        col.WidthUnits.Should().BeGreaterThan(0,
+            "I-84 embedded metrics make AutoSize headless-safe — a no-fonts host measures identically");
+
+        sheet["B1"].SetString("hello");
+        sheet["B1"].Style(new CellStyle { FontName = "NoSuchFont123" });
+        Action act = () => sheet.Column("B").AutoSize();
+        act.Should().Throw<MissingFontException>()
+            .Which.Message.Should().Contain("NoSuchFont123");
     }
 
     // ---- Round-trip ---------------------------------------------------
