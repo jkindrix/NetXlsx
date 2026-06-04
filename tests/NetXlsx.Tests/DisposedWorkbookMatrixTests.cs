@@ -308,6 +308,39 @@ public class DisposedWorkbookMatrixTests
             $"IColumn.{memberName} must throw ObjectDisposedException once its owning workbook is disposed");
     }
 
+    // ---- IPicture -------------------------------------------------------
+
+    public static IEnumerable<object[]> PictureOperations()
+    {
+        yield return new object[] { "Sheet", (Action<IPicture>)(p => { var _ = p.Sheet; }) };
+        yield return new object[] { "Format", (Action<IPicture>)(p => { var _ = p.Format; }) };
+        yield return new object[] { "FromCell", (Action<IPicture>)(p => { var _ = p.FromCell; }) };
+        yield return new object[] { "ToCell", (Action<IPicture>)(p => { var _ = p.ToCell; }) };
+        yield return new object[] { "Dx1", (Action<IPicture>)(p => { var _ = p.Dx1; }) };
+        yield return new object[] { "Dy1", (Action<IPicture>)(p => { var _ = p.Dy1; }) };
+        yield return new object[] { "Dx2", (Action<IPicture>)(p => { var _ = p.Dx2; }) };
+        yield return new object[] { "Dy2", (Action<IPicture>)(p => { var _ = p.Dy2; }) };
+        yield return new object[] { "Data", (Action<IPicture>)(p => { var _ = p.Data; }) };
+        yield return new object[] { "Underlying", (Action<IPicture>)(p => { var _ = p.Underlying; }) };
+        yield return new object[] { "Border get", (Action<IPicture>)(p => { var _ = p.Border; }) };
+        yield return new object[] { "Border set", (Action<IPicture>)(p => { p.Border = new PictureBorder { Color = Color.Black }; }) };
+        yield return new object[] { "Border set null", (Action<IPicture>)(p => { p.Border = null; }) };
+    }
+
+    [Theory]
+    [MemberData(nameof(PictureOperations))]
+    public void Picture_Member_Throws_ObjectDisposed_After_Workbook_Dispose(string memberName, Action<IPicture> op)
+    {
+        var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        var pic = sheet.AddPicture("A1", new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }, ImageFormat.Png);
+        wb.Dispose();
+
+        Action act = () => op(pic);
+        act.Should().Throw<ObjectDisposedException>(
+            $"IPicture.{memberName} must throw ObjectDisposedException once its owning workbook is disposed");
+    }
+
     // ---- Sanity: double-dispose is still a no-op (decision #42) --------
 
     [Fact]

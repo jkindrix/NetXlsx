@@ -73,6 +73,7 @@ public class PublicApiSnapshotTests
             "NetXlsx.MalformedFileException",
             "NetXlsx.MissingFontException",
             "NetXlsx.NumberFormats",
+            "NetXlsx.PictureBorder",
             "NetXlsx.ResourceLimitExceededException",
             "NetXlsx.RichText",
             "NetXlsx.RichTextRun",
