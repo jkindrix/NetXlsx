@@ -1492,12 +1492,34 @@ targets (">500k styled cells/s"; "30k rows < 3s" extrapolated to ~12 s).
     see (e.g. a mid-document insert that leaves the tail intact) — is the
     documented hatch coherence contract on `IWorkbook.Underlying`:
     re-acquire any `Underlying` member after such mutations.
-- **Result:** the probe goes linear (8k-row append loop 9691 → 155 ms);
-  `Write5kRows` and `StyledWrite_SmallPalette` return to their v1.x
-  recovery targets (251 ms / 8.8 ms class — see `benchmarks/baseline/`);
-  the full suite is green on both TFMs with zero behavioral changes.
+- **Phase 2 — within-row fast paths + style apply-memo** (same slice):
+  the row cache alone left the styled path short of §4 — per-op cost was
+  within-row sibling walks (one `CellAddress.Parse` per visited `<c>`,
+  paid twice per styled cell) plus a `Merge` record allocation + record
+  value-hash per `Style()`. Additions, same coherence discipline: a
+  `GetOrCreateCell` tail-append fast path (single `ColumnOf` for
+  ascending-column writes); a last-resolved-cell memo serving
+  `GetOrCreateCell`/`FindCell` (liveness-checked against the resolved
+  row; reset with the row caches); and a reference-keyed apply-memo in
+  `OoxmlStylePool` — `CellStyle` is a sealed record, so (same instance,
+  same starting xf) always merges to the same index; a memo hit
+  increments `StyleHitCount` (the public diagnostic counts it as the
+  pool hit it is); capped at 1024, cleared with the row caches.
+- **Result (dev-local, 2026-06-04):** the probe goes linear (8k-row
+  append loop 9691 → 155 ms); `Write5kRows` 3,652 → ~286 ms (v1.x 251 ms
+  class); `StyledWrite_SmallPalette` 41.4 → 13.9 ms = ~720k styled
+  cells/s (§4's ">500k" restored); 30k × 20 in-memory write+save 2.78 s
+  (§4 "< 3 s", save is ~1.6 s of it); `OpenAndReadColumnSum` 11.7 →
+  7.4 ms. Full suite green on both TFMs with zero behavioral changes.
   `RowCacheCoherenceTests` pins the coherence model (hatch add/remove/
   renumber, stored-reference backstops, SortRange + save/reopen).
+- **Honest residual (documented, not hidden):** v1.x NPOI ran
+  `StyledWrite_SmallPalette` in 8.8 ms — applying a pooled NPOI style was
+  an int assignment, while NetXlsx's merge semantics plus the SDK DOM's
+  per-element write cost put the floor at ~1.4 µs/cell here. The §4
+  design budget is met; absolute NPOI parity on that microbench would
+  require re-architecting the DOM write path and is NOT queued — treat
+  ~14 ms as the engine's expected dev-local number, not a regression.
 - No public symbol added or changed — XML-doc additions on the hatches
   only; PublicAPI snapshot untouched.
 

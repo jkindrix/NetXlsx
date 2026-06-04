@@ -20,8 +20,13 @@ changes (decision I19).
   are now served by a row-index cache with a documented escape-hatch
   coherence contract: accessing any `Underlying` member resets the caches
   (so acquire → mutate → continue-via-facade always observes hatch
-  mutations), backstopped by per-access liveness checks. Bulk writes return
-  to the v1.x performance class; no public API change.
+  mutations), backstopped by per-access liveness checks. Within-row cell
+  resolution gained the same treatment (tail-append fast path +
+  last-resolved-cell memo), and repeat applications of the same
+  `CellStyle` instance are served by a reference-keyed apply-memo (a memo
+  hit still counts in the `StyleHitCount` diagnostic). Bulk writes return
+  to the v1.x performance class and the design §4 budget (>500k styled
+  cells/s; 30k rows < 3 s) is restored; no public API change.
   v2.0.0 was never published to NuGet; the first publishable version is
   ≥ v2.0.1.
 
