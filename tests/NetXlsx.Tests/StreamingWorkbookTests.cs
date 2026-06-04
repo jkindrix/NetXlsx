@@ -21,19 +21,39 @@ public class StreamingWorkbookTests
             "streaming and random-access are deliberately separate types (decision #7)");
     }
 
-    [Fact]
-    public void CreateStreaming_With_Default_Options_Uses_NPOI_Default_Window()
-    {
-        using var sw = Workbook.CreateStreaming();
-        sw.Underlying.RandomAccessWindowSize.Should().Be(100,
-            "default RowAccessWindowSize per design §6.1");
-    }
+    // The window-size plumbing is asserted BEHAVIORALLY since v2.0.0 (the
+    // SDK engine's window is internal; the old test reached through the
+    // removed NPOI hatch): a row evicted from the access window rejects
+    // writes, so where the eviction boundary falls proves which window
+    // size the engine is running.
 
     [Fact]
     public void CreateStreaming_Honors_Explicit_Window_Size()
     {
-        using var sw = Workbook.CreateStreaming(new StreamingOptions { RowAccessWindowSize = 500 });
-        sw.Underlying.RandomAccessWindowSize.Should().Be(500);
+        using var sw = Workbook.CreateStreaming(new StreamingOptions { RowAccessWindowSize = 2 });
+        var sheet = sw.AddSheet("S");
+        var r1 = sheet.AppendRow();
+        r1.Set(1, "one");
+        sheet.AppendRow().Set(1, "two");
+        sheet.AppendRow().Set(1, "three"); // evicts row 1 (window = 2)
+
+        ((Action)(() => r1.Cell(2).SetString("late")))
+            .Should().Throw<InvalidOperationException>(
+                "row 1 left the 2-row access window, so the configured size is plumbed through");
+    }
+
+    [Fact]
+    public void CreateStreaming_Default_Window_Keeps_Early_Rows_Writable()
+    {
+        // Default RowAccessWindowSize is 100 (design §6.1): after 50 appends
+        // row 1 is still inside the window and accepts writes.
+        using var sw = Workbook.CreateStreaming();
+        var sheet = sw.AddSheet("S");
+        var r1 = sheet.AppendRow();
+        r1.Set(1, "one");
+        for (int i = 2; i <= 50; i++) sheet.AppendRow().Set(1, $"row {i}");
+
+        ((Action)(() => r1.Cell(2).SetString("still writable"))).Should().NotThrow();
     }
 
     [Fact]
@@ -223,9 +243,7 @@ public class StreamingWorkbookTests
         sw.Dispose();
 
         ((Action)(() => sw.AddSheet("T"))).Should().Throw<ObjectDisposedException>();
-        ((Action)(() => { var _ = sw.Underlying; })).Should().Throw<ObjectDisposedException>();
         ((Action)(() => sheet.AppendRow())).Should().Throw<ObjectDisposedException>();
-        ((Action)(() => { var _ = sheet.Underlying; })).Should().Throw<ObjectDisposedException>();
         ((Action)(() => row.Cell(2))).Should().Throw<ObjectDisposedException>();
         ((Action)(() => row.Flush())).Should().Throw<ObjectDisposedException>();
         ((Action)(() => cell.SetString("x"))).Should().Throw<ObjectDisposedException>();

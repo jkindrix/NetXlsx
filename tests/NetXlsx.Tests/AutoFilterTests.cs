@@ -320,7 +320,7 @@ public class AutoFilterTests
     {
         Action act = () => FilterCriteria.In("a", "b", "c");
         act.Should().Throw<NotSupportedException>()
-            .WithMessage("*NPOI 2.7.3*")
+            .WithMessage("*only 1 or 2 values*")
             .WithMessage("*<filters>*");
     }
 

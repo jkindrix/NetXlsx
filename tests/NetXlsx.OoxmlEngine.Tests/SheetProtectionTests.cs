@@ -19,7 +19,7 @@ public class SheetProtectionTests
 {
     private static S.SheetProtection? Prot(IWorkbook wb, string sheet)
     {
-        var part = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts;
+        var part = wb.Underlying.WorkbookPart!.WorksheetParts;
         // Single-sheet fixtures use the only worksheet part; multi-sheet resolve by
         // matching the worksheet that owns a <sheetProtection>. Tests below use one
         // protected sheet at a time, so the first part with protection is correct.
@@ -146,7 +146,7 @@ public class SheetProtectionTests
         s.MergeCells("A1:C1");
         s.Protect(password: "pw");
 
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
         var children = ws.ChildElements.ToList();
         int spIdx = children.FindIndex(e => e is S.SheetProtection);
         int mcIdx = children.FindIndex(e => e is S.MergeCells);

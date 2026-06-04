@@ -206,23 +206,23 @@ public class SortTests
     public void SortRange_Moves_Formula_Text_Verbatim()
     {
         // Lesson #12 / the documented formula caveat: a sorted formula cell
-        // keeps its literal text — references are NOT relocated. The SDK
-        // engine cannot author formulas yet, so the fixture is built on the
-        // NPOI engine and opened through OpenOoxml.
+        // keeps its literal text — references are NOT relocated. Round-trips
+        // through Save/Open so the sort runs on an OPENED file, not just the
+        // authoring DOM.
         var path = Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-sort-{Guid.NewGuid():N}.xlsx");
         try
         {
-            using (var npoi = Workbook.Create())
+            using (var author = Workbook.Create())
             {
-                var sheet = npoi.AddSheet("S");
+                var sheet = author.AddSheet("S");
                 sheet["A1"].SetString("zulu");
                 sheet["B1"].SetFormula("A1&\"!\"");
                 sheet["A2"].SetString("alpha");
                 sheet["B2"].SetNumber(7);
-                npoi.Save(path);
+                author.Save(path);
             }
 
-            using var wb = Workbook.OpenOoxml(path);
+            using var wb = Workbook.Open(path);
             var s = wb["S"];
             s.SortRange("A1:B2", SortKey.Asc(1));
 
@@ -230,7 +230,7 @@ public class SortTests
             s["A2"].GetString().Should().Be("zulu");
             // The formula moved to row 2 with its literal text intact.
             s["B2"].Kind.Should().Be(CellKind.Formula);
-            var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+            var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
             var b2 = ws.Descendants<S.Cell>().Single(c => c.CellReference?.Value == "B2");
             b2.CellFormula!.Text.Should().Be("A1&\"!\"");
         }

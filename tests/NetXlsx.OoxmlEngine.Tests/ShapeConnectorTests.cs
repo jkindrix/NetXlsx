@@ -35,7 +35,7 @@ public class ShapeConnectorTests
 
     private static XDR.WorksheetDrawing Drawing(IWorkbook wb)
     {
-        var dp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+        var dp = wb.Underlying.WorkbookPart!.WorksheetParts
             .SelectMany(p => p.GetPartsOfType<DrawingsPart>()).Single();
         return dp.WorksheetDrawing!;
     }
@@ -181,12 +181,15 @@ public class ShapeConnectorTests
     }
 
     [Fact]
-    public void IShape_Underlying_Throws_On_The_SDK_Engine()
+    public void IShape_Underlying_Hands_Out_The_Live_Sp_Element()
     {
+        // v2.0.0 (I-82): the hatch is the xdr:sp the add path built.
         using var wb = Workbook.CreateOoxml();
         var shape = wb.AddSheet("S").AddShape(ShapeType.Rectangle, "A1", "C3");
-        var act = () => shape.Underlying;
-        act.Should().Throw<NotSupportedException>().Which.Message.Should().Contain("OpenXmlDocument");
+        shape.Underlying.Should().NotBeNull();
+        var root = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
+            .GetPartsOfType<DrawingsPart>().Single().WorksheetDrawing!;
+        root.Descendants<XDR.Shape>().Single().Should().BeSameAs(shape.Underlying);
     }
 
     // ---- Connectors: happy path ---------------------------------------------
@@ -307,12 +310,15 @@ public class ShapeConnectorTests
     }
 
     [Fact]
-    public void IConnector_Underlying_Throws_On_The_SDK_Engine()
+    public void IConnector_Underlying_Hands_Out_The_Live_CxnSp_Element()
     {
+        // v2.0.0 (I-82): the hatch is the xdr:cxnSp the add path built.
         using var wb = Workbook.CreateOoxml();
         var c = wb.AddSheet("S").AddConnector(ConnectorType.Straight, "A1", "C3");
-        var act = () => c.Underlying;
-        act.Should().Throw<NotSupportedException>().Which.Message.Should().Contain("OpenXmlDocument");
+        c.Underlying.Should().NotBeNull();
+        var root = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
+            .GetPartsOfType<DrawingsPart>().Single().WorksheetDrawing!;
+        root.Descendants<XDR.ConnectionShape>().Single().Should().BeSameAs(c.Underlying);
     }
 
     // ---- Connectors read-back -----------------------------------------------

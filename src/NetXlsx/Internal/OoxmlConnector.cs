@@ -45,12 +45,14 @@ internal sealed class OoxmlConnector : IConnector
     private readonly string? _lineSchemeColor;
     private readonly double? _lineWidthPoints;
     private readonly int? _lineStyleRefIndex;
+    private readonly XDR.ConnectionShape _cxn;
 
     private OoxmlConnector(
         OoxmlWorkbook workbook, OoxmlSheet sheet, ConnectorType type,
         string fromCell, string toCell, int dx1, int dy1, int dx2, int dy2,
         bool flipH, bool flipV, ConnectorEnd headEnd, ConnectorEnd tailEnd,
-        Color? lineColor, string? lineSchemeColor, double? lineWidthPoints, int? lineStyleRefIndex)
+        Color? lineColor, string? lineSchemeColor, double? lineWidthPoints, int? lineStyleRefIndex,
+        XDR.ConnectionShape cxn)
     {
         _workbook = workbook;
         _sheet = sheet;
@@ -63,6 +65,7 @@ internal sealed class OoxmlConnector : IConnector
         _lineSchemeColor = lineSchemeColor;
         _lineWidthPoints = lineWidthPoints;
         _lineStyleRefIndex = lineStyleRefIndex;
+        _cxn = cxn;
     }
 
     internal static OoxmlConnector FromElement(
@@ -109,7 +112,7 @@ internal sealed class OoxmlConnector : IConnector
         return new OoxmlConnector(workbook, sheet, type,
             CellAddress.Format(fr + 1, fc + 1), CellAddress.Format(tr + 1, tc + 1),
             fco, fro, tco, tro, flipH, flipV, headEnd, tailEnd,
-            lineColor, lineSchemeColor, lineWidthPoints, lineStyleRefIndex);
+            lineColor, lineSchemeColor, lineWidthPoints, lineStyleRefIndex, cxn);
     }
 
     public ISheet Sheet { get { _workbook.ThrowIfDisposed(); return _sheet; } }
@@ -129,10 +132,11 @@ internal sealed class OoxmlConnector : IConnector
     public double? LineWidthPoints { get { _workbook.ThrowIfDisposed(); return _lineWidthPoints; } }
     public int? LineStyleRefIndex { get { _workbook.ThrowIfDisposed(); return _lineStyleRefIndex; } }
 
-    // Escape-hatch divergence (I-82): no NPOI connector exists on the SDK engine.
-    public NPOI.XSSF.UserModel.XSSFConnector Underlying => throw new NotSupportedException(
-        "IConnector.Underlying (NPOI XSSFConnector) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the live xdr:cxnSp element. Disposal first.
+    public XDR.ConnectionShape Underlying
+    {
+        get { _workbook.ThrowIfDisposed(); return _cxn; }
+    }
 
     // ---- Mappings (inverse of OoxmlSheet.ToPreset / ToLineEnd) ---------------
 

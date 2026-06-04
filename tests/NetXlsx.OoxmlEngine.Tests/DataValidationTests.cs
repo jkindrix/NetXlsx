@@ -26,7 +26,7 @@ namespace NetXlsx.OoxmlEngine.Tests;
 public class DataValidationTests
 {
     private static S.DataValidations? ValidationsOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.GetFirstChild<S.DataValidations>();
 
     [Fact]
@@ -163,7 +163,7 @@ public class DataValidationTests
         container.Elements<S.DataValidation>().Should().HaveCount(5);
         container.Count!.Value.Should().Be(5u);
         // Still a single container.
-        wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.Elements<S.DataValidations>().Should().HaveCount(1);
     }
 
@@ -221,51 +221,59 @@ public class DataValidationTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
-    // ---- cross-engine emission parity (stands in for the differential
-    // harness — no public read-back API exists for validations) ------------
+    // ---- emission projection pins (no public read-back API exists for
+    // validations, so the persisted XML is the observable). Was the
+    // cross-engine equivalence test; at the v2.0.0 cutover the NPOI half was
+    // collapsed onto these LITERALS — captured from the green pre-flip state
+    // where both engines emitted them identically (A1 disposition (b)). ----
 
     private sealed record DvObs(string Type, string Op, bool AllowBlank, string Sqref, string? F1, string? F2);
 
     [Fact]
-    public void Validation_Emission_Agrees_Across_Engines()
+    public void Validation_Emission_Matches_The_Pinned_Projection()
     {
-        static DvObs[] EmitAndProject(Func<IWorkbook> create)
+        var path = Path.Combine(Path.GetTempPath(), $"netxlsx-dv-par-{Guid.NewGuid():N}.xlsx");
+        try
         {
-            var path = Path.Combine(Path.GetTempPath(), $"netxlsx-dv-par-{Guid.NewGuid():N}.xlsx");
-            try
+            using (var wb = Workbook.Create())
             {
-                using (var wb = create())
-                {
-                    var s = wb.AddSheet("S");
-                    s["A1"].SetString("h");
-                    s.AddValidation("A2:A5", DataValidation.List("Red", "Green", "Blue"));
-                    s.AddValidation("B2:B5", DataValidation.ListFromRange("$Z$1:$Z$9"));
-                    s.AddValidation("C2:C5", DataValidation.IntegerBetween(1, 10));
-                    s.AddValidation("D2", DataValidation.IntegerEqual(7));
-                    s.AddValidation("E2:E5", DataValidation.DecimalBetween(0.5, 9.5));
-                    s.AddValidation("F2:F5", DataValidation.DateBetween(new DateOnly(2024, 1, 1), new DateOnly(2024, 12, 31)));
-                    s.AddValidation("G2:G5", DataValidation.TextLengthAtMost(10));
-                    s.AddValidation("H2:H5", DataValidation.Custom("ISNUMBER(H2)"));
-                    wb.Save(path);
-                }
-                // Read both engines' files back through the SDK DOM and project
-                // with schema defaults applied (absent @operator means between).
-                using var opened = Workbook.OpenOoxml(path);
-                return ValidationsOf(opened)!.Elements<S.DataValidation>()
-                    .Select(dv => new DvObs(
-                        dv.Type!.InnerText!,
-                        dv.Operator?.InnerText ?? "between",
-                        dv.AllowBlank?.Value ?? false,
-                        dv.SequenceOfReferences!.InnerText!,
-                        dv.Formula1?.Text,
-                        dv.Formula2?.Text))
-                    .ToArray();
+                var s = wb.AddSheet("S");
+                s["A1"].SetString("h");
+                s.AddValidation("A2:A5", DataValidation.List("Red", "Green", "Blue"));
+                s.AddValidation("B2:B5", DataValidation.ListFromRange("$Z$1:$Z$9"));
+                s.AddValidation("C2:C5", DataValidation.IntegerBetween(1, 10));
+                s.AddValidation("D2", DataValidation.IntegerEqual(7));
+                s.AddValidation("E2:E5", DataValidation.DecimalBetween(0.5, 9.5));
+                s.AddValidation("F2:F5", DataValidation.DateBetween(new DateOnly(2024, 1, 1), new DateOnly(2024, 12, 31)));
+                s.AddValidation("G2:G5", DataValidation.TextLengthAtMost(10));
+                s.AddValidation("H2:H5", DataValidation.Custom("ISNUMBER(H2)"));
+                wb.Save(path);
             }
-            finally { if (File.Exists(path)) File.Delete(path); }
-        }
+            // Read the file back through the DOM and project with schema
+            // defaults applied (absent @operator means between).
+            using var opened = Workbook.Open(path);
+            var projected = ValidationsOf(opened)!.Elements<S.DataValidation>()
+                .Select(dv => new DvObs(
+                    dv.Type!.InnerText!,
+                    dv.Operator?.InnerText ?? "between",
+                    dv.AllowBlank?.Value ?? false,
+                    dv.SequenceOfReferences!.InnerText!,
+                    dv.Formula1?.Text,
+                    dv.Formula2?.Text))
+                .ToArray();
 
-        var npoi = EmitAndProject(() => Workbook.Create());
-        var sdk = EmitAndProject(() => Workbook.CreateOoxml());
-        sdk.Should().BeEquivalentTo(npoi, o => o.WithStrictOrdering());
+            projected.Should().BeEquivalentTo(new[]
+            {
+                new DvObs("list", "between", true, "A2:A5", "\"Red,Green,Blue\"", null),
+                new DvObs("list", "between", true, "B2:B5", "$Z$1:$Z$9", null),
+                new DvObs("whole", "between", true, "C2:C5", "1", "10"),
+                new DvObs("whole", "equal", true, "D2", "7", null),
+                new DvObs("decimal", "between", true, "E2:E5", "0.5", "9.5"),
+                new DvObs("date", "between", true, "F2:F5", "DATE(2024,1,1)", "DATE(2024,12,31)"),
+                new DvObs("textLength", "lessThanOrEqual", true, "G2:G5", "10", null),
+                new DvObs("custom", "between", true, "H2:H5", "ISNUMBER(H2)", null),
+            }, o => o.WithStrictOrdering());
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
     }
 }

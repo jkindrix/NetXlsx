@@ -132,19 +132,9 @@ internal sealed class OoxmlStreamingWorkbook : IStreamingWorkbook
         return Task.Run(() => Save(stream, leaveOpen), ct);
     }
 
-    // No NPOI workbook exists on the SDK streaming engine; the escape hatch
-    // diverges, same as IWorkbook.Underlying on the random-access SDK engine.
-    public NPOI.XSSF.Streaming.SXSSFWorkbook Underlying
-    {
-        get
-        {
-            ThrowIfDisposed();
-            throw new NotSupportedException(
-                "IStreamingWorkbook.Underlying (NPOI SXSSFWorkbook) is not available on the " +
-                "Open XML SDK engine (I-82). The streaming engine writes forward-only through " +
-                "OpenXmlWriter; there is no live document object to expose.");
-        }
-    }
+    // No escape hatch on the streaming engine (v2.0.0 / I-82): rows stream
+    // forward-only through OpenXmlWriter into per-sheet temp streams and the
+    // package is assembled only at Save — there is no live document to expose.
 
     public void Dispose()
     {

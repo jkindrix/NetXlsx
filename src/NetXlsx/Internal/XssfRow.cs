@@ -79,8 +79,14 @@ internal sealed class XssfRow : IRow
         set { _workbook.ThrowIfDisposed(); _underlying.ZeroHeight = value; }
     }
 
-    public XSSFRow Underlying
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Spreadsheet.Row Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _underlying; }
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            throw new NotSupportedException(
+                "IRow.Underlying (Row) is not available on the retired NPOI engine.");
+        }
     }
 }

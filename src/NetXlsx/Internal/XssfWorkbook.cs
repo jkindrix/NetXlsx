@@ -482,18 +482,23 @@ internal sealed partial class XssfWorkbook : IWorkbook
         return Theme.LineWidthEmu(oneBasedIdx);
     }
 
-    public XSSFWorkbook Underlying
+    // Internal NPOI accessor for legacy-engine code (this engine is retired
+    // and deleted with the NPOI package at the cutover's drop commit).
+    internal XSSFWorkbook Npoi
     {
         get { ThrowIfDisposed(); return _underlying; }
     }
 
-    // I-82 engine swap: this is the NPOI-backed engine, so the Open XML SDK
-    // escape hatch is null here. The SDK-backed OoxmlWorkbook returns the live
-    // SpreadsheetDocument. Callers discriminate engines via this member being
-    // non-null. (ThrowIfDisposed keeps the disposed-workbook contract uniform.)
-    public DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument
+    // v2.0.0 (I-82): the public hatch is SDK-typed; no SDK document exists
+    // on the retired NPOI engine. Disposal still wins (matrix contract).
+    public DocumentFormat.OpenXml.Packaging.SpreadsheetDocument Underlying
     {
-        get { ThrowIfDisposed(); return null; }
+        get
+        {
+            ThrowIfDisposed();
+            throw new NotSupportedException(
+                "IWorkbook.Underlying (SpreadsheetDocument) is not available on the retired NPOI engine.");
+        }
     }
 
     public void Dispose()

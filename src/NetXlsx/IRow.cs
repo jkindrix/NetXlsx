@@ -68,7 +68,9 @@ public interface IRow
     bool Hidden { get; set; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI <c>XSSFRow</c>.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Spreadsheet.Row"/> element (I-82).
+    /// See <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFRow Underlying { get; }
+    DocumentFormat.OpenXml.Spreadsheet.Row Underlying { get; }
 }

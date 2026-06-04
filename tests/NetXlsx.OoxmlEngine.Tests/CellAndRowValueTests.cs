@@ -66,7 +66,7 @@ public class CellAndRowValueTests
         s["Z99"].GetNumber().Should().BeNull();
 
         // Decision #40: reading must not add a <c> node to the DOM.
-        var wsPart = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.First();
+        var wsPart = wb.Underlying.WorkbookPart!.WorksheetParts.First();
         var refs = wsPart.Worksheet!.GetFirstChild<SheetData>()!
             .Descendants<Cell>().Select(c => c.CellReference!.Value).ToList();
         refs.Should().ContainSingle().Which.Should().Be("A1");
@@ -213,7 +213,7 @@ public class CellAndRowValueTests
         s["B1"].SetString("b1");
         s["A3"].SetString("a3");
 
-        var data = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.First()
+        var data = wb.Underlying.WorkbookPart!.WorksheetParts.First()
             .Worksheet!.GetFirstChild<SheetData>()!;
 
         var rowOrder = data.Elements<Row>().Select(r => (int)r.RowIndex!.Value).ToList();

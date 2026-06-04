@@ -3,12 +3,16 @@
 // Per docs/design.md §8.1: "Read a workbook containing formula errors;
 // classify them via GetError() and the CellError enum."
 //
-// v0.4 cell-errors slice: writes a workbook with each of the eight
-// standard Excel error codes (via the .Underlying escape hatch — no
-// SetError API yet) and reads them back classified.
+// Writes a workbook with each of the eight standard Excel error literals
+// (via the .Underlying escape hatch — no SetError API) and reads them back
+// classified. OOXML stores an error cell as t="e" with the literal in <v>;
+// since v2.0.0 the hatch is the SDK <c> element, so the recipe authors
+// exactly that shape — including #GETTING_DATA, which the old NPOI write
+// API could not produce.
 
 using System.Threading.Tasks;
 using NetXlsx;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx.Cookbook.Recipes;
 
@@ -34,11 +38,14 @@ public static class CellErrors
             .Set(1, "Error code")
             .Set(2, "Description");
 
-        foreach (var (code, error, description) in Errors)
+        foreach (var (literal, error, description) in Errors)
         {
             var row = sheet.AppendRow();
-            // Write the error via .Underlying — no SetError on ICell yet.
-            row.Cell(1).Underlying.SetCellErrorValue(code);
+            // Write the error via .Underlying — no SetError on ICell.
+            // An OOXML error cell is t="e" with the literal in <v>.
+            var c = row.Cell(1).Underlying;
+            c.DataType = S.CellValues.Error;
+            c.CellValue = new S.CellValue(literal);
             row.Set(2, description);
             _ = error;   // present in the tuple for clarity; not used in the write.
         }
@@ -47,20 +54,20 @@ public static class CellErrors
     }
 
     /// <summary>
-    /// The seven Excel error codes NPOI can write programmatically.
-    /// <c>#GETTING_DATA</c> (0x2B) is unreachable from NPOI's
-    /// <c>SetCellErrorValue</c> — only Excel itself can produce it from
-    /// external data sources — but <see cref="CellError.GettingData"/>
-    /// is still surfaced on the read side for workbooks authored by Excel.
+    /// All eight Excel error literals, including <c>#GETTING_DATA</c> —
+    /// authorable through the SDK escape hatch since v2.0.0 (the legacy
+    /// NPOI write API refused it; Excel produces it from external data
+    /// sources).
     /// </summary>
-    public static readonly (byte ExcelCode, CellError EnumValue, string Description)[] Errors =
+    public static readonly (string Literal, CellError EnumValue, string Description)[] Errors =
     {
-        (0x00, CellError.Null,         "#NULL! — intersection of two ranges that do not intersect"),
-        (0x07, CellError.DivByZero,    "#DIV/0! — division by zero"),
-        (0x0F, CellError.Value,        "#VALUE! — wrong type of operand"),
-        (0x17, CellError.Ref,          "#REF! — reference is not valid"),
-        (0x1D, CellError.Name,         "#NAME? — unrecognized name in a formula"),
-        (0x24, CellError.Num,          "#NUM! — invalid numeric value"),
-        (0x2A, CellError.NotAvailable, "#N/A — value is not available"),
+        ("#NULL!", CellError.Null,                "#NULL! — intersection of two ranges that do not intersect"),
+        ("#DIV/0!", CellError.DivByZero,          "#DIV/0! — division by zero"),
+        ("#VALUE!", CellError.Value,              "#VALUE! — wrong type of operand"),
+        ("#REF!", CellError.Ref,                  "#REF! — reference is not valid"),
+        ("#NAME?", CellError.Name,                "#NAME? — unrecognized name in a formula"),
+        ("#NUM!", CellError.Num,                  "#NUM! — invalid numeric value"),
+        ("#N/A", CellError.NotAvailable,          "#N/A — value is not available"),
+        ("#GETTING_DATA", CellError.GettingData,  "#GETTING_DATA — data fetching from an external source"),
     };
 }

@@ -67,9 +67,15 @@ internal sealed class XssfPicture : IPicture
         get { _workbook.ThrowIfDisposed(); return _underlying.PictureData.Data; }
     }
 
-    public XSSFPicture Underlying
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Drawing.Spreadsheet.Picture Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _underlying; }
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            throw new System.NotSupportedException(
+                "IPicture.Underlying (xdr:pic) is not available on the retired NPOI engine.");
+        }
     }
 
     private XSSFClientAnchor Anchor => (XSSFClientAnchor)_underlying.ClientAnchor;

@@ -32,7 +32,7 @@ namespace NetXlsx.OoxmlEngine.Tests;
 public class ConditionalFormatTests
 {
     private static S.Worksheet WorksheetOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
 
     private static S.ConditionalFormattingRule SingleRuleOf(IWorkbook wb)
         => WorksheetOf(wb).Elements<S.ConditionalFormatting>().Single()
@@ -254,7 +254,7 @@ public class ConditionalFormatTests
     // ---- dxf (differential format) content + dedup --------------------------
 
     private static S.DifferentialFormats? DxfsOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!
+        => wb.Underlying.WorkbookPart!.WorkbookStylesPart!
             .Stylesheet!.GetFirstChild<S.DifferentialFormats>();
 
     [Fact]
@@ -291,79 +291,91 @@ public class ConditionalFormatTests
             .Select(r => r.FormatId!.Value).Should().Equal(0u, 0u);
     }
 
-    // ---- cross-engine emission parity (CF has no public read-back beyond
-    // the count, so this stands in for the differential harness) --------------
+    // ---- emission projection pins (CF has no public read-back beyond the
+    // count, so the persisted XML is the observable). Was the cross-engine
+    // equivalence test; at the v2.0.0 cutover the NPOI half was collapsed
+    // onto these LITERALS — captured from the green pre-flip state where
+    // both engines projected identically (A1 disposition (b)). --------------
 
     private sealed record CfObs(string Sqref, string Type, string? Op, string[] Formulas,
         bool? DxfBold, bool? DxfItalic, string? DxfFillRgb, string[] ScaleStops, string[] ScaleColors);
 
+    private static readonly string[] s_f30 = { "30" };
+    private static readonly string[] s_f10To20 = { "10", "20" };
+    private static readonly string[] s_fIsNumber = { "ISNUMBER(B1)" };
+    private static readonly string[] s_scaleStops = { "min", "percentile", "max" };
+    private static readonly string[] s_scaleColors = { "F8696B", "FFEB84", "63BE7B" };
+
     [Fact]
-    public void Cf_Emission_Agrees_Across_Engines()
+    public void Cf_Emission_Matches_The_Pinned_Projection()
     {
         static string NormalizeRgb(string? rgb)
             => rgb is null ? "" : (rgb.Length == 8 ? rgb[2..] : rgb);
 
-        static CfObs[] EmitAndProject(Func<IWorkbook> create)
+        var path = Path.Combine(Path.GetTempPath(), $"netxlsx-cf-par-{Guid.NewGuid():N}.xlsx");
+        try
         {
-            var path = Path.Combine(Path.GetTempPath(), $"netxlsx-cf-par-{Guid.NewGuid():N}.xlsx");
-            try
+            using (var wb = Workbook.Create())
             {
-                using (var wb = create())
-                {
-                    var s = wb.AddSheet("S");
-                    for (int r = 1; r <= 5; r++) s[r, 1].SetNumber(r * 10);
-                    s.AddConditionalFormatting("A1:A5",
-                        ConditionalFormat.CellValueGreaterThan("30", new CellStyle { Background = Color.FromRgb(0xFF, 0xC7, 0xCE) }),
-                        ConditionalFormat.CellValueBetween("10", "20", new CellStyle { Bold = true, Italic = true }));
-                    s.AddConditionalFormatting("B1:B5",
-                        ConditionalFormat.Formula("ISNUMBER(B1)", new CellStyle { Bold = true }));
-                    s.AddConditionalFormatting("C1:C5",
-                        ConditionalFormat.ColorScale(
-                            Color.FromRgb(0xF8, 0x69, 0x6B), Color.FromRgb(0xFF, 0xEB, 0x84), Color.FromRgb(0x63, 0xBE, 0x7B)));
-                    wb.Save(path);
-                }
-                using var opened = Workbook.OpenOoxml(path);
-                var ws = opened.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
-                var dxfs = opened.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!
-                    .Stylesheet!.GetFirstChild<S.DifferentialFormats>()
-                    ?.Elements<S.DifferentialFormat>().ToList();
-
-                return ws.Elements<S.ConditionalFormatting>().SelectMany(cf =>
-                    cf.Elements<S.ConditionalFormattingRule>().Select(rule =>
-                    {
-                        var type = rule.Type!.InnerText!;
-                        // Resolve the dxf SHAPE rather than comparing ids (the SDK
-                        // engine dedups; NPOI also stamps a meaningless dxfId on
-                        // colorScale rules — project the dxf only where it means
-                        // something).
-                        S.DifferentialFormat? dxf =
-                            type != "colorScale" && rule.FormatId?.Value is uint id && dxfs is not null && id < dxfs.Count
-                                ? dxfs[(int)id] : null;
-                        var font = dxf?.GetFirstChild<S.Font>();
-                        var fill = dxf?.GetFirstChild<S.Fill>()?.GetFirstChild<S.PatternFill>();
-                        var scale = rule.GetFirstChild<S.ColorScale>();
-                        // Effective flag value: an engine may write <b/> (val
-                        // defaults true), omit the element (false), or write an
-                        // explicit <i val="0"/> — compare the resolved boolean.
-                        static bool EffectiveFlag(DocumentFormat.OpenXml.Spreadsheet.BooleanPropertyType? flag)
-                            => flag is not null && (flag.Val?.Value ?? true);
-                        return new CfObs(
-                            cf.SequenceOfReferences!.InnerText!,
-                            type,
-                            rule.Operator?.InnerText,
-                            rule.Elements<S.Formula>().Select(f => f.Text).ToArray(),
-                            font is null ? null : EffectiveFlag(font.GetFirstChild<S.Bold>()),
-                            font is null ? null : EffectiveFlag(font.GetFirstChild<S.Italic>()),
-                            fill is null ? null : NormalizeRgb(fill.ForegroundColor?.Rgb?.Value),
-                            scale?.Elements<S.ConditionalFormatValueObject>().Select(v => v.Type!.InnerText!).ToArray() ?? Array.Empty<string>(),
-                            scale?.Elements<S.Color>().Select(c => NormalizeRgb(c.Rgb?.Value)).ToArray() ?? Array.Empty<string>());
-                    })).ToArray();
+                var s = wb.AddSheet("S");
+                for (int r = 1; r <= 5; r++) s[r, 1].SetNumber(r * 10);
+                s.AddConditionalFormatting("A1:A5",
+                    ConditionalFormat.CellValueGreaterThan("30", new CellStyle { Background = Color.FromRgb(0xFF, 0xC7, 0xCE) }),
+                    ConditionalFormat.CellValueBetween("10", "20", new CellStyle { Bold = true, Italic = true }));
+                s.AddConditionalFormatting("B1:B5",
+                    ConditionalFormat.Formula("ISNUMBER(B1)", new CellStyle { Bold = true }));
+                s.AddConditionalFormatting("C1:C5",
+                    ConditionalFormat.ColorScale(
+                        Color.FromRgb(0xF8, 0x69, 0x6B), Color.FromRgb(0xFF, 0xEB, 0x84), Color.FromRgb(0x63, 0xBE, 0x7B)));
+                wb.Save(path);
             }
-            finally { if (File.Exists(path)) File.Delete(path); }
-        }
+            using var opened = Workbook.Open(path);
+            var ws = opened.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+            var dxfs = opened.Underlying.WorkbookPart!.WorkbookStylesPart!
+                .Stylesheet!.GetFirstChild<S.DifferentialFormats>()
+                ?.Elements<S.DifferentialFormat>().ToList();
 
-        var npoi = EmitAndProject(() => Workbook.Create());
-        var sdk = EmitAndProject(() => Workbook.CreateOoxml());
-        sdk.Should().BeEquivalentTo(npoi, o => o.WithStrictOrdering());
+            var projected = ws.Elements<S.ConditionalFormatting>().SelectMany(cf =>
+                cf.Elements<S.ConditionalFormattingRule>().Select(rule =>
+                {
+                    var type = rule.Type!.InnerText!;
+                    // Resolve the dxf SHAPE rather than comparing ids (the
+                    // engine dedups; colorScale rules carry no meaningful dxf).
+                    S.DifferentialFormat? dxf =
+                        type != "colorScale" && rule.FormatId?.Value is uint id && dxfs is not null && id < dxfs.Count
+                            ? dxfs[(int)id] : null;
+                    var font = dxf?.GetFirstChild<S.Font>();
+                    var fill = dxf?.GetFirstChild<S.Fill>()?.GetFirstChild<S.PatternFill>();
+                    var scale = rule.GetFirstChild<S.ColorScale>();
+                    // Effective flag value: <b/> (val defaults true), omitted
+                    // element (false), or explicit <i val="0"/> — compare the
+                    // resolved boolean.
+                    static bool EffectiveFlag(DocumentFormat.OpenXml.Spreadsheet.BooleanPropertyType? flag)
+                        => flag is not null && (flag.Val?.Value ?? true);
+                    return new CfObs(
+                        cf.SequenceOfReferences!.InnerText!,
+                        type,
+                        rule.Operator?.InnerText,
+                        rule.Elements<S.Formula>().Select(f => f.Text).ToArray(),
+                        font is null ? null : EffectiveFlag(font.GetFirstChild<S.Bold>()),
+                        font is null ? null : EffectiveFlag(font.GetFirstChild<S.Italic>()),
+                        fill is null ? null : NormalizeRgb(fill.ForegroundColor?.Rgb?.Value),
+                        scale?.Elements<S.ConditionalFormatValueObject>().Select(v => v.Type!.InnerText!).ToArray() ?? Array.Empty<string>(),
+                        scale?.Elements<S.Color>().Select(c => NormalizeRgb(c.Rgb?.Value)).ToArray() ?? Array.Empty<string>());
+                })).ToArray();
+
+            projected.Should().BeEquivalentTo(new[]
+            {
+                new CfObs("A1:A5", "cellIs", "greaterThan", s_f30, null, null, "FFC7CE",
+                    Array.Empty<string>(), Array.Empty<string>()),
+                new CfObs("A1:A5", "cellIs", "between", s_f10To20, true, true, null,
+                    Array.Empty<string>(), Array.Empty<string>()),
+                new CfObs("B1:B5", "expression", null, s_fIsNumber, true, false, null,
+                    Array.Empty<string>(), Array.Empty<string>()),
+                new CfObs("C1:C5", "colorScale", null, Array.Empty<string>(), null, null, null,
+                    s_scaleStops, s_scaleColors),
+            }, o => o.WithStrictOrdering());
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
     }
 }

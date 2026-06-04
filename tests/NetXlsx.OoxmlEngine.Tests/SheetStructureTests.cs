@@ -39,7 +39,7 @@ public class SheetStructureTests
 
         hide.Hidden.Should().BeTrue();
         // The state lives on workbook.xml <sheet>, not on the worksheet.
-        var sheetEl = wb.OpenXmlDocument!.WorkbookPart!.Workbook!.GetFirstChild<S.Sheets>()!
+        var sheetEl = wb.Underlying.WorkbookPart!.Workbook!.GetFirstChild<S.Sheets>()!
             .Elements<S.Sheet>().Single(x => x.Name == "HideMe");
         sheetEl.State!.Value.Should().Be(S.SheetStateValues.Hidden);
     }
@@ -54,7 +54,7 @@ public class SheetStructureTests
         s.Hidden = false;
 
         s.Hidden.Should().BeFalse();
-        var sheetEl = wb.OpenXmlDocument!.WorkbookPart!.Workbook!.GetFirstChild<S.Sheets>()!
+        var sheetEl = wb.Underlying.WorkbookPart!.Workbook!.GetFirstChild<S.Sheets>()!
             .Elements<S.Sheet>().Single(x => x.Name == "S");
         sheetEl.State.Should().BeNull("visible is the default — no @state attribute");
     }
@@ -119,7 +119,7 @@ public class SheetStructureTests
         s.ShowGridlines = true;
 
         s.ShowGridlines.Should().BeTrue();
-        var view = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!
+        var view = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!
             .GetFirstChild<S.SheetViews>()!.GetFirstChild<S.SheetView>()!;
         view.ShowGridLines.Should().BeNull("true is the default — no @showGridLines attribute");
     }

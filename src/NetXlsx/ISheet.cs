@@ -506,8 +506,10 @@ public interface ISheet
     bool IsProtected { get; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI <c>XSSFSheet</c>.
-    /// See <see cref="IWorkbook.Underlying"/> for the contract.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Spreadsheet.Worksheet"/> DOM root
+    /// (I-82). Reach the part graph via its <c>WorksheetPart</c>. See
+    /// <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFSheet Underlying { get; }
+    DocumentFormat.OpenXml.Spreadsheet.Worksheet Underlying { get; }
 }

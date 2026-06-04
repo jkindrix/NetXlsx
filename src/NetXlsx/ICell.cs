@@ -315,8 +315,12 @@ public interface ICell
     CellError? GetError();
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI <c>XSSFCell</c>.
-    /// See <see cref="IWorkbook.Underlying"/> for the contract.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Spreadsheet.Cell"/> element (I-82).
+    /// Reaching for the raw node is a write-like act: on a never-written
+    /// address this materializes the cell element (decision #40 lazy cells
+    /// stay lazy until the hatch is used). See
+    /// <see cref="IWorkbook.Underlying"/> for the contract.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFCell Underlying { get; }
+    DocumentFormat.OpenXml.Spreadsheet.Cell Underlying { get; }
 }

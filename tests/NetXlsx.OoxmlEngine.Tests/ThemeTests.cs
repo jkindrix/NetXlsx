@@ -81,7 +81,7 @@ public class ThemeTests
         wb.SetThemeXml(TinyTheme);
         // A second set must overwrite the existing part, not orphan a relationship.
         wb.SetThemeXml(TinyTheme);
-        wb.OpenXmlDocument!.WorkbookPart!.ThemePart.Should().NotBeNull();
+        wb.Underlying.WorkbookPart!.ThemePart.Should().NotBeNull();
         Encoding.UTF8.GetString(wb.GetThemeXml()!).Should().Contain("<a:accent6>");
     }
 

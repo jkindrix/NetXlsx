@@ -151,11 +151,11 @@ public sealed class FilterCriteria
                 return EqualTo(list[0]).Or(EqualTo(list[1]));
             default:
                 throw new NotSupportedException(
-                    "FilterCriteria.In supports only 1 or 2 values on NPOI 2.7.3 — Excel's " +
-                    "<filters> element (the value-list filter) is not exposed by " +
-                    "CT_FilterColumn in this NPOI version. For 3+ values, reach through " +
-                    "ISheet.Underlying.GetCTWorksheet().autoFilter directly, or wait for " +
-                    "the NPOI 3.x bump that will lift this limit.");
+                    "FilterCriteria.In supports only 1 or 2 values — the criteria model " +
+                    "encodes them as <customFilters>, which OOXML caps at two entries. " +
+                    "Excel's <filters> element (the value-list filter) is a candidate " +
+                    "post-v2.0.0 surface; for 3+ values today, reach through " +
+                    "ISheet.Underlying and author the <filters> element directly.");
         }
     }
 

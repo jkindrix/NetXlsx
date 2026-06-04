@@ -49,7 +49,7 @@ public class MergeTests
         s.MergeCells("B2:B2");
         s.MergedRanges.Should().BeEmpty();
         // No <mergeCells> element should have been created.
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
         ws.GetFirstChild<S.MergeCells>().Should().BeNull();
     }
 

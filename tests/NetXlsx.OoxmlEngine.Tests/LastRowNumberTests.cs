@@ -89,30 +89,23 @@ public class LastRowNumberTests
     }
 
     [Fact]
-    public void Engines_Agree_On_Every_Contract_Scenario()
+    public void Contract_Scenarios_Pin_The_I85_Values()
     {
-        // Same script through both factories — the values must be identical,
-        // because generated ReadRows code runs unchanged on either engine.
-        static int[] Script(IWorkbook wb)
-        {
-            var sheet = wb.AddSheet("S");
-            var observations = new int[4];
-            observations[0] = sheet.LastRowNumber;            // empty: 0
-            sheet[4, 2].SetString("x");
-            observations[1] = sheet.LastRowNumber;            // 4
-            _ = sheet.Row(9);
-            observations[2] = sheet.LastRowNumber;            // still 4
-            sheet[6, 1].SetNumber(1);
-            sheet[6, 1].Clear();
-            observations[3] = sheet.LastRowNumber;            // 6 (cleared cell counts)
-            return observations;
-        }
+        // The absolute I-85 contract values (cross-engine agreement was
+        // verified pre-cutover; the literals are the surviving pin —
+        // generated ReadRows code depends on them).
+        using var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        var observations = new int[4];
+        observations[0] = sheet.LastRowNumber;            // empty: 0
+        sheet[4, 2].SetString("x");
+        observations[1] = sheet.LastRowNumber;            // 4
+        _ = sheet.Row(9);
+        observations[2] = sheet.LastRowNumber;            // still 4
+        sheet[6, 1].SetNumber(1);
+        sheet[6, 1].Clear();
+        observations[3] = sheet.LastRowNumber;            // 6 (cleared cell counts)
 
-        int[] npoi, sdk;
-        using (var wb = Workbook.Create()) npoi = Script(wb);
-        using (var wb = Workbook.CreateOoxml()) sdk = Script(wb);
-
-        sdk.Should().Equal(npoi, "I-85's contract must be engine-stable by construction");
-        sdk.Should().Equal(0, 4, 4, 6);
+        observations.Should().Equal(0, 4, 4, 6);
     }
 }

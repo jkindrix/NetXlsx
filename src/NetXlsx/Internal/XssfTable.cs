@@ -87,9 +87,20 @@ internal sealed class XssfTable : ITable
         set { _workbook.ThrowIfDisposed(); _underlying.StyleName = value; }
     }
 
-    public XSSFTable Underlying
+    internal XSSFTable Npoi
     {
         get { _workbook.ThrowIfDisposed(); return _underlying; }
+    }
+
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Packaging.TableDefinitionPart Underlying
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            throw new NotSupportedException(
+                "ITable.Underlying (TableDefinitionPart) is not available on the retired NPOI engine.");
+        }
     }
 
     // ---- Totals row (decision I-64) -----------------------------------

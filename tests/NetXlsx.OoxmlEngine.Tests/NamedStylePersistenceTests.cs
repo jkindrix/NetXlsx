@@ -135,7 +135,7 @@ public class NamedStylePersistenceTests
         wb.RegisterStyle("Header", new CellStyle { Bold = true });
         wb.AddSheet("S");
 
-        var ss = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+        var ss = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
         var entries = ss.GetFirstChild<S.CellStyles>()!.Elements<S.CellStyle>().ToList();
         entries.Should().HaveCount(2);
         entries.Single(e => e.Name!.Value == "Normal").BuiltinId!.Value.Should().Be(0u);
@@ -149,7 +149,7 @@ public class NamedStylePersistenceTests
         wb.RegisterStyle("Header", new CellStyle { Bold = true, FontSize = 14 });
         wb.AddSheet("S");
 
-        var ss = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+        var ss = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
         var styleXfs = ss.GetFirstChild<S.CellStyleFormats>()!.Elements<S.CellFormat>().ToList();
         styleXfs.Should().HaveCount(2, "the Normal master xf plus the named entry");
         var named = styleXfs[1];
@@ -162,20 +162,27 @@ public class NamedStylePersistenceTests
     }
 
     [Fact]
-    public void Cross_Engine_Rehydration_Reads_The_Npoi_Engines_Entries()
+    public void Rehydration_Tolerates_The_Npoi_BuiltinId_Artifact()
     {
-        // A file whose named styles were persisted by the NPOI engine (I-67,
-        // builtinId="0" artifacts included) rehydrates identically here.
-        var path = TempPath("npoi");
+        // A file whose named styles were persisted by NPOI's I-67 path carries
+        // builtinId="0" on USER entries (an NPOI witness artifact — it claims
+        // the Normal builtin per ECMA-376). Rehydration must read such entries
+        // anyway. The artifact is synthesized onto an engine-written file
+        // (the NPOI engine that used to author this fixture is retired).
+        var path = TempPath("npoi-artifact");
         try
         {
             using (var wb = Workbook.Create())
             {
                 wb.RegisterStyle("Header", new CellStyle { Bold = true, FontSize = 14 });
                 wb.AddSheet("S");
+                var entry = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
+                    .GetFirstChild<S.CellStyles>()!.Elements<S.CellStyle>()
+                    .Single(e => e.Name!.Value == "Header");
+                entry.BuiltinId = 0; // the NPOI artifact
                 wb.Save(path);
             }
-            using (var wb = Workbook.OpenOoxml(path))
+            using (var wb = Workbook.Open(path))
             {
                 wb.RegisteredStyleNames.Should().BeEquivalentTo(s_headerOnly);
                 var header = wb.GetRegisteredStyle("Header");
@@ -212,7 +219,7 @@ public class NamedStylePersistenceTests
                 wb.RegisteredStyleNames.Should().BeEmpty("the tables were stripped");
                 wb.RegisterStyle("Header", new CellStyle { Bold = true, FontSize = 14 });
 
-                var ss = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+                var ss = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
                 var styleXfs = ss.GetFirstChild<S.CellStyleFormats>()!.Elements<S.CellFormat>().ToList();
                 styleXfs.Should().HaveCount(2, "Normal master seeded at 0, named entry at 1");
                 styleXfs[0].FontId!.Value.Should().Be(0u);

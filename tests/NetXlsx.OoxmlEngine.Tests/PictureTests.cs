@@ -81,7 +81,7 @@ public class PictureTests
 
     private static int PictureCount(IWorkbook wb, string sheet)
     {
-        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts;
+        var wsp = wb.Underlying.WorkbookPart!.WorksheetParts;
         // The single sheet's drawing part, when present, holds the pictures.
         var dp = wsp.SelectMany(p => p.GetPartsOfType<DrawingsPart>()).FirstOrDefault();
         if (dp?.WorksheetDrawing is null) return 0;
@@ -125,7 +125,7 @@ public class PictureTests
         var sh = wb.AddSheet("S");
         sh.AddPicture("C4", MakePng(10, 20), ImageFormat.Png);
 
-        var dp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+        var dp = wb.Underlying.WorkbookPart!.WorksheetParts
             .SelectMany(p => p.GetPartsOfType<DrawingsPart>()).Single();
         var root = dp.WorksheetDrawing!;
         root.Elements<XDR.OneCellAnchor>().Should().ContainSingle();
@@ -152,7 +152,7 @@ public class PictureTests
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("S").AddPicture("A1", jpeg).Format.Should().Be(ImageFormat.Jpeg);
 
-        var ext = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+        var ext = wb.Underlying.WorkbookPart!.WorksheetParts
             .SelectMany(p => p.GetPartsOfType<DrawingsPart>()).Single()
             .WorksheetDrawing!.Descendants<XDR.Extent>().Single();
         ext.Cx!.Value.Should().Be(3 * EmuPerPixel);   // width
@@ -188,7 +188,7 @@ public class PictureTests
         var sh = wb.AddSheet("S");
         sh.AddPicture("B2", "D5", OnePixelPng, ImageFormat.Png);
 
-        var dp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+        var dp = wb.Underlying.WorkbookPart!.WorksheetParts
             .SelectMany(p => p.GetPartsOfType<DrawingsPart>()).Single();
         dp.WorksheetDrawing!.Elements<XDR.TwoCellAnchor>().Should().ContainSingle();
     }
@@ -251,16 +251,20 @@ public class PictureTests
         act.Should().Throw<UnsupportedImageFormatException>();
     }
 
-    // ---- Escape-hatch divergence (I-82) -------------------------------------
+    // ---- Escape hatch (v2.0.0 / I-82) ----------------------------------------
 
     [Fact]
-    public void IPicture_Underlying_Throws_On_The_SDK_Engine()
+    public void IPicture_Underlying_Hands_Out_The_Live_Pic_Element()
     {
         using var wb = Workbook.CreateOoxml();
         var sh = wb.AddSheet("S");
         var pic = sh.AddPicture("A1", OnePixelPng, ImageFormat.Png);
-        var act = () => pic.Underlying;
-        act.Should().Throw<NotSupportedException>().Which.Message.Should().Contain("OpenXmlDocument");
+        // The hatch returns the xdr:pic the add path built — same element the
+        // drawing root carries, not a copy.
+        pic.Underlying.Should().NotBeNull();
+        var root = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
+            .GetPartsOfType<DocumentFormat.OpenXml.Packaging.DrawingsPart>().Single().WorksheetDrawing!;
+        root.Descendants<XDR.Picture>().Single().Should().BeSameAs(pic.Underlying);
     }
 
     // ---- Pictures read-back -------------------------------------------------

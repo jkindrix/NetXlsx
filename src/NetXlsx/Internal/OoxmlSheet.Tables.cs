@@ -181,7 +181,7 @@ internal sealed partial class OoxmlSheet
     private uint NextTableId()
     {
         uint max = 0;
-        var wbPart = _workbook.OpenXmlDocument!.WorkbookPart!;
+        var wbPart = _workbook.Document.WorkbookPart!;
         foreach (var ws in wbPart.WorksheetParts)
             foreach (var tdp in ws.TableDefinitionParts)
                 if (tdp.Table?.Id?.Value is uint id && id > max) max = id;
@@ -246,7 +246,7 @@ internal sealed partial class OoxmlSheet
                     nameof(name));
             }
         }
-        var wbPart = _workbook.OpenXmlDocument!.WorkbookPart!;
+        var wbPart = _workbook.Document.WorkbookPart!;
         foreach (var ws in wbPart.WorksheetParts)
         {
             foreach (var tdp in ws.TableDefinitionParts)

@@ -1,53 +1,44 @@
 // Coverage for ICell.GetError + CellError enum (decision #49).
 //
-// Excel error codes (from the OOXML spec / NPOI's FormulaError):
-//   0x00 = #NULL!         0x07 = #DIV/0!
-//   0x0F = #VALUE!        0x17 = #REF!
-//   0x1D = #NAME?         0x24 = #NUM!
-//   0x2A = #N/A           0x2B = #GETTING_DATA
+// Excel error literals (OOXML stores the LITERAL in a t="e" cell's <v>):
+//   #NULL!  #DIV/0!  #VALUE!  #REF!  #NAME?  #NUM!  #N/A  #GETTING_DATA
 //
-// Writing error values directly requires .Underlying (no Set-side API
-// for errors in v0.4); we exercise reading and the formula-result path.
+// Writing error values directly requires .Underlying (no Set-side API for
+// errors); since v2.0.0 the hatch is the SDK <c> element, so the tests author
+// the exact OOXML shape Excel itself writes — including #GETTING_DATA, which
+// NPOI's old write API refused to produce.
 
 using AwesomeAssertions;
-using NPOI.SS.UserModel;
 using Xunit;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx.Tests;
 
 public class CellErrorTests
 {
-    // NPOI's SetCellErrorValue rejects 0x2B (#GETTING_DATA) — that code
-    // is producible only by Excel's own evaluator from external data
-    // sources. The mapping function still handles it on the read path
-    // (covered by Mapping_Function_Handles_Every_Code below).
     [Theory]
-    [InlineData((byte)0x00, CellError.Null)]
-    [InlineData((byte)0x07, CellError.DivByZero)]
-    [InlineData((byte)0x0F, CellError.Value)]
-    [InlineData((byte)0x17, CellError.Ref)]
-    [InlineData((byte)0x1D, CellError.Name)]
-    [InlineData((byte)0x24, CellError.Num)]
-    [InlineData((byte)0x2A, CellError.NotAvailable)]
-    public void GetError_Maps_Writable_Error_Codes(byte excelCode, CellError expected)
+    [InlineData("#NULL!", CellError.Null)]
+    [InlineData("#DIV/0!", CellError.DivByZero)]
+    [InlineData("#VALUE!", CellError.Value)]
+    [InlineData("#REF!", CellError.Ref)]
+    [InlineData("#NAME?", CellError.Name)]
+    [InlineData("#NUM!", CellError.Num)]
+    [InlineData("#N/A", CellError.NotAvailable)]
+    [InlineData("#GETTING_DATA", CellError.GettingData)]
+    public void GetError_Maps_Every_Error_Literal(string literal, CellError expected)
     {
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
         var cell = sheet["A1"];
 
-        cell.Underlying.SetCellErrorValue(excelCode);
+        // Author the error through the escape hatch — the t="e" + literal <v>
+        // shape Excel writes.
+        var c = cell.Underlying;
+        c.DataType = S.CellValues.Error;
+        c.CellValue = new S.CellValue(literal);
 
         cell.Kind.Should().Be(CellKind.Error);
         cell.GetError().Should().Be(expected);
-    }
-
-    [Fact]
-    public void GettingData_Enum_Value_Exists_For_Files_Authored_By_Excel()
-    {
-        // 0x2B (#GETTING_DATA) is unreachable through NPOI's write API
-        // but real Excel workbooks can contain it. The enum value must
-        // exist so consumers of GetError can pattern-match it.
-        System.Enum.IsDefined(CellError.GettingData).Should().BeTrue();
     }
 
     [Fact]
@@ -64,11 +55,19 @@ public class CellErrorTests
         sheet["A3"].GetError().Should().BeNull();
     }
 
-    // The "formula cell with cached error result" path through
-    // GetError exists for real Excel-authored workbooks where Excel's
-    // own evaluator produced the cached value. Programmatically forcing
-    // that state from NPOI alone requires the formula evaluator to
-    // run — out of scope for a unit test. The path is exercised by
-    // any real-world workbook with formula errors round-tripped
-    // through NetXlsx.
+    [Fact]
+    public void GetError_Reads_A_Formula_Cells_Cached_Error()
+    {
+        // A formula whose cached result is an error is t="e" with both <f>
+        // and the error literal in <v> — the shape Excel's evaluator writes.
+        using var wb = Workbook.Create();
+        var cell = wb.AddSheet("S")["A1"];
+        cell.SetFormula("=1/0");
+        var c = cell.Underlying;
+        c.DataType = S.CellValues.Error;
+        c.CellValue = new S.CellValue("#DIV/0!");
+
+        cell.Kind.Should().Be(CellKind.Formula, "the formula classification wins");
+        cell.GetError().Should().Be(CellError.DivByZero);
+    }
 }

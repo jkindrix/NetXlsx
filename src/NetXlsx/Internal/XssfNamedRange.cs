@@ -23,7 +23,7 @@ internal sealed class XssfNamedRange : INamedRange
         {
             _workbook.ThrowIfDisposed();
             int idx = _underlying.SheetIndex;
-            return idx < 0 ? null : _workbook.Underlying.GetSheetName(idx);
+            return idx < 0 ? null : _workbook.Npoi.GetSheetName(idx);
         }
     }
 }

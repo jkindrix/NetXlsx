@@ -36,8 +36,11 @@ public interface IChart
     void SetTitle(string title);
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI
-    /// <c>XSSFChart</c>.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Packaging.ChartPart"/> (I-82).
+    /// The chart's content lives in its own OPC part, so the hatch hands
+    /// out the part (reach the DOM via <c>ChartSpace</c>). Same contract
+    /// as <see cref="IWorkbook.Underlying"/>.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFChart Underlying { get; }
+    DocumentFormat.OpenXml.Packaging.ChartPart Underlying { get; }
 }

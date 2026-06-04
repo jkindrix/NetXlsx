@@ -86,7 +86,7 @@ internal sealed partial class OoxmlSheet
             shape,
             new XDR.ClientData()));
 
-        return new OoxmlShape(_workbook, this, type);
+        return new OoxmlShape(_workbook, this, type, shape);
     }
 
     public IConnector AddConnector(ConnectorType type, string startCell, string endCell,

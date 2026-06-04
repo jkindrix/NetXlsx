@@ -2,12 +2,13 @@
 //
 // Exercises the Open XML SDK engine's bones: Create / Open / Save / Dispose,
 // AddSheet, sheet enumeration + indexers, and engine discrimination via
-// IWorkbook.OpenXmlDocument. Everything beyond the foundation surface throws
+// IWorkbook.Underlying. Everything beyond the foundation surface throws
 // NotImplementedException on this engine until its slice lands, so these tests
 // deliberately stay within Create/AddSheet/Save/Open/enumerate.
 
 using System;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using NetXlsx;
 using Xunit;
@@ -65,28 +66,44 @@ public class FoundationRoundTripTests
     }
 
     [Fact]
-    public void Ooxml_Engine_Exposes_OpenXmlDocument_Non_Null()
+    public void Underlying_Exposes_The_Live_SpreadsheetDocument()
     {
+        // v2.0.0 (I-82): .Underlying IS the SDK escape hatch (the swap-era
+        // OpenXmlDocument member was removed before it ever shipped).
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("S");
-        wb.OpenXmlDocument.Should().NotBeNull();
-        wb.OpenXmlDocument!.WorkbookPart.Should().NotBeNull();
+        wb.Underlying.Should().NotBeNull();
+        wb.Underlying.WorkbookPart.Should().NotBeNull();
     }
 
     [Fact]
-    public void Legacy_Npoi_Engine_Reports_Null_OpenXmlDocument()
+    public void Cell_Underlying_Materializes_The_Node_And_It_Persists()
     {
-        using var wb = Workbook.Create();
-        wb.OpenXmlDocument.Should().BeNull();
-    }
+        // Pinned at the v2.0.0 cutover (advisor-confirmed Q3): reaching for
+        // the raw node is a write-like act — a never-written address
+        // materializes its <c> element (decision #40 lazy cells stay lazy
+        // until the hatch is used), and the node persists through Save.
+        var path = Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-hatch-{Guid.NewGuid():N}.xlsx");
+        try
+        {
+            using (var wb = Workbook.CreateOoxml())
+            {
+                var s = wb.AddSheet("S");
+                s["B2"].Kind.Should().Be(CellKind.Empty);
 
-    [Fact]
-    public void Ooxml_Engine_Npoi_Underlying_Hatch_Throws_NotSupported()
-    {
-        using var wb = Workbook.CreateOoxml();
-        var act = () => _ = wb.Underlying;
-        act.Should().Throw<NotSupportedException>()
-            .WithMessage("*Open XML SDK engine*");
+                var node = s["B2"].Underlying;
+                node.CellReference!.Value.Should().Be("B2");
+                wb.Save(path);
+            }
+            using (var reopened = Workbook.OpenOoxml(path))
+            {
+                reopened.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!
+                    .Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>()
+                    .Should().ContainSingle(c => c.CellReference!.Value == "B2",
+                        "the hatch-materialized node persists like any written cell");
+            }
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
     }
 
     [Fact]
@@ -186,7 +203,7 @@ public class FoundationRoundTripTests
         wb.Dispose();
 
         ((Action)(() => _ = wb.SheetCount)).Should().Throw<ObjectDisposedException>();
-        ((Action)(() => _ = wb.OpenXmlDocument)).Should().Throw<ObjectDisposedException>();
+        ((Action)(() => _ = wb.Underlying)).Should().Throw<ObjectDisposedException>();
         ((Action)(() => wb.AddSheet("X"))).Should().Throw<ObjectDisposedException>();
     }
 

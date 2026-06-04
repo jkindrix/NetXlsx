@@ -119,11 +119,14 @@ public interface ITable
     string? StyleName { get; set; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI <c>XSSFTable</c>.
-    /// Same contract as <see cref="IWorkbook.Underlying"/>: direct
-    /// mutation is supported but not synchronized with wrapper state.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Packaging.TableDefinitionPart"/>
+    /// (I-82). The table's content lives in its own OPC part, so the hatch
+    /// hands out the part (reach the DOM via <c>Table</c>). Same contract as
+    /// <see cref="IWorkbook.Underlying"/>: direct mutation is supported but
+    /// not synchronized with wrapper state.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFTable Underlying { get; }
+    DocumentFormat.OpenXml.Packaging.TableDefinitionPart Underlying { get; }
 }
 
 /// <summary>

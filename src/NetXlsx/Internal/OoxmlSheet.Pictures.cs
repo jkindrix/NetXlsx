@@ -49,14 +49,15 @@ internal sealed partial class OoxmlSheet
         var (drawingsPart, root) = GetOrCreateDrawing();
         string embed = EmbedImage(drawingsPart, data, format);
 
+        var pic = BuildPic(root, embed, cx, cy);
         var anchor = new XDR.OneCellAnchor(
             Marker(col - 1, 0, row - 1, 0),
             new XDR.Extent { Cx = cx, Cy = cy },
-            BuildPic(root, embed, cx, cy),
+            pic,
             new XDR.ClientData());
         root.AppendChild(anchor);
 
-        return new OoxmlPicture(_workbook, this, format, a1Cell, a1Cell, 0, 0, 0, 0, data);
+        return new OoxmlPicture(_workbook, this, format, a1Cell, a1Cell, 0, 0, 0, 0, data, pic);
     }
 
     public IPicture AddPicture(string a1Cell, byte[] data)
@@ -95,16 +96,17 @@ internal sealed partial class OoxmlSheet
         var (drawingsPart, root) = GetOrCreateDrawing();
         string embed = EmbedImage(drawingsPart, data, format);
 
+        var pic = BuildPic(root, embed, cx, cy);
         var anchor = new XDR.TwoCellAnchor(
             Marker(c1 - 1, dx1, r1 - 1, dy1),
             ToMarker(c2 - 1, dx2, r2 - 1, dy2),
-            BuildPic(root, embed, cx, cy),
+            pic,
             new XDR.ClientData());
         root.AppendChild(anchor);
 
         return new OoxmlPicture(_workbook, this, format,
             CellAddress.Format(r1, c1), CellAddress.Format(r2, c2),
-            dx1, dy1, dx2, dy2, data);
+            dx1, dy1, dx2, dy2, data, pic);
     }
 
     public IReadOnlyList<IPicture> Pictures
@@ -214,7 +216,7 @@ internal sealed partial class OoxmlSheet
         var (data, format) = ReadImage(dp, pic);
         return new OoxmlPicture(_workbook, this, format,
             CellAddress.Format(fr + 1, fc + 1), CellAddress.Format(tr + 1, tc + 1),
-            fco, fro, tco, tro, data);
+            fco, fro, tco, tro, data, pic);
     }
 
     private OoxmlPicture ReadOneCell(DrawingsPart dp, XDR.OneCellAnchor anchor, XDR.Picture pic)
@@ -227,7 +229,7 @@ internal sealed partial class OoxmlSheet
         // Dx2 == Dy2 == 0 (the rendered size lives in <xdr:ext>, which IPicture
         // does not expose).
         string cell = CellAddress.Format(fr + 1, fc + 1);
-        return new OoxmlPicture(_workbook, this, format, cell, cell, fco, fro, 0, 0, data);
+        return new OoxmlPicture(_workbook, this, format, cell, cell, fco, fro, 0, 0, data, pic);
     }
 
     private static (byte[] Data, ImageFormat Format) ReadImage(DrawingsPart dp, XDR.Picture pic)

@@ -35,13 +35,10 @@ public interface IStreamingWorkbook : IDisposable, IAsyncDisposable
     /// <summary>Saves the workbook asynchronously to <paramref name="stream"/>.</summary>
     Task SaveAsync(Stream stream, bool leaveOpen = true, CancellationToken ct = default);
 
-    /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI
-    /// <c>SXSSFWorkbook</c> per decision #32. Direct mutation is
-    /// supported but is not synchronized with wrapper state; callers
-    /// using this hatch own the consequences.
-    /// </summary>
-    NPOI.XSSF.Streaming.SXSSFWorkbook Underlying { get; }
+    // No escape hatch (v2.0.0 / I-82): the streaming engine writes rows
+    // forward-only through OpenXmlWriter into per-sheet temp streams and
+    // assembles the package only at Save — there is no live document
+    // object to expose at any point before then.
 }
 
 /// <summary>
@@ -72,21 +69,16 @@ public interface IStreamingSheet
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is &lt;= last written index or outside Excel's grid.</exception>
     IStreamingRow AppendRow(int index);
 
-    /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI
-    /// <c>SXSSFSheet</c>.
-    /// </summary>
-    NPOI.XSSF.Streaming.SXSSFSheet Underlying { get; }
+    // No escape hatch (v2.0.0 / I-82) — see IStreamingWorkbook.
 }
 
 /// <summary>
 /// A row on an <see cref="IStreamingSheet"/>. Cells are exposed via
 /// the narrower <see cref="IStreamingCell"/> interface — full
-/// <see cref="ICell"/> would have to honor an <see cref="XSSFCell"/>-
-/// typed <c>Underlying</c> escape hatch, which the SXSSF cell type
-/// (which does not inherit from <c>XSSFCell</c>) cannot provide.
-/// Reach the raw cell through
-/// <see cref="IStreamingSheet.Underlying"/> instead.
+/// <see cref="ICell"/> would have to honor a DOM-typed <c>Underlying</c>
+/// escape hatch, which a streaming engine cannot provide: buffered rows
+/// have no per-cell DOM node to expose before they are flushed to the
+/// writer.
 /// </summary>
 public interface IStreamingRow
 {

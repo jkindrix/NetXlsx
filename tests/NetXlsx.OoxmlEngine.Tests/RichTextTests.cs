@@ -84,7 +84,7 @@ public class RichTextTests
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("S")["A1"].SetRichText(Sample());
 
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.First().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.First().Worksheet!;
         var cell = ws.Descendants<S.Cell>().First(c => c.CellReference == "A1");
         var runs = cell.InlineString!.Elements<S.Run>().ToList();
 

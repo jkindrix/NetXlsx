@@ -38,7 +38,10 @@ internal sealed class XssfConnector : IConnector
 
     public ISheet Sheet => _sheet;
     public ConnectorType Type => _type;
-    public XSSFConnector Underlying => _underlying;
+
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape Underlying => throw new System.NotSupportedException(
+        "IConnector.Underlying (xdr:cxnSp) is not available on the retired NPOI engine.");
 
     // ---- Anchor (decision I-81) ---------------------------------------
 

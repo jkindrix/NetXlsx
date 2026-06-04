@@ -58,7 +58,7 @@ internal sealed class XssfRange : IRange
     public IEnumerator<ICell> GetEnumerator()
     {
         _workbook.ThrowIfDisposed();
-        var npoiSheet = _sheet.Underlying;
+        var npoiSheet = _sheet.Npoi;
         int rowEnd0 = Math.Min(_row2 - 1, npoiSheet.LastRowNum);
 
         for (int r0 = _row1 - 1; r0 <= rowEnd0; r0++)

@@ -18,7 +18,7 @@ namespace NetXlsx.OoxmlEngine.Tests;
 public class GroupingTests
 {
     private static S.Worksheet Ws(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
 
     private static byte RowLevel(IWorkbook wb, int row1Based)
     {

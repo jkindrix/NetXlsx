@@ -208,38 +208,20 @@ public interface IWorkbook : IDisposable
     bool IsMacroEnabled { get; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI <c>XSSFWorkbook</c>
-    /// per decision #32. Direct mutation is supported but is not synchronized
-    /// with wrapper state; callers using this hatch own the consequences.
-    /// <para>
-    /// <b>I-82 engine swap:</b> this returns NPOI's <c>XSSFWorkbook</c> only on
-    /// the legacy (default) engine. On a workbook created via
-    /// <see cref="Workbook.CreateOoxml"/> / <see cref="Workbook.OpenOoxml(string, WorkbookOptions?)"/>
-    /// it throws <see cref="System.NotSupportedException"/> — the Open XML SDK
-    /// engine has no NPOI workbook to expose. Use <see cref="OpenXmlDocument"/>
-    /// for the SDK escape hatch instead. At the v2.0.0 cutover this member's
-    /// return type changes to <c>SpreadsheetDocument</c> and the NPOI engine is
-    /// retired.
-    /// </para>
-    /// </summary>
-    NPOI.XSSF.UserModel.XSSFWorkbook Underlying { get; }
-
-    /// <summary>
     /// Escape hatch — direct access to the underlying Open XML SDK
     /// <see cref="DocumentFormat.OpenXml.Packaging.SpreadsheetDocument"/>
-    /// (decision I-82), or <c>null</c> on the legacy NPOI engine.
+    /// per decisions #32 / I-82. Direct mutation is supported but is not
+    /// synchronized with wrapper state; callers using this hatch own the
+    /// consequences. Throws <see cref="System.ObjectDisposedException"/>
+    /// after the workbook is disposed.
     /// <para>
-    /// During the engine swap the two engines coexist: a workbook created via
-    /// <see cref="Workbook.Create"/> / <see cref="Workbook.Open(string, WorkbookOptions?)"/>
-    /// is NPOI-backed and returns <c>null</c> here (reach through
-    /// <see cref="Underlying"/> instead); a workbook created via
-    /// <see cref="Workbook.CreateOoxml"/> / <see cref="Workbook.OpenOoxml(string, WorkbookOptions?)"/>
-    /// is SDK-backed and returns the live document. Direct mutation through this
-    /// hatch is supported but is not synchronized with wrapper state; callers own
-    /// the consequences.
+    /// <b>v2.0.0:</b> the engine is the Open XML SDK; before v2.0.0 this
+    /// member returned NPOI's <c>XSSFWorkbook</c>. Consumers reaching
+    /// through the hatch must migrate to the SDK types (see the v2.0.0
+    /// CHANGELOG migration notes).
     /// </para>
     /// </summary>
-    DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument { get; }
+    DocumentFormat.OpenXml.Packaging.SpreadsheetDocument Underlying { get; }
 }
 
 /// <summary>

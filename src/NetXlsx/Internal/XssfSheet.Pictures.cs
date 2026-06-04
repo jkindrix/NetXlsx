@@ -17,7 +17,7 @@ internal sealed partial class XssfSheet
 
         var (row1, col1) = CellAddress.Parse(a1Cell);
         var npoiPictureType = ToNpoiPictureType(format);
-        int pictureIdx = _workbook.Underlying.AddPicture(data, (int)npoiPictureType);
+        int pictureIdx = _workbook.Npoi.AddPicture(data, (int)npoiPictureType);
 
         var drawing = (XSSFDrawing)_underlying.CreateDrawingPatriarch();
         // 0-based row/col; the (0,0,0,0) prefix is per-cell pixel offset
@@ -49,7 +49,7 @@ internal sealed partial class XssfSheet
         var (r1, c1) = CellAddress.Parse(startCell);
         var (r2, c2) = CellAddress.Parse(endCell);
         var npoiPictureType = ToNpoiPictureType(format);
-        int pictureIdx = _workbook.Underlying.AddPicture(data, (int)npoiPictureType);
+        int pictureIdx = _workbook.Npoi.AddPicture(data, (int)npoiPictureType);
 
         var drawing = (XSSFDrawing)_underlying.CreateDrawingPatriarch();
         var anchor = new XSSFClientAnchor(0, 0, 0, 0, c1 - 1, r1 - 1, c2 - 1, r2 - 1);
@@ -77,7 +77,7 @@ internal sealed partial class XssfSheet
         var (r1, c1) = CellAddress.Parse(startCell);
         var (r2, c2) = CellAddress.Parse(endCell);
         var npoiPictureType = ToNpoiPictureType(format);
-        int pictureIdx = _workbook.Underlying.AddPicture(data, (int)npoiPictureType);
+        int pictureIdx = _workbook.Npoi.AddPicture(data, (int)npoiPictureType);
 
         var drawing = (XSSFDrawing)_underlying.CreateDrawingPatriarch();
         var anchor = new XSSFClientAnchor(dx1, dy1, dx2, dy2, c1 - 1, r1 - 1, c2 - 1, r2 - 1);

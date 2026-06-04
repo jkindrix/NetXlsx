@@ -59,7 +59,7 @@ internal sealed class SxssfRow : IStreamingRow
         // row-access window. Public NPOI 2.7.x exposes only the
         // no-arg form; the (remaining, flushOnDisk) overload is
         // private.
-        _sheet.Underlying.FlushRows();
+        _sheet.Npoi.FlushRows();
     }
 
     private SxssfCell GetOrCreateCell(int col1)

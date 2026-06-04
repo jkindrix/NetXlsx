@@ -68,9 +68,20 @@ internal sealed partial class XssfCell : ICell
         _underlying.SetBlank();
     }
 
-    public XSSFCell Underlying
+    internal XSSFCell Npoi
     {
         get { _workbook.ThrowIfDisposed(); return _underlying; }
+    }
+
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Spreadsheet.Cell Underlying
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            throw new System.NotSupportedException(
+                "ICell.Underlying (Cell) is not available on the retired NPOI engine.");
+        }
     }
 
     /// <summary>

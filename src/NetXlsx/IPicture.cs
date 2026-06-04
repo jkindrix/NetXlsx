@@ -59,11 +59,12 @@ public interface IPicture
     byte[] Data { get; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI
-    /// <c>XSSFPicture</c>. Same contract as
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Drawing.Spreadsheet.Picture"/>
+    /// element (I-82). Same contract as
     /// <see cref="IWorkbook.Underlying"/>.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFPicture Underlying { get; }
+    DocumentFormat.OpenXml.Drawing.Spreadsheet.Picture Underlying { get; }
 }
 
 /// <summary>

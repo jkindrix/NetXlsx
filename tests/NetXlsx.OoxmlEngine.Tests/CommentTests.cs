@@ -27,7 +27,7 @@ public class CommentTests
         => Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-comment-{Guid.NewGuid():N}.xlsx");
 
     private static WorksheetPart SheetPart(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single();
 
     // ---- Author semantics (decision I11) -------------------------------------
 

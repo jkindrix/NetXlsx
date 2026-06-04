@@ -41,7 +41,7 @@ public class OpcPreservationTests
     {
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("Data")["A1"].SetString("content");
-        var custom = wb.OpenXmlDocument!.WorkbookPart!.AddCustomXmlPart(CustomXmlPartType.CustomXml);
+        var custom = wb.Underlying.WorkbookPart!.AddCustomXmlPart(CustomXmlPartType.CustomXml);
         using (var src = new MemoryStream(CustomPayload))
             custom.FeedData(src);
         wb.Save(path);

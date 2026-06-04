@@ -151,7 +151,7 @@ internal sealed partial class XssfSheet
         // Verify the table actually belongs to this sheet. NPOI's
         // GetRelationId returns null if the part isn't a relation of
         // this sheet — that's the cheapest belongs-to check available.
-        var relId = _underlying.GetRelationId(xt.Underlying);
+        var relId = _underlying.GetRelationId(xt.Npoi);
         if (string.IsNullOrEmpty(relId))
         {
             throw new ArgumentException(
@@ -181,7 +181,7 @@ internal sealed partial class XssfSheet
         // POIXMLDocumentPart.RemoveRelation. The method is protected
         // upstream; reach across via the cached MethodInfo from
         // NpoiInternals (one reflection lookup, shared across calls).
-        NpoiInternals.RemoveRelation(_underlying, xt.Underlying);
+        NpoiInternals.RemoveRelation(_underlying, xt.Npoi);
 
         // Step 3: drop the cached entry from XSSFSheet's internal
         // `tables` dictionary so a subsequent GetTables() snapshot
@@ -241,7 +241,7 @@ internal sealed partial class XssfSheet
     {
         // Per Excel: table names share the namespace with named ranges
         // and with other tables in the workbook. Check both.
-        foreach (var nr in _workbook.Underlying.GetAllNames())
+        foreach (var nr in _workbook.Npoi.GetAllNames())
         {
             if (string.Equals(nr.NameName, name, StringComparison.OrdinalIgnoreCase))
             {
@@ -251,9 +251,9 @@ internal sealed partial class XssfSheet
                     nameof(name));
             }
         }
-        for (int s = 0; s < _workbook.Underlying.NumberOfSheets; s++)
+        for (int s = 0; s < _workbook.Npoi.NumberOfSheets; s++)
         {
-            var sheet = _workbook.Underlying.GetSheetAt(s) as XSSFSheet;
+            var sheet = _workbook.Npoi.GetSheetAt(s) as XSSFSheet;
             if (sheet is null) continue;
             var tables = sheet.GetTables();
             if (tables is null) continue;

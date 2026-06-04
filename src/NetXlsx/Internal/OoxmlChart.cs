@@ -1,11 +1,9 @@
 // I-82 engine swap — Open XML SDK-backed IChart (charts slice, the I-75 surface).
 //
 // A chart on the SDK engine. IChart's surface is intentionally minimal (Sheet, Type,
-// SetTitle, Underlying) — series/axis customization reaches through the escape hatch,
-// which on this engine is IWorkbook.OpenXmlDocument; the NPOI escape hatch
-// (Underlying -> XSSFChart) throws NotSupportedException, the same divergence as
-// OoxmlPicture/OoxmlShape/OoxmlConnector/OoxmlTable: there is no NPOI object behind
-// the SDK engine. The chart XML itself is built by OoxmlSheet.Charts.cs; this wrapper
+// SetTitle, Underlying) — series/axis customization reaches through the escape
+// hatch, which since v2.0.0 is the chart's own ChartPart (reach the DOM via
+// ChartSpace). The chart XML itself is built by OoxmlSheet.Charts.cs; this wrapper
 // keeps the ChartPart so SetTitle can rewrite the c:title in place.
 
 using System;
@@ -58,8 +56,9 @@ internal sealed class OoxmlChart : IChart
             },
             new A.Paragraph(new A.Run(new A.Text(text))))));
 
-    // Escape-hatch divergence (I-82): no NPOI chart exists on the SDK engine.
-    public NPOI.XSSF.UserModel.XSSFChart Underlying => throw new NotSupportedException(
-        "IChart.Underlying (NPOI XSSFChart) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the chart's own OPC part. Disposal first.
+    public DocumentFormat.OpenXml.Packaging.ChartPart Underlying
+    {
+        get { _workbook.ThrowIfDisposed(); return _part; }
+    }
 }

@@ -48,11 +48,11 @@ public class ChartTests
     }
 
     private static ChartPart SingleChartPartOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .GetPartsOfType<DrawingsPart>().Single().ChartParts.Single();
 
     private static XDR.TwoCellAnchor SingleAnchorOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .GetPartsOfType<DrawingsPart>().Single().WorksheetDrawing!
             .Elements<XDR.TwoCellAnchor>().Single();
 
@@ -99,7 +99,7 @@ public class ChartTests
         s.AddChart(ChartType.Bar, "D1", "K15", "A1:A4", "B1:B4");
         s.AddChart(ChartType.Column, "D16", "K30", "A1:A4", "B1:B4");
 
-        var dirs = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        var dirs = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .GetPartsOfType<DrawingsPart>().Single().ChartParts
             .Select(p => p.ChartSpace!.Descendants<C.BarDirection>().Single().Val!.InnerText)
             .OrderBy(v => v, StringComparer.Ordinal).ToArray();
@@ -131,7 +131,7 @@ public class ChartTests
         var s = CreateSheetWithData(wb);
         s.AddChart(ChartType.Line, "D1", "K15", "A1:A4", "B1:B4");
 
-        var drawingsPart = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        var drawingsPart = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .GetPartsOfType<DrawingsPart>().Single();
         var frame = SingleAnchorOf(wb).GetFirstChild<XDR.GraphicFrame>()!;
         // cNvPr/@id must be unique-nonzero (quirk #9); NPOI's id=0 is one of the
@@ -149,7 +149,7 @@ public class ChartTests
         s.AddChart(ChartType.Line, "D1", "K15", "A1:A4", "B1:B4");
         s.AddChart(ChartType.Pie, "D16", "K30", "A1:A4", "B1:B4");
 
-        var drawingsPart = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        var drawingsPart = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .GetPartsOfType<DrawingsPart>().Single();
         drawingsPart.ChartParts.Should().HaveCount(2);
         var ids = drawingsPart.WorksheetDrawing!
@@ -171,7 +171,7 @@ public class ChartTests
         s.AddPicture("M1", onePixelPng, ImageFormat.Png);
         s.AddChart(ChartType.Line, "D1", "K15", "A1:A4", "B1:B4");
 
-        var drawingsParts = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        var drawingsParts = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .GetPartsOfType<DrawingsPart>().ToList();
         drawingsParts.Should().HaveCount(1, "picture and chart share one xdr:wsDr");
         drawingsParts[0].WorksheetDrawing!.ChildElements.Should().HaveCount(2);
@@ -409,13 +409,18 @@ public class ChartTests
     }
 
     [Fact]
-    public void Underlying_Throws_NotSupported_On_The_Sdk_Engine()
+    public void Underlying_Hands_Out_The_ChartPart()
     {
+        // v2.0.0 (I-82): the hatch is the chart's own OPC part (the content
+        // lives in xl/drawings/charts/chartN.xml; reach the DOM via ChartSpace).
         using var wb = Workbook.CreateOoxml();
         var s = CreateSheetWithData(wb);
         var chart = s.AddChart(ChartType.Line, "D1", "K15", "A1:A4", "B1:B4");
-        ((Action)(() => _ = chart.Underlying)).Should().Throw<NotSupportedException>()
-            .WithMessage("*OpenXmlDocument*");
+        chart.Underlying.Should().NotBeNull();
+        chart.Underlying.ChartSpace.Should().NotBeNull();
+        wb.Underlying.WorkbookPart!.WorksheetParts.Single()
+            .GetPartsOfType<DrawingsPart>().Single()
+            .GetPartsOfType<ChartPart>().Single().Should().BeSameAs(chart.Underlying);
     }
 
     [Fact]
@@ -475,7 +480,7 @@ public class ChartTests
             using (var opened = Workbook.OpenOoxml(path))
             {
                 opened["Data"].AddChart(ChartType.Area, "D16", "K30", "A1:A4", "B1:B4");
-                var drawingsPart = opened.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+                var drawingsPart = opened.Underlying.WorkbookPart!.WorksheetParts.Single()
                     .GetPartsOfType<DrawingsPart>().Single();
                 drawingsPart.ChartParts.Should().HaveCount(2);
                 OpenXmlValidationGate.AssertValid(opened);
@@ -484,96 +489,9 @@ public class ChartTests
         finally { if (File.Exists(path)) File.Delete(path); }
     }
 
-    // ---- cross-engine emission parity (charts have no public read-back beyond
-    // IChart itself, so this stands in for the differential harness) ------------
-
-    private sealed record ChartObs(
-        string Plot,
-        string? BarDir,
-        (int Col, int Row) From,
-        (int Col, int Row) To,
-        string? Title,
-        string?[] SeriesRefs,
-        (uint Idx, string Text)[][] CachePoints,
-        (uint Idx, string Accent)[] PieFills);
-
-    [Fact]
-    public void Chart_Emission_Agrees_Across_Engines()
-    {
-        // Normalized away (the documented quirk-#14 divergences + cosmetics):
-        // pie dPt position (projected as an idx-sorted set), pie/scatter axes
-        // (NPOI emits dangling/cat axes), cNvPr id/name, editAs, part URIs,
-        // relationship-id format.
-        static ChartObs[] EmitAndProject(Func<IWorkbook> create)
-        {
-            var path = Path.Combine(Path.GetTempPath(), $"netxlsx-chart-par-{Guid.NewGuid():N}.xlsx");
-            try
-            {
-                using (var wb = create())
-                {
-                    foreach (ChartType type in Enum.GetValues<ChartType>())
-                    {
-                        var s = wb.AddSheet("D" + type);
-                        if (type == ChartType.Scatter)
-                        {
-                            s["A1"].SetNumber(1); s["B1"].SetNumber(10);
-                            s["A2"].SetNumber(2); s["B2"].SetNumber(20);
-                        }
-                        else
-                        {
-                            s["A1"].SetString("Jan"); s["B1"].SetNumber(100);
-                            s["A2"].SetString("Feb"); s["B2"].SetNumber(150);
-                        }
-                        s.AddChart(type, "D1", "K15", "A1:A2", "B1:B2", title: "T-" + type);
-                    }
-                    wb.Save(path);
-                }
-
-                using var opened = Workbook.OpenOoxml(path);
-                return opened.OpenXmlDocument!.WorkbookPart!.WorksheetParts
-                    .SelectMany(wsPart => wsPart.GetPartsOfType<DrawingsPart>())
-                    .SelectMany(dp => dp.WorksheetDrawing!.Elements<XDR.TwoCellAnchor>()
-                        .Select(anchor => (Drawings: dp, Anchor: anchor)))
-                    .Select(x =>
-                    {
-                        string rid = x.Anchor.GetFirstChild<XDR.GraphicFrame>()!
-                            .Graphic!.GraphicData!.GetFirstChild<C.ChartReference>()!.Id!.Value!;
-                        var space = ((ChartPart)x.Drawings.GetPartById(rid)).ChartSpace!;
-                        var plotArea = space.GetFirstChild<C.Chart>()!.PlotArea!;
-                        var plot = plotArea.ChildElements.Single(e => e.LocalName.EndsWith("Chart", StringComparison.Ordinal));
-                        var from = x.Anchor.FromMarker!;
-                        var to = x.Anchor.ToMarker!;
-                        return new ChartObs(
-                            plot.LocalName,
-                            plot.Elements<C.BarDirection>().SingleOrDefault()?.Val?.InnerText,
-                            (int.Parse(from.ColumnId!.Text, System.Globalization.CultureInfo.InvariantCulture),
-                             int.Parse(from.RowId!.Text, System.Globalization.CultureInfo.InvariantCulture)),
-                            (int.Parse(to.ColumnId!.Text, System.Globalization.CultureInfo.InvariantCulture),
-                             int.Parse(to.RowId!.Text, System.Globalization.CultureInfo.InvariantCulture)),
-                            space.Descendants<C.Title>().SingleOrDefault()?.Descendants<A.Text>().Single().Text,
-                            plot.Descendants<C.Formula>().Select(f => (string?)f.Text).ToArray(),
-                            new[]
-                            {
-                                plot.Descendants<C.StringCache>().SelectMany(c => c.Elements<C.StringPoint>())
-                                    .Select(p => (p.Index!.Value, p.NumericValue!.Text!)).ToArray(),
-                                plot.Descendants<C.NumberingCache>().SelectMany(c => c.Elements<C.NumericPoint>())
-                                    .Select(p => (p.Index!.Value, p.NumericValue!.Text!)).ToArray(),
-                            },
-                            plot.Descendants<C.DataPoint>()
-                                .Select(d => (d.Index!.Val!.Value,
-                                    d.ChartShapeProperties!.Descendants<A.SchemeColor>().Single().Val!.InnerText!))
-                                .OrderBy(t => t.Item1).ToArray());
-                    })
-                    .OrderBy(o => o.Plot, StringComparer.Ordinal)
-                    .ThenBy(o => o.BarDir, StringComparer.Ordinal)
-                    .ThenBy(o => o.Title, StringComparer.Ordinal)
-                    .ToArray();
-            }
-            finally { if (File.Exists(path)) File.Delete(path); }
-        }
-
-        var npoi = EmitAndProject(() => Workbook.Create());
-        var sdk = EmitAndProject(() => Workbook.CreateOoxml());
-        sdk.Should().BeEquivalentTo(npoi, o => o.WithStrictOrdering());
-    }
+    // (The slice-8 cross-engine emission-projection test was DELETED at the
+    // v2.0.0 cutover — A1 disposition (c): the absolute per-type emission
+    // coverage above pins the same surface, and the cross-engine de-risk
+    // mission completed at the flip; the re-scout is the evidence. See
+    // design.md I-82.)
 }

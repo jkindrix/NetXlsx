@@ -21,11 +21,11 @@ NetXlsx.IChart
 NetXlsx.IChart.SetTitle(string! title) -> void
 NetXlsx.IChart.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IChart.Type.get -> NetXlsx.ChartType
-NetXlsx.IChart.Underlying.get -> NPOI.XSSF.UserModel.XSSFChart!
+NetXlsx.IChart.Underlying.get -> DocumentFormat.OpenXml.Packaging.ChartPart!
 NetXlsx.IShape
 NetXlsx.IShape.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IShape.Type.get -> NetXlsx.ShapeType
-NetXlsx.IShape.Underlying.get -> NPOI.XSSF.UserModel.XSSFSimpleShape!
+NetXlsx.IShape.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.Shape!
 NetXlsx.IRow.HeightInPoints.get -> float
 NetXlsx.IRow.HeightInPoints.set -> void
 NetXlsx.ISheet.AddPicture(string! startCell, string! endCell, byte[]! data, NetXlsx.ImageFormat format) -> NetXlsx.IPicture!
@@ -113,9 +113,22 @@ NetXlsx.ConnectorEnd.Triangle = 1 -> NetXlsx.ConnectorEnd
 NetXlsx.IConnector
 NetXlsx.IConnector.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IConnector.Type.get -> NetXlsx.ConnectorType
-NetXlsx.IConnector.Underlying.get -> NPOI.XSSF.UserModel.XSSFConnector!
-NetXlsx.IWorkbook.OpenXmlDocument.get -> DocumentFormat.OpenXml.Packaging.SpreadsheetDocument?
+NetXlsx.IConnector.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape!
 static NetXlsx.Workbook.CreateOoxml(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.OpenOoxml(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.OpenOoxml(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.CreateStreamingOoxml(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!
+*REMOVED*NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
+*REMOVED*NetXlsx.IPicture.Underlying.get -> NPOI.XSSF.UserModel.XSSFPicture!
+*REMOVED*NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
+*REMOVED*NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
+*REMOVED*NetXlsx.IStreamingSheet.Underlying.get -> NPOI.XSSF.Streaming.SXSSFSheet!
+*REMOVED*NetXlsx.IStreamingWorkbook.Underlying.get -> NPOI.XSSF.Streaming.SXSSFWorkbook!
+*REMOVED*NetXlsx.ITable.Underlying.get -> NPOI.XSSF.UserModel.XSSFTable!
+*REMOVED*NetXlsx.IWorkbook.Underlying.get -> NPOI.XSSF.UserModel.XSSFWorkbook!
+NetXlsx.ICell.Underlying.get -> DocumentFormat.OpenXml.Spreadsheet.Cell!
+NetXlsx.IPicture.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.Picture!
+NetXlsx.IRow.Underlying.get -> DocumentFormat.OpenXml.Spreadsheet.Row!
+NetXlsx.ISheet.Underlying.get -> DocumentFormat.OpenXml.Spreadsheet.Worksheet!
+NetXlsx.ITable.Underlying.get -> DocumentFormat.OpenXml.Packaging.TableDefinitionPart!
+NetXlsx.IWorkbook.Underlying.get -> DocumentFormat.OpenXml.Packaging.SpreadsheetDocument!

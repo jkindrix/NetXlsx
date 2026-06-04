@@ -12,8 +12,9 @@
 // (SetRichText/GetRichText — inline <r> runs, with empty-style runs inheriting
 // the cell font per lesson #10); SetFormula/GetFormula plus comments and
 // hyperlinks (formulas/comments/hyperlinks slice — the annotation surfaces
-// delegate to the sheet-level part helpers). GetError returns null, which is
-// correct: this engine cannot yet produce error cells.
+// delegate to the sheet-level part helpers). GetError maps the t="e" error
+// literal (decision #49) — error cells are authored via the escape hatch or
+// by Excel itself; there is no public Set-side error API.
 
 using System;
 using System.Collections.Generic;
@@ -242,8 +243,31 @@ internal sealed class OoxmlCell : ICell
         return string.IsNullOrEmpty(body) ? null : "=" + body;
     }
 
-    // No error cells are producible on this engine yet; null is correct.
-    public CellError? GetError() { Wb.ThrowIfDisposed(); return null; }
+    // An OOXML error cell is t="e" with the error LITERAL in <v> — both for a
+    // plain error cell and for a formula whose cached result is an error (the
+    // two paths the NPOI engine's GetError distinguished collapse onto the
+    // same shape here). Decision #49 mapping mirrored from the NPOI engine.
+    public CellError? GetError()
+    {
+        Wb.ThrowIfDisposed();
+        var c = Element;
+        if (c?.DataType?.Value is not { } t || t != S.CellValues.Error) return null;
+        return MapErrorLiteral(c.CellValue?.Text);
+    }
+
+    private static CellError? MapErrorLiteral(string? literal) => literal switch
+    {
+        "#NULL!" => CellError.Null,
+        "#DIV/0!" => CellError.DivByZero,
+        "#VALUE!" => CellError.Value,
+        "#REF!" => CellError.Ref,
+        "#NAME?" => CellError.Name,
+        "#NUM!" => CellError.Num,
+        "#N/A" => CellError.NotAvailable,
+        "#GETTING_DATA" => CellError.GettingData,
+        null or "" => null,
+        _ => CellError.Value, // unknown literal — the NPOI engine's fallback
+    };
 
     // ---- AutoSize measurement support (I-84) -------------------------------
 
@@ -476,7 +500,7 @@ internal sealed class OoxmlCell : ICell
 
     private S.SharedStringItem? SharedStringItemAt(int index)
     {
-        var sst = Wb.OpenXmlDocument?.WorkbookPart?.SharedStringTablePart?.SharedStringTable;
+        var sst = Wb.Document.WorkbookPart?.SharedStringTablePart?.SharedStringTable;
         return sst?.Elements<S.SharedStringItem>().ElementAtOrDefault(index);
     }
 
@@ -650,7 +674,15 @@ internal sealed class OoxmlCell : ICell
         return _sheet.GetHyperlink(_row, _col);
     }
 
-    public NPOI.XSSF.UserModel.XSSFCell Underlying => throw new NotSupportedException(
-        "ICell.Underlying (NPOI XSSFCell) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the cell element. Reaching for the raw node
+    // is a write-like act — a never-written address materializes here
+    // (decision #40 lazy cells stay lazy until the hatch is used).
+    public DocumentFormat.OpenXml.Spreadsheet.Cell Underlying
+    {
+        get
+        {
+            Wb.ThrowIfDisposed();
+            return _sheet.GetOrCreateCell(_row, _col);
+        }
+    }
 }

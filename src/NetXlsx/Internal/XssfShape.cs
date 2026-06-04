@@ -17,5 +17,8 @@ internal sealed class XssfShape : IShape
 
     public ISheet Sheet => _sheet;
     public ShapeType Type => _type;
-    public XSSFSimpleShape Underlying => _underlying;
+
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Drawing.Spreadsheet.Shape Underlying => throw new System.NotSupportedException(
+        "IShape.Underlying (xdr:sp) is not available on the retired NPOI engine.");
 }

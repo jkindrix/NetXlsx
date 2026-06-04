@@ -82,7 +82,14 @@ internal sealed class OoxmlRow : IRow
         }
     }
 
-    public NPOI.XSSF.UserModel.XSSFRow Underlying => throw new NotSupportedException(
-        "IRow.Underlying (NPOI XSSFRow) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the row element. Reaching for the raw node
+    // is a write-like act — a never-materialized row materializes here.
+    public DocumentFormat.OpenXml.Spreadsheet.Row Underlying
+    {
+        get
+        {
+            _sheet.WorkbookInternal.ThrowIfDisposed();
+            return _sheet.GetOrCreateRow(_index);
+        }
+    }
 }

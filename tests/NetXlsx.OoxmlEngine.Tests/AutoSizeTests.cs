@@ -127,7 +127,7 @@ public class AutoSizeTests
 
         // No <col> element materializes — NPOI's AutoSizeColumn does nothing
         // when every cell is empty, and so does this engine.
-        wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!
+        wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!
             .GetFirstChild<S.Columns>().Should().BeNull();
     }
 
@@ -175,7 +175,7 @@ public class AutoSizeTests
 
         // Files opened from disk can carry cached formula results; emulate one
         // through the escape hatch.
-        var cell = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        var cell = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.Descendants<S.Cell>().Single(c => c.CellReference!.Value == "A1");
         cell.AppendChild(new S.CellValue("1234.5678"));
 
@@ -269,7 +269,7 @@ public class AutoSizeTests
         sheet["A1"].SetString("some content");
         sheet.Column("A").AutoSize();
 
-        var col = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        var col = wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.GetFirstChild<S.Columns>()!.Elements<S.Column>().Single();
         col.BestFit!.Value.Should().BeTrue();
         col.CustomWidth!.Value.Should().BeTrue();
@@ -310,7 +310,7 @@ public class AutoSizeTests
         sheet["A1"].SetString(LongText);
         sheet["A1"].Style(new CellStyle { Bold = true });   // forces a non-zero xf
 
-        var ss = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+        var ss = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
         var xf = ss.GetFirstChild<S.CellFormats>()!.Elements<S.CellFormat>().Last();
         xf.Alignment = new S.Alignment { Indent = 2 };
         xf.ApplyAlignment = true;
@@ -335,7 +335,7 @@ public class AutoSizeTests
         sheet["A1"].SetString(LongText);
         sheet["A1"].Style(new CellStyle { Bold = true });
 
-        var ss = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+        var ss = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
         var xf = ss.GetFirstChild<S.CellFormats>()!.Elements<S.CellFormat>().Last();
         xf.Alignment = new S.Alignment { TextRotation = 90 };
         xf.ApplyAlignment = true;

@@ -23,7 +23,7 @@ public class HyperlinkTests
         => Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-hyperlink-{Guid.NewGuid():N}.xlsx");
 
     private static WorksheetPart SheetPart(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.First();
+        => wb.Underlying.WorkbookPart!.WorksheetParts.First();
 
     // ---- Scheme sniff (decision I13) ----------------------------------------
 
@@ -198,7 +198,7 @@ public class HyperlinkTests
         sheet["A1"].Hyperlink("https://example.com", display: "Example");
         sheet["A2"].Hyperlink("#Other!A1");
 
-        var wsPart = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+        var wsPart = wb.Underlying.WorkbookPart!.WorksheetParts
             .Single(p => p.Worksheet!.Descendants<S.Hyperlink>().Any());
         var links = wsPart.Worksheet!.GetFirstChild<S.Hyperlinks>()!
             .Elements<S.Hyperlink>().ToList();

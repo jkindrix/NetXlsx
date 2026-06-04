@@ -10,6 +10,7 @@
 // so readers don't take "password" for cryptographic protection.
 
 using System.Threading.Tasks;
+using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx.Cookbook.Recipes;
 
@@ -42,15 +43,22 @@ public static class ProtectedTemplate
         inputs.AppendRow().Set(1, "Order amount");
 
         // For input cells, mark them unlocked at the cell-style level —
-        // reach through .Underlying since the wrapper doesn't yet expose
-        // a Locked flag on CellStyle. (Likely a v1.2 surface addition.)
-        for (int r = 2; r <= 4; r++)
+        // reach through .Underlying since the wrapper doesn't expose a
+        // Locked flag on CellStyle. (A candidate public surface addition;
+        // queued post-v2.0.0.) In OOXML that is a cellXfs <xf> carrying
+        // <protection locked="0"/> — append one and point the cells at it.
+        var cellXfs = wb.Underlying.WorkbookPart!.WorkbookStylesPart!
+            .Stylesheet!.GetFirstChild<S.CellFormats>()!;
+        cellXfs.AppendChild(new S.CellFormat
         {
-            var c = inputs[r, 2];
-            var cs = c.Underlying.Sheet.Workbook.CreateCellStyle();
-            cs.IsLocked = false;
-            c.Underlying.CellStyle = cs;
-        }
+            NumberFormatId = 0, FontId = 0, FillId = 0, BorderId = 0, FormatId = 0,
+            ApplyProtection = true,
+            Protection = new S.Protection { Locked = false },
+        });
+        cellXfs.Count = (uint)cellXfs.ChildElements.Count;
+        uint unlockedXf = cellXfs.Count.Value - 1;
+        for (int r = 2; r <= 4; r++)
+            inputs[r, 2].Underlying.StyleIndex = unlockedXf;
         // Allow user to type into unlocked cells; block format / structure.
         inputs.Protect(password: "user-template", options: new SheetProtection
         {

@@ -1,11 +1,13 @@
 // Public entry point. See design §6.1.
-// v0.2.0 vertical-slice subset: Create / Open / OpenAsync + sheet-name validation.
+// v2.0.0 (I-82): every factory routes to the Open XML SDK engine. The legacy
+// NPOI engine is retired; its Xssf*/Sxssf* internals are deleted with the
+// NPOI package at the cutover's drop commit.
 
 using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using NPOI.XSSF.UserModel;
+using DocumentFormat.OpenXml;
 
 namespace NetXlsx;
 
@@ -28,8 +30,7 @@ public static class Workbook
     /// </param>
     public static IWorkbook Create(WorkbookOptions? options = null)
     {
-        var underlying = new XSSFWorkbook();
-        return new XssfWorkbook(underlying, options ?? new WorkbookOptions());
+        return OoxmlWorkbook.Create(options ?? new WorkbookOptions());
     }
 
     /// <summary>
@@ -46,37 +47,40 @@ public static class Workbook
     /// </param>
     public static IWorkbook CreateMacroEnabled(WorkbookOptions? options = null)
     {
-        var underlying = new XSSFWorkbook(XSSFWorkbookType.XLSM);
-        return new XssfWorkbook(underlying, options ?? new WorkbookOptions());
+        return OoxmlWorkbook.Create(
+            options ?? new WorkbookOptions(),
+            SpreadsheetDocumentType.MacroEnabledWorkbook);
     }
 
     /// <summary>
-    /// Creates a new, empty <b>streaming</b> workbook backed by NPOI's
-    /// SXSSF writer. Use when writing more than ~30k rows — past that
-    /// threshold an in-memory <see cref="Create"/> workbook exceeds the
-    /// design's memory budget per spike 2 (see design §5).
+    /// Creates a new, empty <b>streaming</b> workbook. Use when writing more
+    /// than ~30k rows — past that threshold an in-memory <see cref="Create"/>
+    /// workbook exceeds the design's memory budget per spike 2 (see design §5).
+    /// Rows stream forward-only through <c>OpenXmlWriter</c> to per-sheet temp
+    /// files; memory stays bounded by
+    /// <see cref="StreamingOptions.RowAccessWindowSize"/>. <c>Save</c> is
+    /// single-shot: the package is assembled once, after which the workbook
+    /// rejects further writes (fail-loud).
     /// </summary>
     /// <param name="options">Streaming-specific knobs (row-access
-    /// window size, temp-file compression). Defaults match NPOI.</param>
+    /// window size, temp-file compression).</param>
     public static IStreamingWorkbook CreateStreaming(StreamingOptions? options = null)
     {
-        return new SxssfWorkbook(options ?? new StreamingOptions());
+        return new OoxmlStreamingWorkbook(options ?? new StreamingOptions());
     }
 
-    // ---- I-82 engine swap: Open XML SDK factories --------------------------
-    // These return the new Open XML SDK-backed engine, grown additively
-    // alongside the default NPOI engine under the parallel-engine / late-cutover
-    // strategy (design I-82). The default Create()/Open() keep returning the NPOI
-    // engine until the v2.0.0 cutover slice, which retires NPOI and folds the SDK
-    // engine into Create()/Open() directly. A workbook from these factories
-    // reports a non-null IWorkbook.OpenXmlDocument and throws on the NPOI
-    // IWorkbook.Underlying escape hatch.
+    // ---- I-82 swap-era factory aliases --------------------------------------
+    // CreateOoxml/OpenOoxml/CreateStreamingOoxml were the additive entry points
+    // to the SDK engine during the parallel-engine swap. At the v2.0.0 cutover
+    // the default factories route to the SDK engine, so these are now exact
+    // aliases. They were never shipped in a release and are REMOVED at the
+    // post-cutover OoxmlEngine.Tests fold slice, before v2.0.0 final (pinned
+    // in design.md I-82) — do not let them ship.
 
     /// <summary>
-    /// Creates a new, empty workbook on the Open XML SDK engine (decision
-    /// I-82). Counterpart to <see cref="Create"/>, which uses the legacy NPOI
-    /// engine. The SDK engine is the v2.0.0 direction; during the swap it is
-    /// reached only through this factory.
+    /// Alias of <see cref="Create"/> (the swap-era SDK entry point; the
+    /// default factories route to the Open XML SDK engine since the v2.0.0
+    /// cutover, decision I-82).
     /// </summary>
     /// <param name="options">
     /// Per-workbook configuration. When <c>null</c>, uses
@@ -84,21 +88,18 @@ public static class Workbook
     /// </param>
     public static IWorkbook CreateOoxml(WorkbookOptions? options = null)
     {
-        return OoxmlWorkbook.Create(options ?? new WorkbookOptions());
+        return Create(options);
     }
 
     /// <summary>
-    /// Opens an existing <c>.xlsx</c> / <c>.xlsm</c> workbook on the Open XML
-    /// SDK engine from a file path (decision I-82). Counterpart to
-    /// <see cref="Open(string, WorkbookOptions?)"/>, which uses the legacy NPOI
-    /// engine.
+    /// Alias of <see cref="Open(string, WorkbookOptions?)"/> (the swap-era SDK
+    /// entry point; see <see cref="CreateOoxml"/>).
     /// </summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>
     public static IWorkbook OpenOoxml(string path, WorkbookOptions? options = null)
     {
-        ArgumentNullException.ThrowIfNull(path);
-        return OoxmlWorkbook.Open(path, options ?? new WorkbookOptions());
+        return Open(path, options);
     }
 
     /// <summary>
@@ -118,23 +119,14 @@ public static class Workbook
     }
 
     /// <summary>
-    /// Creates a new, empty <b>streaming</b> workbook on the Open XML SDK engine
-    /// (decision I-82) — the counterpart to <see cref="CreateStreaming"/>, which
-    /// uses the legacy NPOI SXSSF writer. Rows stream forward-only to per-sheet
-    /// temp files through <c>OpenXmlWriter</c>; memory stays bounded by
-    /// <see cref="StreamingOptions.RowAccessWindowSize"/>. <c>Save</c> is
-    /// single-shot: the worksheet XML is finalized and the package assembled
-    /// once, after which the workbook rejects further writes (fail-loud, where
-    /// NPOI silently discards them). The NPOI escape hatches
-    /// (<see cref="IStreamingWorkbook.Underlying"/> /
-    /// <see cref="IStreamingSheet.Underlying"/>) throw
-    /// <see cref="NotSupportedException"/> on this engine.
+    /// Alias of <see cref="CreateStreaming"/> (the swap-era SDK entry point;
+    /// see <see cref="CreateOoxml"/>).
     /// </summary>
     /// <param name="options">Streaming-specific knobs (row-access window size,
-    /// temp-file compression). Defaults match <see cref="CreateStreaming"/>.</param>
+    /// temp-file compression).</param>
     public static IStreamingWorkbook CreateStreamingOoxml(StreamingOptions? options = null)
     {
-        return new OoxmlStreamingWorkbook(options ?? new StreamingOptions());
+        return CreateStreaming(options);
     }
 
     /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a file path.</summary>
@@ -148,24 +140,9 @@ public static class Workbook
         // FileNotFoundException / DirectoryNotFoundException / UnauthorizedAccessException
         // are all standard I/O exceptions and should propagate verbatim — they are not
         // "the file is malformed" failures, they are "the file isn't accessible" failures.
-        var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        try
-        {
-            var underlying = new XSSFWorkbook(fs);
-            return new XssfWorkbook(underlying, opts);
-        }
-        catch (Exception ex) when (IsKnownMalformedOpenException(ex))
-        {
-            throw new MalformedFileException($"Failed to open '{path}' as .xlsx", ex);
-        }
-        // Other exceptions (OOM, StackOverflow, ArgumentException from BCL,
-        // OperationCanceledException, etc.) propagate verbatim. They indicate
-        // bugs, resource exhaustion, or programmer error — not malformed input.
-        finally
-        {
-            // NPOI copies stream content into memory; we can release ours.
-            fs.Dispose();
-        }
+        // Malformed-input classification (the I-60-equivalent gate, quirk #17)
+        // lives in OoxmlWorkbook.OpenCore.
+        return OoxmlWorkbook.Open(path, opts);
     }
 
     /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a stream.</summary>
@@ -176,78 +153,24 @@ public static class Workbook
     public static IWorkbook Open(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
+        // The CanSeek + Position guards predate the engine swap and are KEPT at
+        // the cutover (decided 2026-06-04): change only what must change.
+        // Relaxing to readable-only is additive and tracked as a deliberate
+        // post-v2.0.0 enhancement, not a rider on the flip.
         if (!stream.CanRead) throw new ArgumentException("Stream must be readable.", nameof(stream));
-        if (!stream.CanSeek) throw new ArgumentException("Stream must be seekable (NPOI requires seek).", nameof(stream));
+        if (!stream.CanSeek) throw new ArgumentException("Stream must be seekable (decisions #50 / I14).", nameof(stream));
         if (stream.Position != 0) throw new ArgumentException("Stream must be positioned at 0.", nameof(stream));
         var opts = options ?? new WorkbookOptions();
-
-        try
-        {
-            var underlying = new XSSFWorkbook(stream);
-            return new XssfWorkbook(underlying, opts);
-        }
-        catch (Exception ex) when (IsKnownMalformedOpenException(ex))
-        {
-            throw new MalformedFileException("Stream content is not a valid .xlsx workbook.", ex);
-        }
-        // Other exceptions (OOM, StackOverflow, BCL ArgumentException,
-        // OperationCanceledException, etc.) propagate verbatim.
-        finally
-        {
-            if (!leaveOpen) stream.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Filter used to decide whether an exception thrown by NPOI's
-    /// <c>XSSFWorkbook(Stream)</c> constructor represents a malformed
-    /// input. Whitelists the NPOI / OPC / IO exception types that can
-    /// actually mean "this is not a valid .xlsx." Excludes
-    /// <see cref="OutOfMemoryException"/>, <see cref="StackOverflowException"/>,
-    /// <see cref="OperationCanceledException"/>, and everything else that
-    /// indicates a runtime / programmer fault rather than bad data.
-    /// </summary>
-    private static bool IsKnownMalformedOpenException(Exception ex)
-    {
-        // Don't classify our own exceptions as malformed-input.
-        if (ex is WorkbookException) return false;
-        // Critical runtime exceptions propagate verbatim.
-        if (ex is OutOfMemoryException or StackOverflowException or OperationCanceledException) return false;
-
-        // NPOI throws these for OOXML / OPC / underlying-zip failures.
-        // Identified by namespace string to avoid taking a hard reference
-        // on every internal NPOI exception type (some are nested).
-        var typeName = ex.GetType().FullName ?? string.Empty;
-        if (typeName.StartsWith("NPOI.", StringComparison.Ordinal)) return true;
-        if (typeName.StartsWith("ICSharpCode.SharpZipLib.", StringComparison.Ordinal)) return true;
-
-        // BCL exceptions consistent with bad-input on this code path.
-        // The IndexOutOfRange / NullReference / Overflow / Argument*
-        // additions are post-v1.0 hardening (decision I-60) — surfaced
-        // by the fuzz harness when NPOI's parsers index into truncated
-        // arrays / dereference uninitialized parts / overflow length
-        // computations on adversarial input. These are still bugs in
-        // NPOI ideally, but on the open path the right user-visible
-        // contract is "this file is malformed", not a leaked runtime
-        // exception. Captured in implementation-notes.md.
-        return ex is System.IO.InvalidDataException
-            or System.IO.IOException
-            or System.IO.EndOfStreamException
-            or System.Xml.XmlException
-            or System.IndexOutOfRangeException
-            or System.NullReferenceException
-            or System.OverflowException
-            or System.ArgumentOutOfRangeException
-            or FormatException;
+        return OoxmlWorkbook.Open(stream, leaveOpen, opts);
     }
 
     /// <summary>Asynchronously opens an existing <c>.xlsx</c> workbook from a path.</summary>
     public static Task<IWorkbook> OpenAsync(string path, WorkbookOptions? options = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(path);
-        // NPOI is synchronous; we offload to the thread pool per decision #30 / §7.1.
-        // CancellationToken is honored only before the offload begins; mid-NPOI
-        // cancellation is not supported.
+        // The open is synchronous; we offload to the thread pool per decision
+        // #30 / §7.1. CancellationToken is honored only before the offload
+        // begins; mid-open cancellation is not supported.
         ct.ThrowIfCancellationRequested();
         return Task.Run(() => Open(path, options), ct);
     }

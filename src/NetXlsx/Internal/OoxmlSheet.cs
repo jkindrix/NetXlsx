@@ -1,11 +1,9 @@
 // I-82 engine swap — Open XML SDK-backed ISheet.
 //
-// Foundation slice (parallel-engine, late-cutover strategy; see design I-82):
-// this stub knows only its name and its owning workbook. Every cell/row/range/
-// drawing/style member throws NotYet(...) until its slice lands. The escape
-// hatch (Underlying -> XSSFSheet) throws NotSupportedException — the SDK engine
-// has no NPOI sheet to expose; the SDK document is reachable via
-// IWorkbook.OpenXmlDocument.
+// Grown slice-by-slice under the parallel-engine, late-cutover strategy
+// (design I-82); since the v2.0.0 cutover this is THE engine. The escape
+// hatch (Underlying) hands out the worksheet DOM root; the document is
+// reachable via IWorkbook.Underlying.
 //
 // Member implementation tracks the slice order in the continuation plan:
 // cells & rows -> styles -> rich text -> merges/panes/grouping -> drawings ->
@@ -369,8 +367,9 @@ internal sealed partial class OoxmlSheet : ISheet
 
     // Protect / Unprotect / IsProtected land in OoxmlSheet.Protection.cs.
 
-    // Escape hatch divergence (I-82): no NPOI sheet exists on the SDK engine.
-    public NPOI.XSSF.UserModel.XSSFSheet Underlying => throw new NotSupportedException(
-        "ISheet.Underlying (NPOI XSSFSheet) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the worksheet DOM root. Disposal first.
+    public S.Worksheet Underlying
+    {
+        get { _workbook.ThrowIfDisposed(); return Worksheet; }
+    }
 }

@@ -50,5 +50,7 @@ internal sealed class SxssfSheet : IStreamingSheet
         return new SxssfRow(_workbook, this, npoiRow);
     }
 
-    public SXSSFSheet Underlying { get { _workbook.ThrowIfDisposed(); return _underlying; } }
+    // IStreamingSheet.Underlying was removed at v2.0.0 (I-82). Internal NPOI
+    // accessor for legacy-engine code (deleted with the NPOI package).
+    internal SXSSFSheet Npoi { get { _workbook.ThrowIfDisposed(); return _underlying; } }
 }

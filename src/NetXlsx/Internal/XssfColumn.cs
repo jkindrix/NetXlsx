@@ -27,18 +27,18 @@ internal sealed class XssfColumn : IColumn
 
     public bool Hidden
     {
-        get { _workbook.ThrowIfDisposed(); return _sheet.Underlying.IsColumnHidden(_col0); }
-        set { _workbook.ThrowIfDisposed(); _sheet.Underlying.SetColumnHidden(_col0, value); }
+        get { _workbook.ThrowIfDisposed(); return _sheet.Npoi.IsColumnHidden(_col0); }
+        set { _workbook.ThrowIfDisposed(); _sheet.Npoi.SetColumnHidden(_col0, value); }
     }
 
     public double WidthUnits
     {
-        get { _workbook.ThrowIfDisposed(); return _sheet.Underlying.GetColumnWidth(_col0) / 256.0; }
+        get { _workbook.ThrowIfDisposed(); return _sheet.Npoi.GetColumnWidth(_col0) / 256.0; }
         set
         {
             _workbook.ThrowIfDisposed();
             ValidateWidth(value);
-            _sheet.Underlying.SetColumnWidth(_col0, (int)Math.Round(value * 256.0));
+            _sheet.Npoi.SetColumnWidth(_col0, (int)Math.Round(value * 256.0));
         }
     }
 
@@ -53,7 +53,7 @@ internal sealed class XssfColumn : IColumn
         _workbook.ThrowIfDisposed();
         try
         {
-            _sheet.Underlying.AutoSizeColumn(_col0);
+            _sheet.Npoi.AutoSizeColumn(_col0);
         }
         catch (Exception ex) when (IsFontFailure(ex))
         {
@@ -67,7 +67,7 @@ internal sealed class XssfColumn : IColumn
         _workbook.ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(apply);
 
-        var npoiSheet = _sheet.Underlying;
+        var npoiSheet = _sheet.Npoi;
         int last0 = npoiSheet.LastRowNum;
         for (int r0 = 0; r0 <= last0; r0++)
         {
@@ -86,7 +86,7 @@ internal sealed class XssfColumn : IColumn
     {
         _workbook.ThrowIfDisposed();
         var npoiStyle = _workbook.StylePool.GetOrCreate(style);
-        _sheet.Underlying.SetDefaultColumnStyle(_col0, npoiStyle);
+        _sheet.Npoi.SetDefaultColumnStyle(_col0, npoiStyle);
         return this;
     }
 

@@ -160,8 +160,7 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
     public Color? ResolveThemeColor(ThemeColor color) => null;
     public Color? ResolveThemeColor(string schemeName, double tint = 0) => null;
     public int? GetThemeLineWidthEmu(int oneBasedIdx) => null;
-    public NPOI.XSSF.UserModel.XSSFWorkbook Underlying => throw new NotImplementedException();
-    public DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument => null;
+    public DocumentFormat.OpenXml.Packaging.SpreadsheetDocument Underlying => throw new NotImplementedException();
 
     public void Dispose() { }
 }

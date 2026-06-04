@@ -3,7 +3,7 @@
 // Mirrors the NPOI-engine FormulaApiTests behavioral contract on the Open XML
 // SDK engine: '=' normalization, empty-body / structurally-broken input ->
 // FormulaException, Kind classification, replace semantics, Clear, and the
-// Save/Open round-trip. Adds DOM-level assertions (via IWorkbook.OpenXmlDocument)
+// Save/Open round-trip. Adds DOM-level assertions (via IWorkbook.Underlying)
 // that no cached <v> is pre-computed (design decision #46 / §7.8).
 
 using System;
@@ -22,7 +22,7 @@ public class FormulaTests
         => Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-formula-{Guid.NewGuid():N}.xlsx");
 
     private static S.Cell CellElement(IWorkbook wb, string reference)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.Descendants<S.Cell>().Single(c => c.CellReference?.Value == reference);
 
     // ---- SetFormula ---------------------------------------------------------

@@ -624,14 +624,14 @@ internal sealed partial class XssfSheet : ISheet
         get
         {
             _workbook.ThrowIfDisposed();
-            var idx = _workbook.Underlying.GetSheetIndex(_underlying);
-            return _workbook.Underlying.GetSheetVisibility(idx) != SheetVisibility.Visible;
+            var idx = _workbook.Npoi.GetSheetIndex(_underlying);
+            return _workbook.Npoi.GetSheetVisibility(idx) != SheetVisibility.Visible;
         }
         set
         {
             _workbook.ThrowIfDisposed();
-            var idx = _workbook.Underlying.GetSheetIndex(_underlying);
-            _workbook.Underlying.SetSheetVisibility(
+            var idx = _workbook.Npoi.GetSheetIndex(_underlying);
+            _workbook.Npoi.SetSheetVisibility(
                 idx, value ? SheetVisibility.Hidden : SheetVisibility.Visible);
         }
     }
@@ -664,9 +664,20 @@ internal sealed partial class XssfSheet : ISheet
         a.FirstRow <= b.LastRow && b.FirstRow <= a.LastRow
         && a.FirstColumn <= b.LastColumn && b.FirstColumn <= a.LastColumn;
 
-    public XSSFSheet Underlying
+    internal XSSFSheet Npoi
     {
         get { _workbook.ThrowIfDisposed(); return _underlying; }
+    }
+
+    // v2.0.0 (I-82): SDK-typed hatch; nothing to expose on the NPOI engine.
+    public DocumentFormat.OpenXml.Spreadsheet.Worksheet Underlying
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            throw new NotSupportedException(
+                "ISheet.Underlying (Worksheet) is not available on the retired NPOI engine.");
+        }
     }
 
     // ---- I-81: drawing iteration -------------------------------------

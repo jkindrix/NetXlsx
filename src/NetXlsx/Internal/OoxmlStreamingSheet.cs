@@ -80,17 +80,7 @@ internal sealed class OoxmlStreamingSheet : IStreamingSheet, IDisposable
         return CreateAt0(next0);
     }
 
-    public NPOI.XSSF.Streaming.SXSSFSheet Underlying
-    {
-        get
-        {
-            _workbook.ThrowIfDisposed();
-            throw new NotSupportedException(
-                "IStreamingSheet.Underlying (NPOI SXSSFSheet) is not available on the " +
-                "Open XML SDK engine (I-82). The streaming engine writes forward-only " +
-                "through OpenXmlWriter; there is no live sheet object to expose.");
-        }
-    }
+    // No escape hatch (v2.0.0 / I-82) — see OoxmlStreamingWorkbook.
 
     private OoxmlStreamingRow CreateAt0(int row0)
     {

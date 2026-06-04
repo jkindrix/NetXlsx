@@ -56,16 +56,8 @@ public class StreamingEngineTests
         again.Should().NotThrow();
     }
 
-    [Fact]
-    public void Underlying_Hatches_Throw_NotSupported_On_The_Sdk_Engine()
-    {
-        using var sw = Workbook.CreateStreamingOoxml();
-        var sheet = sw.AddSheet("S");
-        ((Action)(() => _ = sw.Underlying)).Should().Throw<NotSupportedException>()
-            .WithMessage("*I-82*");
-        ((Action)(() => _ = sheet.Underlying)).Should().Throw<NotSupportedException>()
-            .WithMessage("*I-82*");
-    }
+    // (IStreamingWorkbook/IStreamingSheet.Underlying were REMOVED at v2.0.0 —
+    // the streaming engine has no live document to expose; see I-82.)
 
     // ---- AddSheet ----------------------------------------------------
 
@@ -491,9 +483,7 @@ public class StreamingEngineTests
         sw.Dispose();
 
         ((Action)(() => sw.AddSheet("T"))).Should().Throw<ObjectDisposedException>();
-        ((Action)(() => _ = sw.Underlying)).Should().Throw<ObjectDisposedException>();
         ((Action)(() => sheet.AppendRow())).Should().Throw<ObjectDisposedException>();
-        ((Action)(() => _ = sheet.Underlying)).Should().Throw<ObjectDisposedException>();
         ((Action)(() => row.Cell(2))).Should().Throw<ObjectDisposedException>();
         ((Action)(() => row.Flush())).Should().Throw<ObjectDisposedException>();
         ((Action)(() => cell.SetString("x"))).Should().Throw<ObjectDisposedException>();
@@ -580,7 +570,7 @@ public class StreamingEngineTests
             wb["S"]["A1"].GetStyle().Background.Should().Be(Color.FromRgb(0xFF, 0xEE, 0x00));
             // One shared style object across 20 cells -> one cellXfs entry
             // (pool dedup, decision #4 / #29). Index 0 is the default xf.
-            wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
+            wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
                 .GetFirstChild<DocumentFormat.OpenXml.Spreadsheet.CellFormats>()!
                 .Count!.Value.Should().Be(2u);
         }
@@ -643,38 +633,26 @@ public class StreamingEngineTests
     }
 
     [Fact]
-    public void Streaming_Output_Agrees_Across_Engines_And_Readers()
+    public void Streamed_Output_Round_Trips_The_Dataset_Exactly()
     {
-        // The streaming APIs cannot be compared (DOM-shaped vs forward-only);
-        // the OUTPUTS can. Stream the same dataset through both streaming
-        // engines, reopen each output through both random-access engines, and
-        // assert all four observations agree.
-        var npoiPath = TempXlsxPath();
-        var sdkPath = TempXlsxPath();
+        // Was the slice-9 cross-engine 4-way differential. The cross-engine
+        // de-risk mission completed at the v2.0.0 cutover (the re-scout is the
+        // evidence; A1 disposition (b)) — the observation is now pinned as
+        // LITERALS, so the round trip asserts against expected values rather
+        // than a second engine.
+        var path = TempXlsxPath();
         try
         {
-            using (var sw = Workbook.CreateStreaming()) { BuildDataset(sw); sw.Save(npoiPath); }
-            using (var sw = Workbook.CreateStreamingOoxml()) { BuildDataset(sw); sw.Save(sdkPath); }
+            using (var sw = Workbook.CreateStreaming()) { BuildDataset(sw); sw.Save(path); }
 
-            StreamProjection Read(Func<string, IWorkbook> open, string path)
-            {
-                using var wb = open(path);
-                return ReadDataset(wb);
-            }
-
-            var npoiOutByNpoi = Read(p => Workbook.Open(p), npoiPath);
-            var npoiOutBySdk = Read(p => Workbook.OpenOoxml(p), npoiPath);
-            var sdkOutByNpoi = Read(p => Workbook.Open(p), sdkPath);
-            var sdkOutBySdk = Read(p => Workbook.OpenOoxml(p), sdkPath);
-
-            npoiOutBySdk.Should().Be(npoiOutByNpoi);
-            sdkOutByNpoi.Should().Be(npoiOutByNpoi);
-            sdkOutBySdk.Should().Be(npoiOutByNpoi);
+            using var wb = Workbook.Open(path);
+            ReadDataset(wb).Should().Be(new StreamProjection(
+                "hello", 3.14, 42, true, new DateTime(2026, 5, 16), CellKind.Date,
+                "=A1&B1", CellKind.Formula, "#,##0.00", true, "row5", "s2"));
         }
         finally
         {
-            if (File.Exists(npoiPath)) File.Delete(npoiPath);
-            if (File.Exists(sdkPath)) File.Delete(sdkPath);
+            if (File.Exists(path)) File.Delete(path);
         }
     }
 

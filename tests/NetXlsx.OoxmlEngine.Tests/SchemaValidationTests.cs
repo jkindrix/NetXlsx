@@ -40,7 +40,7 @@ namespace NetXlsx.OoxmlEngine.Tests;
 /// <summary>
 /// Reusable schema-validation gate for the Open XML SDK engine. Runs
 /// <see cref="OpenXmlValidator"/> over a workbook's live
-/// <see cref="IWorkbook.OpenXmlDocument"/> and fails with a fully-itemized
+/// <see cref="IWorkbook.Underlying"/> document and fails with a fully-itemized
 /// dump (part URI, element XPath, error id, description) when the schema is
 /// violated. Future slices should call <see cref="AssertValid"/> on their own
 /// fixtures so the gate widens with the engine.
@@ -52,9 +52,7 @@ public static class OpenXmlValidationGate
 
     public static void AssertValid(IWorkbook workbook, FileFormatVersions? version = null)
     {
-        var doc = workbook.OpenXmlDocument
-            ?? throw new InvalidOperationException(
-                "AssertValid requires the SDK engine (CreateOoxml/OpenOoxml); OpenXmlDocument was null.");
+        var doc = workbook.Underlying;
 
         var resolved = version ?? Target;
         var validator = new OpenXmlValidator(resolved);
@@ -300,7 +298,7 @@ public class SchemaValidationTests
         using var wb = Workbook.CreateOoxml();
         var s = wb.AddSheet("S");
         s["A1"].SetString("H"); s["A2"].SetString("v");
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
         ws.AppendChild(new S.WorksheetExtensionList());
 
         s.AddTable("A1:A2", "T");
@@ -379,20 +377,27 @@ public class SchemaValidationTests
     }
 
     [Fact]
-    public void Adding_Validation_To_An_Opened_NPOI_File_Keeps_Schema_Order()
+    public void Adding_Validation_To_An_Opened_File_Carrying_PageMargins_Keeps_Schema_Order()
     {
-        // Open-mutate-validate (SDK-quirk #8): an NPOI-written sheet always
-        // carries <pageMargins>, which FOLLOWS <dataValidations> in
-        // CT_Worksheet — the insert must land before it, not append.
+        // Open-mutate-validate (SDK-quirk #8): legacy producers (NPOI, Excel)
+        // routinely write <pageMargins>, which FOLLOWS <dataValidations> in
+        // CT_Worksheet — the insert must land before it, not append. The
+        // engine does not emit <pageMargins> itself, so inject one at its
+        // schema position (the established blind-spot-fixture pattern below).
         var path = Path.Combine(Path.GetTempPath(), $"netxlsx-schema-dv-{Guid.NewGuid():N}.xlsx");
         try
         {
-            using (var wb = Workbook.Create())   // NPOI engine on purpose
+            using (var wb = Workbook.Create())
             {
                 wb.AddSheet("S")["A1"].SetString("h");
+                var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+                ws.AppendChild(new S.PageMargins
+                {
+                    Left = 0.7, Right = 0.7, Top = 0.75, Bottom = 0.75, Header = 0.3, Footer = 0.3,
+                });
                 wb.Save(path);
             }
-            using (var wb = Workbook.OpenOoxml(path))
+            using (var wb = Workbook.Open(path))
             {
                 wb["S"].AddValidation("A2:A5", DataValidation.IntegerBetween(1, 10));
                 OpenXmlValidationGate.AssertValid(wb);
@@ -593,7 +598,7 @@ public class SchemaValidationTests
         // slot the new element AHEAD of it, not append after <sheets>.
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("S");
-        var workbook = wb.OpenXmlDocument!.WorkbookPart!.Workbook!;
+        var workbook = wb.Underlying.WorkbookPart!.Workbook!;
         workbook.InsertBefore(new S.BookViews(new S.WorkbookView()), workbook.GetFirstChild<S.Sheets>());
 
         wb.ProtectWithPassword("secret");
@@ -627,7 +632,7 @@ public class SchemaValidationTests
         // <autoFilter> is ubiquitous in real files and sits between <sheetData>
         // and <mergeCells>; the engine does not model it yet, so inject it at its
         // schema position directly.
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
         ws.InsertAfter(new S.AutoFilter { Reference = "A1:A2" }, ws.GetFirstChild<S.SheetData>());
 
         // sheetProtection(before autoFilter) and mergeCells(after autoFilter) must
@@ -645,7 +650,7 @@ public class SchemaValidationTests
 
         // <functionGroups> sits between <sheets> and <definedNames>; inject it at
         // its schema position to simulate an opened file that carries one.
-        var workbook = wb.OpenXmlDocument!.WorkbookPart!.Workbook!;
+        var workbook = wb.Underlying.WorkbookPart!.Workbook!;
         workbook.InsertAfter(new S.FunctionGroups(), workbook.GetFirstChild<S.Sheets>());
 
         wb.AddNamedRange("Items", "Data!$A$1:$A$10");
@@ -667,7 +672,7 @@ public class SchemaValidationTests
         // SHIPPING insert: <definedNames> (ordinal 9) would land ahead of an unranked
         // absPath, producing out-of-order XML. Name-keying ranks absPath at 3 so the
         // insert slots in after it.
-        var workbook = wb.OpenXmlDocument!.WorkbookPart!.Workbook!;
+        var workbook = wb.Underlying.WorkbookPart!.Workbook!;
         workbook.InsertAfter(
             new ExcelAc.AbsolutePath { Url = @"C:\reports\" },
             workbook.GetFirstChild<S.WorkbookProperties>());
@@ -692,7 +697,7 @@ public class SchemaValidationTests
         // drawing insert (tables / OLE / controls) ships, so this fixture guards that
         // a pre-drawing engine mutation slots in ahead of <legacyDrawing> and leaves
         // the post-drawing region intact.
-        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        var wsp = wb.Underlying.WorkbookPart!.WorksheetParts.Single();
         var ws = wsp.Worksheet!;
         var vml = wsp.AddNewPart<VmlDrawingPart>();
         using (var st = vml.GetStream(FileMode.Create))
@@ -721,7 +726,7 @@ public class SchemaValidationTests
         // of the structure slice's open-mutate fixtures (SDK-quirk #8), and the part
         // graph (a new DrawingsPart + ImagePart) makes the opened path matter more
         // here than anywhere prior.
-        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        var wsp = wb.Underlying.WorkbookPart!.WorksheetParts.Single();
         var ws = wsp.Worksheet!;
         var vml = wsp.AddNewPart<VmlDrawingPart>();
         using (var st = vml.GetStream(FileMode.Create))
@@ -752,7 +757,7 @@ public class SchemaValidationTests
         // worksheet <drawing> (ordinal 28) AHEAD of an existing <legacyDrawing>
         // (ordinal 29). The shapes append freely inside xdr:wsDr (not a strict-ordered
         // container), so only the worksheet-child insert is at risk here.
-        var wsp = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single();
+        var wsp = wb.Underlying.WorkbookPart!.WorksheetParts.Single();
         var ws = wsp.Worksheet!;
         var vml = wsp.AddNewPart<VmlDrawingPart>();
         using (var st = vml.GetStream(FileMode.Create))
@@ -781,7 +786,7 @@ public class SchemaValidationTests
         // real files (NPOI and Excel both emit it); the engine does not model it,
         // so inject one to simulate the opened file. The first Hyperlink call must
         // slot the new <hyperlinks> container AHEAD of it.
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
         ws.AppendChild(new S.PageMargins
         {
             Left = 0.7, Right = 0.7, Top = 0.75, Bottom = 0.75, Header = 0.3, Footer = 0.3,

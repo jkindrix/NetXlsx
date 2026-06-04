@@ -82,10 +82,8 @@ internal sealed class SxssfWorkbook : IStreamingWorkbook
         return Task.Run(() => Save(stream, leaveOpen), ct);
     }
 
-    public SXSSFWorkbook Underlying
-    {
-        get { ThrowIfDisposed(); return _underlying; }
-    }
+    // IStreamingWorkbook.Underlying was removed at v2.0.0 (I-82); this legacy
+    // engine is deleted with the NPOI package at the cutover's drop commit.
 
     public void Dispose()
     {

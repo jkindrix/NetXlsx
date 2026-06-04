@@ -336,7 +336,7 @@ public class DisposedWorkbookMatrixTests
         public IReadOnlyList<string> ColumnNames => Array.Empty<string>();
         public bool HasTotalsRow => false;
         public string? StyleName { get => null; set { } }
-        public NPOI.XSSF.UserModel.XSSFTable Underlying => null!;
+        public DocumentFormat.OpenXml.Packaging.TableDefinitionPart Underlying => null!;
         public void AddTotalsRow() { }
         public void RemoveTotalsRow() { }
         public void SetColumnTotal(string columnName, TotalsRowFunction function) { }

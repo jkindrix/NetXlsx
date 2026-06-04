@@ -30,7 +30,7 @@ public class TableApiTests
 
     private static S.Table TablePartOf(IWorkbook wb, string sheetName)
     {
-        var wbPart = wb.OpenXmlDocument!.WorkbookPart!;
+        var wbPart = wb.Underlying.WorkbookPart!;
         var sheet = wbPart.Workbook!.GetFirstChild<S.Sheets>()!.Elements<S.Sheet>()
             .Single(s => s.Name?.Value == sheetName);
         var wsPart = (WorksheetPart)wbPart.GetPartById(sheet.Id!.Value!);
@@ -76,7 +76,7 @@ public class TableApiTests
         s1.AddTable("A1:A2", "TableOne");
         s2.AddTable("A1:A2", "TableTwo");
 
-        var ids = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts
+        var ids = wb.Underlying.WorkbookPart!.WorksheetParts
             .SelectMany(ws => ws.TableDefinitionParts)
             .Select(p => p.Table!.Id!.Value).ToList();
         ids.Should().OnlyHaveUniqueItems();
@@ -274,9 +274,9 @@ public class TableApiTests
         var t = sh.AddTable("A1:A2", "T");
         sh.RemoveTable(t);
 
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!;
         ws.GetFirstChild<S.TableParts>().Should().BeNull("an empty <tableParts> is dropped (NPOI parity)");
-        wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .TableDefinitionParts.Should().BeEmpty("the part and relationship are deleted");
     }
 
@@ -610,13 +610,15 @@ public class TableApiTests
     }
 
     [Fact]
-    public void Underlying_Throws_On_The_Sdk_Engine()
+    public void Underlying_Hands_Out_The_TableDefinitionPart()
     {
+        // v2.0.0 (I-82): the hatch is the table's own OPC part (reach the
+        // DOM via .Table).
         using var wb = Workbook.CreateOoxml();
         var sh = wb.AddSheet("S");
         sh["A1"].SetString("H"); sh["A2"].SetString("v");
         var t = sh.AddTable("A1:A2", "T");
-        Action act = () => _ = t.Underlying;
-        act.Should().Throw<NotSupportedException>();
+        t.Underlying.Should().NotBeNull();
+        t.Underlying.Table!.DisplayName!.Value.Should().Be("T");
     }
 }

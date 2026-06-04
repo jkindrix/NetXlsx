@@ -23,7 +23,7 @@ public class PaneTests
         => Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-pane-{Guid.NewGuid():N}.xlsx");
 
     private static S.Pane? PaneOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!
             .GetFirstChild<S.SheetViews>()?.GetFirstChild<S.SheetView>()?.GetFirstChild<S.Pane>();
 
     [Fact]
@@ -80,7 +80,7 @@ public class PaneTests
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("S").FreezePane(1, 1);
 
-        var view = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single().Worksheet!
+        var view = wb.Underlying.WorkbookPart!.WorksheetParts.Single().Worksheet!
             .GetFirstChild<S.SheetViews>()!.GetFirstChild<S.SheetView>()!;
         var sel = view.Elements<S.Selection>().Single();
         sel.Pane!.Value.Should().Be(S.PaneValues.BottomRight);

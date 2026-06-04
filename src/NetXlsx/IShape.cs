@@ -14,17 +14,19 @@ public interface IShape
     ShapeType Type { get; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI
-    /// <c>XSSFSimpleShape</c>.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Drawing.Spreadsheet.Shape"/>
+    /// element (I-82). Same contract as <see cref="IWorkbook.Underlying"/>.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFSimpleShape Underlying { get; }
+    DocumentFormat.OpenXml.Drawing.Spreadsheet.Shape Underlying { get; }
 }
 
 /// <summary>
 /// Shape types supported by <see cref="ISheet.AddShape"/> (decision I-74).
-/// Maps to NPOI's <c>ShapeTypes</c> enum. Only the most-common shapes
-/// are surfaced; callers needing exotic shapes (arrows, callouts, stars)
-/// reach through <see cref="ISheet.Underlying"/>.
+/// Values are the OOXML <c>ST_ShapeType</c> preset-geometry ordinals.
+/// Only the most-common shapes are surfaced; callers needing exotic
+/// shapes (arrows, callouts, stars) reach through
+/// <see cref="ISheet.Underlying"/>.
 /// </summary>
 public enum ShapeType
 {
@@ -145,8 +147,9 @@ public interface IConnector
     int? LineStyleRefIndex { get; }
 
     /// <summary>
-    /// Escape hatch — direct access to the underlying NPOI
-    /// <c>XSSFConnector</c>.
+    /// Escape hatch — direct access to the underlying Open XML SDK
+    /// <see cref="DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape"/>
+    /// element (I-82). Same contract as <see cref="IWorkbook.Underlying"/>.
     /// </summary>
-    NPOI.XSSF.UserModel.XSSFConnector Underlying { get; }
+    DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape Underlying { get; }
 }

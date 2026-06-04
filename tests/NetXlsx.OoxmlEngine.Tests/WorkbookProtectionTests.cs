@@ -4,7 +4,7 @@
 // Mirrors the NPOI-engine WorkbookProtectionTests behavioral contract on the
 // Open XML SDK engine (decisions I-54 + I-65). Where the NPOI tests reached
 // through wb.Underlying (IsStructureLocked etc.), these assert the
-// <workbookProtection> DOM via IWorkbook.OpenXmlDocument — same observable, no
+// <workbookProtection> DOM via IWorkbook.Underlying — same observable, no
 // NPOI dependency. The XOR-verifier hash is asserted byte-for-byte against
 // NPOI's CreateXorVerifier1 values ("hunter2" -> C258), pinning cross-engine
 // password compatibility.
@@ -24,7 +24,7 @@ public class WorkbookProtectionTests
         => Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-wbprot-{Guid.NewGuid():N}.xlsx");
 
     private static S.WorkbookProtection? Element(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.Workbook!.GetFirstChild<S.WorkbookProtection>();
+        => wb.Underlying.WorkbookPart!.Workbook!.GetFirstChild<S.WorkbookProtection>();
 
     // ---- Behavior -----------------------------------------------------------
 
@@ -222,21 +222,31 @@ public class WorkbookProtectionTests
     }
 
     [Fact]
-    public void Opened_Xlsm_Reports_MacroEnabled()
+    public void CreateMacroEnabled_Produces_A_MacroEnabled_Workbook_That_Round_Trips()
     {
-        // Author a real .xlsm via the NPOI engine's CreateMacroEnabled (the SDK
-        // engine has no macro-enabled CREATE factory until cutover routes
-        // Workbook.CreateMacroEnabled), then assert OpenOoxml detects the
-        // macro-enabled content type.
+        // The cutover's conformance pin for the macro-enabled CREATE path
+        // (amendment A2): CreateMacroEnabled routes to the SDK engine since
+        // v2.0.0, so the created document must carry the macro-enabled
+        // document type, report IsMacroEnabled, save with the macro-enabled
+        // content type, and round-trip.
         var path = Path.Combine(Path.GetTempPath(), $"netxlsx-ooxml-xlsm-{Guid.NewGuid():N}.xlsm");
         try
         {
             using (var wb = Workbook.CreateMacroEnabled())
             {
+                wb.IsMacroEnabled.Should().BeTrue();
+                wb.Underlying.DocumentType.Should().Be(
+                    DocumentFormat.OpenXml.SpreadsheetDocumentType.MacroEnabledWorkbook);
                 wb.AddSheet("S")["A1"].SetString("macro-test");
                 wb.Save(path);
             }
-            using (var wb = Workbook.OpenOoxml(path))
+            using (var z = System.IO.Compression.ZipFile.OpenRead(path))
+            {
+                using var r = new StreamReader(z.GetEntry("[Content_Types].xml")!.Open());
+                r.ReadToEnd().Should().Contain("macroEnabled.main+xml",
+                    "the saved package must carry the macro-enabled workbook content type");
+            }
+            using (var wb = Workbook.Open(path))
             {
                 wb.IsMacroEnabled.Should().BeTrue();
                 wb["S"]["A1"].GetString().Should().Be("macro-test");

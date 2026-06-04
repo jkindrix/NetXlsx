@@ -116,10 +116,11 @@ internal sealed class OoxmlTable : ITable
         }
     }
 
-    // Escape hatch divergence (I-82): no NPOI table exists on the SDK engine.
-    public NPOI.XSSF.UserModel.XSSFTable Underlying => throw new NotSupportedException(
-        "ITable.Underlying (NPOI XSSFTable) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the table's own OPC part. Disposal first.
+    public TableDefinitionPart Underlying
+    {
+        get { _workbook.ThrowIfDisposed(); return _part; }
+    }
 
     // ---- Totals row (decision I-64) -----------------------------------
 

@@ -24,7 +24,7 @@ public static class Program
         ("formulas", Formulas.Run),
         ("multi-sheet", MultiSheet.Run),
         ("hyperlinks-and-comments", HyperlinksAndComments.Run),
-        ("npoi-escape-hatch", NPOIEscapeHatch.Run),
+        ("openxml-escape-hatch", OpenXmlEscapeHatch.Run),
         ("open-edit-save", OpenEditSave.Run),
         ("streaming-million-rows", StreamingMillionRows.Run),
         // ---- v1.1 recipes (decisions I-50 through I-58) ----

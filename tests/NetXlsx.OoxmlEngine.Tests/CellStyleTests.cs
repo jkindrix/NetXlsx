@@ -30,7 +30,7 @@ public class CellStyleTests
     {
         using var wb = Workbook.CreateOoxml();
         wb.AddSheet("S");
-        var ss = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
+        var ss = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!;
 
         ss.GetFirstChild<S.CellStyles>()!.Elements<S.CellStyle>()
             .Should().Contain(c => c.Name == "Normal" && c.BuiltinId!.Value == 0u);
@@ -46,7 +46,7 @@ public class CellStyleTests
     {
         using var wb = Workbook.CreateOoxml(new WorkbookOptions { DefaultFontName = "Aptos Narrow", DefaultFontSize = 12 });
         wb.AddSheet("S");
-        var font0 = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
+        var font0 = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
             .GetFirstChild<S.Fonts>()!.Elements<S.Font>().First();
         font0.GetFirstChild<S.FontName>()!.Val!.Value.Should().Be("Aptos Narrow");
         font0.GetFirstChild<S.FontSize>()!.Val!.Value.Should().Be(12);
@@ -178,7 +178,7 @@ public class CellStyleTests
         diag.StyleHitCount.Should().Be(49, "49 of the 50 applications hit the pool");
 
         // Exactly one NetXlsx-allocated cellXfs entry beyond the default xf[0].
-        var cellXfs = wb.OpenXmlDocument!.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
+        var cellXfs = wb.Underlying.WorkbookPart!.WorkbookStylesPart!.Stylesheet!
             .GetFirstChild<S.CellFormats>()!;
         cellXfs.Elements<S.CellFormat>().Should().HaveCount(2);
     }
@@ -251,7 +251,7 @@ public class CellStyleTests
 
         // Inject a spanning <col min=1 max=10 width=15> directly, as an opened
         // real-world file would carry, then mutate a single middle column.
-        var ws = wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.First().Worksheet!;
+        var ws = wb.Underlying.WorkbookPart!.WorksheetParts.First().Worksheet!;
         var sheetData = ws.GetFirstChild<S.SheetData>()!;
         ws.InsertBefore(new S.Columns(new S.Column { Min = 1u, Max = 10u, Width = 15, CustomWidth = true }), sheetData);
 

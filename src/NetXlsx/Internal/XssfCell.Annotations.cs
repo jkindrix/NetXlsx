@@ -14,7 +14,7 @@ internal sealed partial class XssfCell
         _workbook.ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(text);
 
-        var factory = _workbook.Underlying.GetCreationHelper();
+        var factory = _workbook.Npoi.GetCreationHelper();
         var existing = _underlying.CellComment;
         if (existing is not null)
         {

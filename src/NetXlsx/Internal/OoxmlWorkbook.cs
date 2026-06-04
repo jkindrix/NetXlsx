@@ -7,7 +7,7 @@
 // Workbook.Create() / Open() still return the NPOI engine until the cutover.
 //
 // Foundation slice scope (this commit): Create / Open / Save / Dispose,
-// AddSheet, sheet enumeration + indexers, and the OpenXmlDocument escape hatch.
+// AddSheet, sheet enumeration + indexers, and the .Underlying escape hatch.
 // Everything else throws NotYet(...) and lands slice by slice (cells & rows ->
 // styles -> rich text -> merges/panes/grouping -> drawings -> CF/validation/
 // tables/autofilter/sort -> charts -> streaming).
@@ -144,13 +144,15 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
 
     // ---- Factories (called by Workbook.CreateOoxml / OpenOoxml) -------------
 
-    internal static OoxmlWorkbook Create(WorkbookOptions options)
+    internal static OoxmlWorkbook Create(
+        WorkbookOptions options,
+        SpreadsheetDocumentType documentType = SpreadsheetDocumentType.Workbook)
     {
         ArgumentNullException.ThrowIfNull(options);
         var backing = new MemoryStream();
         try
         {
-            var document = SpreadsheetDocument.Create(backing, SpreadsheetDocumentType.Workbook);
+            var document = SpreadsheetDocument.Create(backing, documentType);
             var wbPart = document.AddWorkbookPart();
             wbPart.Workbook = new S.Workbook();
             // workbookPr (date system, lesson #9) must precede <sheets> in schema
@@ -353,7 +355,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     /// <summary>
     /// Re-adds the captured orphan parts to the finalized clone bytes in
     /// <paramref name="tmp"/>. A part that has since become reachable (e.g.
-    /// the consumer wired a relationship through the OpenXmlDocument escape
+    /// the consumer wired a relationship through the .Underlying escape
     /// hatch) is already in the clone and is skipped.
     /// </summary>
     private void ReinjectOrphanParts(MemoryStream tmp)
@@ -559,16 +561,16 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         return Task.Run(() => Save(path), ct);
     }
 
-    // Escape hatch (I-82): the SDK document is the OOXML engine's escape hatch.
-    public SpreadsheetDocument? OpenXmlDocument
+    // Escape hatch (#32 / I-82): the live SDK document. Disposal is checked
+    // BEFORE the value is returned (DisposedWorkbookMatrix contract).
+    public SpreadsheetDocument Underlying
     {
         get { ThrowIfDisposed(); return _document; }
     }
 
-    // No NPOI workbook exists on the SDK engine; the NPOI escape hatch diverges.
-    public NPOI.XSSF.UserModel.XSSFWorkbook Underlying => throw new NotSupportedException(
-        "IWorkbook.Underlying (NPOI XSSFWorkbook) is not available on the Open XML " +
-        "SDK engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Internal accessor for engine code that needs the document without the
+    // public-hatch disposal ceremony (callers hold a live workbook).
+    internal SpreadsheetDocument Document => _document;
 
     public void Dispose()
     {

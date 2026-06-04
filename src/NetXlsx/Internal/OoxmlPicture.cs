@@ -14,11 +14,11 @@
 //                      cell is exclusive, the same convention CellAddress round-trips).
 //   Data               the raw embedded image bytes.
 //
-// The NPOI escape hatch (Underlying -> XSSFPicture) throws NotSupportedException,
-// the same divergence as OoxmlWorkbook/OoxmlSheet: there is no NPOI object behind
-// the SDK engine. The SDK package is reachable via IWorkbook.OpenXmlDocument.
+// The escape hatch (Underlying, #32 / I-82) hands out the live xdr:pic element
+// the snapshot was created from / parsed out of.
 
 using System;
+using XDR = DocumentFormat.OpenXml.Drawing.Spreadsheet;
 
 namespace NetXlsx;
 
@@ -31,11 +31,12 @@ internal sealed class OoxmlPicture : IPicture
     private readonly string _toCell;
     private readonly int _dx1, _dy1, _dx2, _dy2;
     private readonly byte[] _data;
+    private readonly XDR.Picture _pic;
 
     internal OoxmlPicture(
         OoxmlWorkbook workbook, OoxmlSheet sheet, ImageFormat format,
         string fromCell, string toCell,
-        int dx1, int dy1, int dx2, int dy2, byte[] data)
+        int dx1, int dy1, int dx2, int dy2, byte[] data, XDR.Picture pic)
     {
         _workbook = workbook;
         _sheet = sheet;
@@ -44,6 +45,7 @@ internal sealed class OoxmlPicture : IPicture
         _toCell = toCell;
         _dx1 = dx1; _dy1 = dy1; _dx2 = dx2; _dy2 = dy2;
         _data = data;
+        _pic = pic;
     }
 
     public ISheet Sheet { get { _workbook.ThrowIfDisposed(); return _sheet; } }
@@ -56,8 +58,9 @@ internal sealed class OoxmlPicture : IPicture
     public int Dy2 { get { _workbook.ThrowIfDisposed(); return _dy2; } }
     public byte[] Data { get { _workbook.ThrowIfDisposed(); return _data; } }
 
-    // Escape-hatch divergence (I-82): no NPOI picture exists on the SDK engine.
-    public NPOI.XSSF.UserModel.XSSFPicture Underlying => throw new NotSupportedException(
-        "IPicture.Underlying (NPOI XSSFPicture) is not available on the Open XML SDK " +
-        "engine (I-82). Use IWorkbook.OpenXmlDocument for the SDK escape hatch.");
+    // Escape hatch (#32 / I-82): the live xdr:pic element. Disposal first.
+    public XDR.Picture Underlying
+    {
+        get { _workbook.ThrowIfDisposed(); return _pic; }
+    }
 }

@@ -6,7 +6,7 @@
 // custom-filter criteria (operators, AND/OR combinators, wildcard string
 // patterns), offset validation, and file round-trips. Where the NPOI tests
 // reach through sh.Underlying.GetCTWorksheet(), these assert against the
-// live SDK DOM via IWorkbook.OpenXmlDocument.
+// live SDK DOM via IWorkbook.Underlying.
 //
 // Oracle-pinned extras (SDK-quirk #11 habit — facts confirmed by dumping the
 // NPOI engine's XML): SetAutoFilter creates/updates the hidden built-in
@@ -27,7 +27,7 @@ namespace NetXlsx.OoxmlEngine.Tests;
 public class AutoFilterTests
 {
     private static S.AutoFilter? AutoFilterOf(IWorkbook wb)
-        => wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        => wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.GetFirstChild<S.AutoFilter>();
 
     [Fact]
@@ -58,7 +58,7 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:C3");
         sh.AutoFilterRange.Should().Be("A1:C3");
         // Only one <autoFilter> element exists.
-        wb.OpenXmlDocument!.WorkbookPart!.WorksheetParts.Single()
+        wb.Underlying.WorkbookPart!.WorksheetParts.Single()
             .Worksheet!.Elements<S.AutoFilter>().Should().HaveCount(1);
     }
 
@@ -143,7 +143,7 @@ public class AutoFilterTests
         name.Formula.Should().Be("S!$A$1:$B$2");
         name.SheetScope.Should().Be("S");
         // hidden="1", like Excel and NPOI emit it.
-        wb.OpenXmlDocument!.WorkbookPart!.Workbook!
+        wb.Underlying.WorkbookPart!.Workbook!
             .GetFirstChild<S.DefinedNames>()!.Elements<S.DefinedName>()
             .Single().Hidden!.Value.Should().BeTrue();
     }
