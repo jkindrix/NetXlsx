@@ -556,9 +556,23 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
 
     // Escape hatch (#32 / I-82): the live SDK document. Disposal is checked
     // BEFORE the value is returned (DisposedWorkbookMatrix contract).
+    // Handing out the DOM invalidates the row caches (I-87) so mutations made
+    // through the returned reference are observed by subsequent facade calls.
     public SpreadsheetDocument Underlying
     {
-        get { ThrowIfDisposed(); return _document; }
+        get
+        {
+            ThrowIfDisposed();
+            InvalidateRowCaches();
+            return _document;
+        }
+    }
+
+    // I-87: every escape-hatch getter routes here — any handed-out DOM node
+    // can reach every sheet via part traversal, so all row caches reset.
+    internal void InvalidateRowCaches()
+    {
+        foreach (var sheet in _sheetsByIndex) sheet.InvalidateRowCache();
     }
 
     // Internal accessor for engine code that needs the document without the

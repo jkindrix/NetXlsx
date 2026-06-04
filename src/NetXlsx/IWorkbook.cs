@@ -215,6 +215,17 @@ public interface IWorkbook : IDisposable
     /// consequences. Throws <see cref="System.ObjectDisposedException"/>
     /// after the workbook is disposed.
     /// <para>
+    /// <b>Coherence (I-87):</b> accessing any <c>Underlying</c> member
+    /// (workbook, sheet, row, or cell) resets the engine's internal row
+    /// lookup caches, so the acquire → mutate → continue-via-facade pattern
+    /// always observes hatch mutations. Structurally mutating the sheet grid
+    /// (adding, removing, or renumbering <c>&lt;row&gt;</c> elements) through
+    /// a <em>stored</em> reference after intervening facade calls is outside
+    /// that contract — re-acquire any <c>Underlying</c> member after such
+    /// mutations. The engine additionally liveness-checks cached rows per
+    /// access as a backstop.
+    /// </para>
+    /// <para>
     /// <b>v2.0.0:</b> the engine is the Open XML SDK; before v2.0.0 this
     /// member returned NPOI's <c>XSSFWorkbook</c>. Consumers reaching
     /// through the hatch must migrate to the SDK types (see the v2.0.0

@@ -51,6 +51,25 @@ internal sealed partial class OoxmlSheet : ISheet
     // ascending column order within a row. The Get-or-create helpers maintain
     // that ordering on insert; the Find helpers never mutate the DOM (decision
     // #40: reading a never-written address must not add nodes).
+    //
+    // Row lookups are served by a row-index -> <row> element cache (decision
+    // I-87). Without it, GetOrCreateRow and MaxRowIndex linearly scan every
+    // <row> on each call — ~12 full scans per appended 10-cell row — making
+    // bulk DOM writes O(n²) (the v2.0.0 regression: Write5kRows 251 ms ->
+    // 3,652 ms). Coherence model:
+    //   * The engine itself never removes or renumbers a <row>; every engine
+    //     row insert goes through GetOrCreateRow, which maintains the cache.
+    //   * Every public escape-hatch getter (IWorkbook/ISheet/IRow/ICell
+    //     .Underlying) invalidates ALL sheets' caches (any DOM node reaches
+    //     the whole package via part traversal), so the acquire-then-mutate
+    //     pattern is always coherent — the ThemeInfo cache precedent.
+    //   * Backstop: every cache hit is liveness-checked (still parented under
+    //     the current <sheetData>, @r unchanged) and the append/max fast paths
+    //     verify the cached max against the live tail — a stale entry triggers
+    //     a one-shot rebuild instead of returning a detached node.
+    //   * Out-of-contract structural mutation through a STORED reference,
+    //     interleaved with facade calls, is documented on the hatches:
+    //     re-acquire any Underlying member after such mutations.
 
     // WorksheetPart.Worksheet is annotated nullable; create/open always set it.
     private S.Worksheet Worksheet => _worksheetPart.Worksheet!;
@@ -58,10 +77,61 @@ internal sealed partial class OoxmlSheet : ISheet
     private S.SheetData Data =>
         Worksheet.GetFirstChild<S.SheetData>() ?? Worksheet.AppendChild(new S.SheetData());
 
+    // Row-index -> element cache (I-87). Null = invalidated; rebuilt lazily by
+    // one scan. _cachedMaxRow mirrors the largest explicit @r in the cache.
+    private Dictionary<int, S.Row>? _rowCache;
+    private int _cachedMaxRow;
+
+    internal void InvalidateRowCache() => _rowCache = null;
+
+    private Dictionary<int, S.Row> EnsureRowCache(S.SheetData data)
+    {
+        if (_rowCache is not null) return _rowCache;
+        var map = new Dictionary<int, S.Row>();
+        int max = 0;
+        foreach (var r in data.Elements<S.Row>())
+        {
+            // Rows without an explicit @r were invisible to the pre-cache
+            // FindRow/MaxRowIndex scans (null never equals a 1-based index);
+            // keep them invisible. Duplicate @r (malformed input): first in
+            // document order wins, matching the pre-cache scan.
+            if (r.RowIndex?.Value is not uint ri || ri == 0) continue;
+            map.TryAdd((int)ri, r);
+            if ((int)ri > max) max = (int)ri;
+        }
+        _cachedMaxRow = max;
+        return _rowCache = map;
+    }
+
+    // A cached entry is trusted only while it is still parented under the
+    // current <sheetData> with an unchanged @r — the backstop against
+    // out-of-contract mutation through a stored escape-hatch reference.
+    private static bool IsLive(S.Row row, S.SheetData data, int rowIndex) =>
+        ReferenceEquals(row.Parent, data) && row.RowIndex?.Value == (uint)rowIndex;
+
+    // O(1) guard for the append fast path: the cached max is trusted only if
+    // the live tail does not contradict it (an out-of-contract append would
+    // leave a <row> with @r >= rowIndex at the tail). A tail without explicit
+    // @r matches pre-cache semantics (such rows were never successors).
+    private static bool AppendTailTrusted(S.SheetData data, int rowIndex)
+    {
+        var last = data.LastChild;
+        if (last is null) return true;
+        if (last is not S.Row tail) return false;
+        return tail.RowIndex?.Value is not uint tri || tri < (uint)rowIndex;
+    }
+
     internal S.Row? FindRow(int rowIndex)
     {
-        foreach (var r in Data.Elements<S.Row>())
-            if (r.RowIndex?.Value == (uint)rowIndex) return r;
+        var data = Data;
+        var cache = EnsureRowCache(data);
+        if (cache.TryGetValue(rowIndex, out var row))
+        {
+            if (IsLive(row, data, rowIndex)) return row;
+            InvalidateRowCache();
+            cache = EnsureRowCache(data);
+            return cache.TryGetValue(rowIndex, out row) ? row : null;
+        }
         return null;
     }
 
@@ -77,16 +147,39 @@ internal sealed partial class OoxmlSheet : ISheet
     internal S.Row GetOrCreateRow(int rowIndex)
     {
         var data = Data;
+        var cache = EnsureRowCache(data);
+        if (cache.TryGetValue(rowIndex, out var cached))
+        {
+            if (IsLive(cached, data, rowIndex)) return cached;
+            InvalidateRowCache();
+            cache = EnsureRowCache(data);
+            if (cache.TryGetValue(rowIndex, out cached)) return cached;
+        }
+
+        if (rowIndex > _cachedMaxRow && AppendTailTrusted(data, rowIndex))
+        {
+            var appended = new S.Row { RowIndex = (uint)rowIndex };
+            data.AppendChild(appended);
+            cache[rowIndex] = appended;
+            _cachedMaxRow = rowIndex;
+            return appended;
+        }
+
+        // General path (mid-grid insert, or an untrusted tail): one ordered
+        // scan — adopt an out-of-band row if the index exists in the DOM,
+        // else insert before the first higher-indexed sibling.
         S.Row? successor = null;
         foreach (var r in data.Elements<S.Row>())
         {
             var ri = r.RowIndex?.Value ?? 0;
-            if (ri == (uint)rowIndex) return r;
+            if (ri == (uint)rowIndex) { cache[rowIndex] = r; return r; }
             if (ri > (uint)rowIndex) { successor = r; break; }
         }
         var newRow = new S.Row { RowIndex = (uint)rowIndex };
         if (successor is null) data.AppendChild(newRow);
         else data.InsertBefore(newRow, successor);
+        cache[rowIndex] = newRow;
+        if (rowIndex > _cachedMaxRow) _cachedMaxRow = rowIndex;
         return newRow;
     }
 
@@ -207,13 +300,18 @@ internal sealed partial class OoxmlSheet : ISheet
 
     private int MaxRowIndex()
     {
-        int max = 0;
-        foreach (var r in Data.Elements<S.Row>())
+        var data = Data;
+        EnsureRowCache(data);
+        // O(1) tail verification (the AppendTailTrusted counterpart): an
+        // out-of-contract append leaves a tail whose explicit @r disagrees
+        // with the cached max — rebuild rather than hand back a stale max.
+        if (data.LastChild is S.Row tail && tail.RowIndex?.Value is uint tri
+            && (int)tri != _cachedMaxRow)
         {
-            int ri = (int)(r.RowIndex?.Value ?? 0);
-            if (ri > max) max = ri;
+            InvalidateRowCache();
+            EnsureRowCache(data);
         }
-        return max;
+        return _cachedMaxRow;
     }
 
     public ICell this[string a1]
@@ -368,8 +466,15 @@ internal sealed partial class OoxmlSheet : ISheet
     // Protect / Unprotect / IsProtected land in OoxmlSheet.Protection.cs.
 
     // Escape hatch (#32 / I-82): the worksheet DOM root. Disposal first.
+    // Handing out the DOM invalidates the row caches (I-87) so mutations made
+    // through the returned reference are observed by subsequent facade calls.
     public S.Worksheet Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return Worksheet; }
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            _workbook.InvalidateRowCaches();
+            return Worksheet;
+        }
     }
 }

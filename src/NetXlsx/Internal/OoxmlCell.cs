@@ -677,12 +677,16 @@ internal sealed class OoxmlCell : ICell
     // Escape hatch (#32 / I-82): the cell element. Reaching for the raw node
     // is a write-like act — a never-written address materializes here
     // (decision #40 lazy cells stay lazy until the hatch is used).
+    // Materialize first, then invalidate the row caches (I-87) so mutations
+    // made through the returned reference are observed by the facade.
     public DocumentFormat.OpenXml.Spreadsheet.Cell Underlying
     {
         get
         {
             Wb.ThrowIfDisposed();
-            return _sheet.GetOrCreateCell(_row, _col);
+            var cell = _sheet.GetOrCreateCell(_row, _col);
+            Wb.InvalidateRowCaches();
+            return cell;
         }
     }
 }

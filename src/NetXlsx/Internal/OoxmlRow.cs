@@ -84,12 +84,16 @@ internal sealed class OoxmlRow : IRow
 
     // Escape hatch (#32 / I-82): the row element. Reaching for the raw node
     // is a write-like act — a never-materialized row materializes here.
+    // Materialize first, then invalidate the row caches (I-87) so mutations
+    // made through the returned reference are observed by the facade.
     public DocumentFormat.OpenXml.Spreadsheet.Row Underlying
     {
         get
         {
             _sheet.WorkbookInternal.ThrowIfDisposed();
-            return _sheet.GetOrCreateRow(_index);
+            var row = _sheet.GetOrCreateRow(_index);
+            _sheet.WorkbookInternal.InvalidateRowCaches();
+            return row;
         }
     }
 }
