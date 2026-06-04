@@ -1,7 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using AwesomeAssertions;
-using NPOI.OpenXmlFormats.Dml;
 using Xunit;
 
 namespace NetXlsx.Tests;
@@ -18,20 +19,19 @@ public class ConnectorTests
         c.Should().NotBeNull();
         c.Type.Should().Be(ConnectorType.Straight);
         c.Sheet.Should().BeSameAs(s);
-        c.Underlying.GetCTConnector().spPr.prstGeom.prst
-            .Should().Be(ST_ShapeType.straightConnector1);
+        PresetGeometryOf(wb).Should().Be("straightConnector1");
     }
 
     [Theory]
-    [InlineData(ConnectorType.Straight, ST_ShapeType.straightConnector1)]
-    [InlineData(ConnectorType.Bent, ST_ShapeType.bentConnector3)]
-    [InlineData(ConnectorType.Curved, ST_ShapeType.curvedConnector3)]
-    public void AddConnector_Maps_Type_To_Geometry(ConnectorType type, ST_ShapeType expected)
+    [InlineData(ConnectorType.Straight, "straightConnector1")]
+    [InlineData(ConnectorType.Bent, "bentConnector3")]
+    [InlineData(ConnectorType.Curved, "curvedConnector3")]
+    public void AddConnector_Maps_Type_To_Geometry(ConnectorType type, string expectedPreset)
     {
         using var wb = Workbook.Create();
         var s = wb.AddSheet("S");
-        var c = s.AddConnector(type, "A1", "C3");
-        c.Underlying.GetCTConnector().spPr.prstGeom.prst.Should().Be(expected);
+        s.AddConnector(type, "A1", "C3");
+        PresetGeometryOf(wb).Should().Be(expectedPreset);
     }
 
     [Fact]
@@ -45,15 +45,19 @@ public class ConnectorTests
             flipH: true, tailEnd: ConnectorEnd.Arrow,
             lineWidthPoints: 2.0);
 
-        var anchor = (NPOI.XSSF.UserModel.XSSFClientAnchor)c.Underlying.GetAnchor();
-        anchor.Dx1.Should().Be(115661);
-        anchor.Dx2.Should().Be(891268);
-        anchor.Col1.Should().Be(8);
-        anchor.Row1.Should().Be(40);
+        var anchor = SavedOoxml.DrawingXml(wb).Root!
+            .Element(SavedOoxml.Xdr + "twoCellAnchor")!;
+        var from = anchor.Element(SavedOoxml.Xdr + "from")!;
+        ((int)from.Element(SavedOoxml.Xdr + "col")!).Should().Be(8);
+        ((int)from.Element(SavedOoxml.Xdr + "row")!).Should().Be(40);
+        ((long)from.Element(SavedOoxml.Xdr + "colOff")!).Should().Be(115661);
+        ((long)anchor.Element(SavedOoxml.Xdr + "to")!
+            .Element(SavedOoxml.Xdr + "colOff")!).Should().Be(891268);
 
-        var ct = c.Underlying.GetCTConnector();
-        ct.spPr.xfrm.flipH.Should().BeTrue();
-        ct.spPr.ln.tailEnd.type.Should().Be(ST_LineEndType.arrow);
+        var spPr = anchor.Descendants(SavedOoxml.Xdr + "spPr").Single();
+        SavedOoxml.BoolAttr(spPr.Element(SavedOoxml.Dml + "xfrm"), "flipH").Should().BeTrue();
+        ((string?)spPr.Element(SavedOoxml.Dml + "ln")!
+            .Element(SavedOoxml.Dml + "tailEnd")!.Attribute("type")).Should().Be("arrow");
     }
 
     [Fact]
@@ -72,8 +76,8 @@ public class ConnectorTests
 
         ms.Position = 0;
         using var opened = Workbook.Open(ms);
-        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)opened["S"].Underlying.CreateDrawingPatriarch();
-        drawing.GetShapes().Count.Should().Be(1);
+        SavedOoxml.DrawingXml(opened).Descendants(SavedOoxml.Xdr + "cxnSp")
+            .Should().HaveCount(1);
     }
 
     [Fact]
@@ -84,4 +88,13 @@ public class ConnectorTests
         Action act = () => s.AddConnector(ConnectorType.Straight, null!, "C3");
         act.Should().Throw<ArgumentNullException>();
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    /// <summary>The preset geometry (a:prstGeom/@prst) of the sole connector.</summary>
+    private static string? PresetGeometryOf(IWorkbook wb)
+        => (string?)SavedOoxml.DrawingXml(wb)
+            .Descendants(SavedOoxml.Xdr + "cxnSp").Single()
+            .Descendants(SavedOoxml.Dml + "prstGeom").Single()
+            .Attribute("prst");
 }

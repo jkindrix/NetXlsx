@@ -137,10 +137,7 @@ public class PictureApiTests
             using (var wb = Workbook.Open(path))
             {
                 var sh = wb["S"];
-                // NPOI surfaces pictures via XSSFDrawing.GetShapes;
-                // simplest confirmation is that the file opens and the
-                // workbook reports one picture data entry.
-                wb.Underlying.GetAllPictures().Count.Should().Be(1);
+                sh.Pictures.Should().HaveCount(1);
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
@@ -153,6 +150,6 @@ public class PictureApiTests
         var sh = wb.AddSheet("S");
         sh.AddPicture("A1", s_tinyPng, ImageFormat.Png);
         sh.AddPicture("E5", s_tinyJpeg, ImageFormat.Jpeg);
-        wb.Underlying.GetAllPictures().Count.Should().Be(2);
+        sh.Pictures.Should().HaveCount(2);
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -104,9 +105,9 @@ public class ChartTests
 
         ms.Position = 0;
         using var opened = Workbook.Open(ms);
-        // Chart survives as drawing part
-        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)opened["Data"].Underlying.CreateDrawingPatriarch();
-        drawing.GetCharts().Count.Should().Be(1);
+        // Chart survives as a graphic frame in the drawing part.
+        SavedOoxml.DrawingXml(opened)
+            .Descendants(SavedOoxml.Xdr + "graphicFrame").Should().HaveCount(1);
     }
 
     [Fact]

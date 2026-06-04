@@ -25,6 +25,14 @@ internal static class SavedOoxml
     public static readonly XNamespace Main =
         "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 
+    /// <summary>The spreadsheet drawing namespace (xdr:).</summary>
+    public static readonly XNamespace Xdr =
+        "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
+
+    /// <summary>The drawingml main namespace (a:).</summary>
+    public static readonly XNamespace Dml =
+        "http://schemas.openxmlformats.org/drawingml/2006/main";
+
     /// <summary>
     /// Saves <paramref name="wb"/> to memory and returns the XML of the
     /// given OPC part (e.g. <c>xl/workbook.xml</c>).
@@ -56,6 +64,10 @@ internal static class SavedOoxml
     /// </summary>
     public static XDocument SheetXml(IWorkbook wb, int sheetNumber = 1)
         => Part(wb, $"xl/worksheets/sheet{sheetNumber}.xml");
+
+    /// <summary><c>xl/drawings/drawingN.xml</c> of the saved workbook.</summary>
+    public static XDocument DrawingXml(IWorkbook wb, int drawingNumber = 1)
+        => Part(wb, $"xl/drawings/drawing{drawingNumber}.xml");
 
     /// <summary>
     /// Reads an OOXML boolean attribute: <c>"1"</c> or <c>"true"</c> is

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -93,8 +94,8 @@ public class RowHeightAndPictureAnchorTests
 
         ms.Position = 0;
         using var opened = Workbook.Open(ms);
-        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)opened["S"].Underlying.CreateDrawingPatriarch();
-        drawing.GetShapes().Count.Should().Be(1);
+        SavedOoxml.DrawingXml(opened).Descendants(SavedOoxml.Xdr + "pic")
+            .Should().HaveCount(1);
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -51,8 +52,8 @@ public class ShapeTests
         s.AddShape(ShapeType.Ellipse, "D1", "F3");
         s.AddShape(ShapeType.Triangle, "A4", "C6");
 
-        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)s.Underlying.CreateDrawingPatriarch();
-        drawing.GetShapes().Count.Should().Be(3);
+        SavedOoxml.DrawingXml(wb).Descendants(SavedOoxml.Xdr + "sp")
+            .Should().HaveCount(3);
     }
 
     [Fact]
@@ -80,8 +81,8 @@ public class ShapeTests
 
         ms.Position = 0;
         using var opened = Workbook.Open(ms);
-        var drawing = (NPOI.XSSF.UserModel.XSSFDrawing)opened["S"].Underlying.CreateDrawingPatriarch();
-        drawing.GetShapes().Count.Should().Be(1);
+        SavedOoxml.DrawingXml(opened).Descendants(SavedOoxml.Xdr + "sp")
+            .Should().HaveCount(1);
     }
 
     [Fact]
