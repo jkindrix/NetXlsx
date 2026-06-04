@@ -1,9 +1,14 @@
 // Coverage for the v1.1 workbook-protection slice: IWorkbook.Protect /
 // Unprotect / IsProtected; WorkbookProtection record semantics; file
 // round-trip preservation.
+//
+// Granular lock flags have no public read-back, so tests assert on the
+// persisted <workbookProtection> element (engine-agnostic; see SavedOoxml)
+// rather than reaching through `.Underlying` into NPOI.
 
 using System;
 using System.IO;
+using System.Xml.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -56,9 +61,10 @@ public class WorkbookProtectionTests
         wb.AddSheet("S");
         wb.Protect();
         wb.IsProtected.Should().BeTrue();
-        wb.Underlying.IsStructureLocked().Should().BeTrue();
-        wb.Underlying.IsWindowsLocked().Should().BeFalse();
-        wb.Underlying.IsRevisionLocked().Should().BeFalse();
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeTrue();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeFalse();
+        SavedOoxml.BoolAttr(prot, "lockRevision").Should().BeFalse();
     }
 
     [Fact]
@@ -67,9 +73,10 @@ public class WorkbookProtectionTests
         using var wb = Workbook.Create();
         wb.AddSheet("S");
         wb.Protect(new WorkbookProtection { Structure = true, Windows = true, Revision = true });
-        wb.Underlying.IsStructureLocked().Should().BeTrue();
-        wb.Underlying.IsWindowsLocked().Should().BeTrue();
-        wb.Underlying.IsRevisionLocked().Should().BeTrue();
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeTrue();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeTrue();
+        SavedOoxml.BoolAttr(prot, "lockRevision").Should().BeTrue();
     }
 
     [Fact]
@@ -77,14 +84,14 @@ public class WorkbookProtectionTests
     {
         using var wb = Workbook.Create();
         wb.AddSheet("S");
-        // First lock everything via raw NPOI, then call Protect with
-        // only Structure — windows + revision should clear.
-        wb.Underlying.LockWindows();
-        wb.Underlying.LockRevision();
+        // First lock everything, then call Protect with only Structure —
+        // windows + revision should clear.
+        wb.Protect(new WorkbookProtection { Structure = true, Windows = true, Revision = true });
         wb.Protect(WorkbookProtection.LockStructure);
-        wb.Underlying.IsStructureLocked().Should().BeTrue();
-        wb.Underlying.IsWindowsLocked().Should().BeFalse();
-        wb.Underlying.IsRevisionLocked().Should().BeFalse();
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeTrue();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeFalse();
+        SavedOoxml.BoolAttr(prot, "lockRevision").Should().BeFalse();
     }
 
     [Fact]
@@ -95,9 +102,12 @@ public class WorkbookProtectionTests
         wb.Protect(new WorkbookProtection { Structure = true, Windows = true, Revision = true });
         wb.Unprotect();
         wb.IsProtected.Should().BeFalse();
-        wb.Underlying.IsStructureLocked().Should().BeFalse();
-        wb.Underlying.IsWindowsLocked().Should().BeFalse();
-        wb.Underlying.IsRevisionLocked().Should().BeFalse();
+        // Engines differ on the element's fate after Unprotect (cleared
+        // flags vs removed element); the contract is that no lock survives.
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeFalse();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeFalse();
+        SavedOoxml.BoolAttr(prot, "lockRevision").Should().BeFalse();
     }
 
     [Fact]
@@ -122,12 +132,9 @@ public class WorkbookProtectionTests
         wb.ProtectWithPassword("hunter2");
 
         wb.IsProtected.Should().BeTrue();
-        var ct = wb.Underlying.GetCTWorkbook().workbookProtection;
-        ct.workbookPassword.Should().NotBeNull();
-        ct.workbookPassword.Length.Should().Be(2, "16-bit XOR verifier");
-        // hunter2 -> 0xC258 per NPOI.CryptoFunctions.CreateXorVerifier1
-        ct.workbookPassword[0].Should().Be(0xC2);
-        ct.workbookPassword[1].Should().Be(0x58);
+        // hunter2 -> 0xC258 per the legacy 16-bit XOR verifier
+        // (NPOI CryptoFunctions.CreateXorVerifier1; pinned cross-engine).
+        PasswordAttr(wb).Should().Be("C258");
     }
 
     [Fact]
@@ -136,8 +143,9 @@ public class WorkbookProtectionTests
         using var wb = Workbook.Create();
         wb.AddSheet("S");
         wb.ProtectWithPassword("pwd");
-        wb.Underlying.IsStructureLocked().Should().BeTrue();
-        wb.Underlying.IsWindowsLocked().Should().BeFalse();
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeTrue();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeFalse();
     }
 
     [Fact]
@@ -146,8 +154,9 @@ public class WorkbookProtectionTests
         using var wb = Workbook.Create();
         wb.AddSheet("S");
         wb.ProtectWithPassword("pwd", new WorkbookProtection { Structure = true, Windows = true });
-        wb.Underlying.IsStructureLocked().Should().BeTrue();
-        wb.Underlying.IsWindowsLocked().Should().BeTrue();
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeTrue();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeTrue();
     }
 
     [Fact]
@@ -164,14 +173,19 @@ public class WorkbookProtectionTests
         using var wb = Workbook.Create();
         wb.AddSheet("S");
         wb.ProtectWithPassword("pwd");
-        wb.Underlying.GetCTWorkbook().workbookProtection.workbookPassword.Should().NotBeNull();
+        PasswordAttr(wb).Should().NotBeNull();
 
         wb.Unprotect();
         wb.IsProtected.Should().BeFalse();
-        // Note: Unprotect clears the lock flags but not necessarily the
-        // workbookPassword byte[] — the CT_WorkbookProtection element
-        // becomes effectively a no-op without the structure/windows/
-        // revision flags. Documented in implementation-notes.md.
+        // Note: the engines differ on whether the workbookPassword
+        // verifier itself survives Unprotect — without the structure/
+        // windows/revision flags the element is effectively a no-op, so
+        // the contract is only that no lock remains. Documented in
+        // implementation-notes.md.
+        var prot = ProtectionElement(wb);
+        SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeFalse();
+        SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeFalse();
+        SavedOoxml.BoolAttr(prot, "lockRevision").Should().BeFalse();
     }
 
     [Fact]
@@ -186,14 +200,18 @@ public class WorkbookProtectionTests
                 wb.ProtectWithPassword("hunter2");
                 wb.Save(path);
             }
+
+            // The persisted artifact carries the verifier…
+            var prot = SavedOoxml.PartFromFile(path, "xl/workbook.xml").Root!
+                .Element(SavedOoxml.Main + "workbookProtection");
+            prot.Should().NotBeNull();
+            prot!.Attribute("workbookPassword")!.Value.Should().Be("C258");
+
+            // …and the reopened workbook both reads it back and re-persists it.
             using (var wb = Workbook.Open(path))
             {
                 wb.IsProtected.Should().BeTrue();
-                var pwdBytes = wb.Underlying.GetCTWorkbook().workbookProtection.workbookPassword;
-                pwdBytes.Should().NotBeNull();
-                pwdBytes.Length.Should().Be(2);
-                pwdBytes[0].Should().Be(0xC2);
-                pwdBytes[1].Should().Be(0x58);
+                PasswordAttr(wb).Should().Be("C258");
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
@@ -214,11 +232,21 @@ public class WorkbookProtectionTests
             using (var wb = Workbook.Open(path))
             {
                 wb.IsProtected.Should().BeTrue();
-                wb.Underlying.IsStructureLocked().Should().BeTrue();
-                wb.Underlying.IsRevisionLocked().Should().BeTrue();
-                wb.Underlying.IsWindowsLocked().Should().BeFalse();
+                var prot = ProtectionElement(wb);
+                SavedOoxml.BoolAttr(prot, "lockStructure").Should().BeTrue();
+                SavedOoxml.BoolAttr(prot, "lockRevision").Should().BeTrue();
+                SavedOoxml.BoolAttr(prot, "lockWindows").Should().BeFalse();
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    private static XElement? ProtectionElement(IWorkbook wb)
+        => SavedOoxml.WorkbookXml(wb).Root!
+            .Element(SavedOoxml.Main + "workbookProtection");
+
+    private static string? PasswordAttr(IWorkbook wb)
+        => ProtectionElement(wb)?.Attribute("workbookPassword")?.Value;
 }
