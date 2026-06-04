@@ -67,6 +67,17 @@ def main(argv: list[str]) -> int:
     p.add_argument("baseline_dir")
     p.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD_PCT,
                    help=f"Percent regression that fails the build (default: {DEFAULT_THRESHOLD_PCT}%%)")
+    # Short benchmarks on shared CI runners swing wildly between runs of
+    # IDENTICAL code (calibration A/B, runs 26983785312 vs 26983940069 at the
+    # same engine source: Open_OneCell_Read 377 µs -> 881 µs, +133%). Below
+    # the floor they are smoke checks, not gate lines — a much looser
+    # threshold still catches the order-of-magnitude class.
+    p.add_argument("--micro-floor-ms", type=float, default=5.0,
+                   help="Benchmarks with a baseline mean below this many ms "
+                        "use --micro-threshold instead (default: 5.0)")
+    p.add_argument("--micro-threshold", type=float, default=150.0,
+                   help="Percent regression that fails sub-floor benchmarks "
+                        "(default: 150)")
     args = p.parse_args(argv)
 
     current = load_benchmarks(args.results_dir)
@@ -80,7 +91,8 @@ def main(argv: list[str]) -> int:
         return 0  # don't fail the first run; the workflow uploads the new baseline as an artifact
 
     print(f"Comparing {len(current)} current benchmark(s) against {len(baseline)} baseline(s)")
-    print(f"Regression threshold: {args.threshold:.1f}%")
+    print(f"Regression threshold: {args.threshold:.1f}% "
+          f"(sub-{args.micro_floor_ms:g}ms benchmarks: {args.micro_threshold:.1f}%)")
     print()
 
     regressions = 0
@@ -106,10 +118,12 @@ def main(argv: list[str]) -> int:
         b = baseline[k]["Mean"]
         c = current[k]["Mean"]
         pct = (c - b) / b * 100
-        if pct > args.threshold:
+        limit = (args.micro_threshold if b < args.micro_floor_ms * 1_000_000
+                 else args.threshold)
+        if pct > limit:
             status = "REGRESSION"
             regressions += 1
-        elif pct < -args.threshold:
+        elif pct < -limit:
             status = "improvement"
             improvements += 1
         else:
@@ -122,9 +136,11 @@ def main(argv: list[str]) -> int:
           f"{unchanged} unchanged, {new} new, {removed} removed.")
 
     if regressions > 0:
-        print(f"\nFAIL: {regressions} benchmark(s) regressed more than {args.threshold:.1f}%.", file=sys.stderr)
-        print("To accept the regression as the new baseline, re-run benchmarks locally and "
-              "commit the updated JSON files to benchmarks/baseline/.", file=sys.stderr)
+        print(f"\nFAIL: {regressions} benchmark(s) regressed beyond their threshold.", file=sys.stderr)
+        print("If this is noise, re-run the workflow. To accept an intentional change, "
+              "refresh the compared baseline deliberately (CI: commit the run artifact's "
+              "briefs to benchmarks/ci-baseline/; local: copy results to "
+              "benchmarks/baseline/) — see benchmarks/README.md.", file=sys.stderr)
         return 1
     return 0
 

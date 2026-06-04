@@ -80,12 +80,14 @@ jobs:
 
       # The gate. Compares against the COMMITTED CI baseline; a missing
       # baseline fails loud (bootstrap: dispatch a run, commit its artifact
-      # briefs to benchmarks/ci-baseline/). Threshold 25%: the committed-
-      # baseline comparison spans different runner instances, which adds
-      # variance over the design DoD's 10% — 25% still fails decisively on
-      # the regression class that matters while not crying wolf on runner
-      # jitter. If a run looks like pure noise (test-stack-only bumps),
-      # re-run before treating it as real.
+      # briefs to benchmarks/ci-baseline/). Thresholds are calibrated from an
+      # identical-code A/B (runs 26983785312 vs 26983940069): macro benches
+      # swung up to +27.6% and sub-ms benches up to +133% between runs of the
+      # SAME source on these runners, so 40% is the flat line (fails
+      # decisively on the >=2x regression class the gate exists for) and
+      # sub-5ms benchmarks gate at 150% (smoke checks, not design lines —
+      # see compare-bench.py). If a failure looks like pure noise, re-run
+      # before treating it as real.
       - name: Compare against committed CI baseline
         run: |
           if [ -z "$(ls -A benchmarks/ci-baseline 2>/dev/null)" ]; then
@@ -93,7 +95,7 @@ jobs:
             echo "::error::Seed it deliberately: dispatch this workflow, download the bench-results artifact, commit its briefs to benchmarks/ci-baseline/."
             exit 1
           fi
-          python3 benchmarks/compare-bench.py benchmarks/current benchmarks/ci-baseline --threshold 25
+          python3 benchmarks/compare-bench.py benchmarks/current benchmarks/ci-baseline --threshold 40
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7

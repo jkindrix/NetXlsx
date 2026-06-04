@@ -52,7 +52,8 @@ python3 benchmarks/compare-bench.py BenchmarkDotNet.Artifacts/results benchmarks
 The `.github/workflows/bench.yml` gate compares every run — main push,
 PR, and dispatch alike — against the briefs **committed** in
 `benchmarks/ci-baseline/` and fails the build if any benchmark
-regresses more than **25%** (`compare-bench.py`). There is no rolling
+regresses more than **40%** (sub-5 ms benchmarks: **150%** —
+`compare-bench.py`). There is no rolling
 cache and no `continue-on-error`: a regression that lands on main keeps
 failing the gate until it is either fixed or the baseline is refreshed
 deliberately. A missing committed baseline fails the run loud rather
@@ -73,13 +74,15 @@ Refresh deliberately, after accepting an intentional perf change:
 3. Copy the `*-report-brief.json` files into `benchmarks/ci-baseline/`,
    inspect the diff, and commit.
 
-The threshold is 25% (the design DoD says 10%): committed-baseline
-comparisons span different runner instances, which adds variance over a
-same-runner A/B — 25% still fails decisively on real regressions while
-not crying wolf on runner jitter (`ColdCreateAndSave` in particular has
-high variance because OPC packaging dominates and varies with disk
-state). If a failure looks like pure noise on a test-stack-only bump,
-re-run the workflow before treating it as real.
+The thresholds (design DoD says 10%) are calibrated from an
+identical-code A/B on the hosted runners (runs 26983785312 vs
+26983940069, same engine source): macro benchmarks swung up to +27.6%
+and sub-millisecond benchmarks up to +133% between runs. Hence the flat
+line is 40% — it fails decisively on the ≥2× regression class the gate
+exists for — and benchmarks whose baseline mean is under 5 ms gate at
+150% (they are smoke checks; `ColdCreateAndSave` and the micro reads
+vary with disk and runner state). If a failure looks like pure noise on
+a test-stack-only bump, re-run the workflow before treating it as real.
 
 ## Running locally
 
