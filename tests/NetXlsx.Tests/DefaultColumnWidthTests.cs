@@ -26,19 +26,15 @@ public class DefaultColumnWidthTests
     [Fact]
     public void DefaultColumnWidth_Null_Suppresses_XML_Attribute()
     {
-        using var ms = new MemoryStream();
-        using (var wb = Workbook.Create())
-        {
-            wb.AddSheet("S");
-            wb.Save(ms, leaveOpen: true);
-        }
+        using var wb = Workbook.Create();
+        wb.AddSheet("S");
 
-        ms.Position = 0;
-        using var reader = new StreamReader(ms);
-        // Extract just the sheet1 XML from the OPC package
-        using var wb2 = Workbook.Open(ms);
-        var sfp = wb2["S"].Underlying.GetCTWorksheet().sheetFormatPr;
-        sfp.defaultColWidth.Should().Be(0, "0 means 'not set' / omitted");
+        // The persisted sheetFormatPr must omit @defaultColWidth so Excel
+        // derives the width from the Normal font metrics (I-78).
+        var sfp = SavedOoxml.SheetXml(wb).Root!
+            .Element(SavedOoxml.Main + "sheetFormatPr");
+        ((double?)sfp?.Attribute("defaultColWidth"))
+            .Should().BeNull("an unset default width must be omitted from the XML");
     }
 
     [Fact]

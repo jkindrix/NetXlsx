@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -351,9 +352,8 @@ public class TableApiTests
 
         t.HasTotalsRow.Should().BeFalse();
         t.Address.Should().Be("A1:A2");
-        // CT-metadata cleared
-        t.Underlying.GetCTTable().tableColumns.tableColumn[0].totalsRowFunction
-            .Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_TotalsRowFunction.none);
+        // Persisted table metadata cleared
+        TotalsRowFunctionOf(wb, 0).Should().Be("none");
     }
 
     [Fact]
@@ -383,9 +383,8 @@ public class TableApiTests
 
         // Cell B4 carries the SUBTOTAL formula.
         sh["B4"].GetFormula().Should().Be("=SUBTOTAL(109,Sales[Revenue])");
-        // CT metadata set to sum.
-        t.Underlying.GetCTTable().tableColumns.tableColumn[1].totalsRowFunction
-            .Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_TotalsRowFunction.sum);
+        // Persisted table metadata set to sum.
+        TotalsRowFunctionOf(wb, 1).Should().Be("sum");
     }
 
     [Theory]
@@ -446,8 +445,7 @@ public class TableApiTests
 
         sh["A3"].GetString().Should().Be("Total");
         // Label sets function back to none (label takes precedence over function).
-        t.Underlying.GetCTTable().tableColumns.tableColumn[0].totalsRowFunction
-            .Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_TotalsRowFunction.none);
+        TotalsRowFunctionOf(wb, 0).Should().Be("none");
     }
 
     [Fact]
@@ -553,4 +551,18 @@ public class TableApiTests
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    /// <summary>
+    /// tableColumn/@totalsRowFunction of the first table part; the OOXML
+    /// default (absent attribute) is "none".
+    /// </summary>
+    private static string TotalsRowFunctionOf(IWorkbook wb, int columnIndex)
+        => (string?)SavedOoxml.Part(wb, "xl/tables/table1.xml").Root!
+            .Element(SavedOoxml.Main + "tableColumns")!
+            .Elements(SavedOoxml.Main + "tableColumn")
+            .ElementAt(columnIndex)
+            .Attribute("totalsRowFunction") ?? "none";
+
 }

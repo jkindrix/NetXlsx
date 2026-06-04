@@ -3,6 +3,8 @@
 
 using System;
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -48,7 +50,7 @@ public class DataValidationTests
         using var wb = Workbook.Create();
         var sh = wb.AddSheet("S");
         sh.AddValidation("A1:A5", DataValidation.List("Yes", "No", "Maybe"));
-        sh.Underlying.GetDataValidations().Count.Should().Be(1);
+        Validations(wb).Should().HaveCount(1);
     }
 
     [Fact]
@@ -57,7 +59,7 @@ public class DataValidationTests
         using var wb = Workbook.Create();
         var sh = wb.AddSheet("S");
         sh.AddValidation("B2:B10", DataValidation.IntegerBetween(1, 100));
-        sh.Underlying.GetDataValidations().Count.Should().Be(1);
+        Validations(wb).Should().HaveCount(1);
     }
 
     [Fact]
@@ -70,7 +72,7 @@ public class DataValidationTests
         sh.AddValidation("C1:C5", DataValidation.DateBetween(new DateOnly(2020, 1, 1), new DateOnly(2030, 12, 31)));
         sh.AddValidation("D1:D5", DataValidation.TextLengthAtMost(20));
         sh.AddValidation("E1:E5", DataValidation.Custom("ISNUMBER(E1)"));
-        sh.Underlying.GetDataValidations().Count.Should().Be(5);
+        Validations(wb).Should().HaveCount(5);
     }
 
     [Fact]
@@ -101,7 +103,7 @@ public class DataValidationTests
         using var wb = Workbook.Create();
         var sh = wb.AddSheet("S");
         sh.AddValidation("A1", DataValidation.IntegerBetween(1, 10));
-        sh.Underlying.GetDataValidations().Count.Should().Be(1);
+        Validations(wb).Should().HaveCount(1);
     }
 
     // ---- File round-trip ----------------------------------------------
@@ -119,10 +121,14 @@ public class DataValidationTests
                 sh.AddValidation("B1:B10", DataValidation.IntegerBetween(0, 100));
                 wb.Save(path);
             }
+            // The persisted artifact carries both validations…
+            SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml").Root!
+                .Element(SavedOoxml.Main + "dataValidations")!
+                .Elements(SavedOoxml.Main + "dataValidation").Should().HaveCount(2);
+            // …and a reopened workbook re-persists them.
             using (var wb = Workbook.Open(path))
             {
-                var validations = wb["S"].Underlying.GetDataValidations();
-                validations.Count.Should().Be(2);
+                Validations(wb).Should().HaveCount(2);
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
@@ -137,8 +143,16 @@ public class DataValidationTests
         using var wb = Workbook.Create();
         var sh = wb.AddSheet("S");
         sh.AddValidation("A1", DataValidation.DateBetween(new DateOnly(2026, 5, 22), new DateOnly(2027, 1, 1)));
-        var dv = sh.Underlying.GetDataValidations()[0];
-        dv.ValidationConstraint.Formula1.Should().Contain("DATE(2026,5,22)");
-        dv.ValidationConstraint.Formula2.Should().Contain("DATE(2027,1,1)");
+        var dv = Validations(wb).Single();
+        dv.Element(SavedOoxml.Main + "formula1")!.Value.Should().Contain("DATE(2026,5,22)");
+        dv.Element(SavedOoxml.Main + "formula2")!.Value.Should().Contain("DATE(2027,1,1)");
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    private static XElement[] Validations(IWorkbook wb)
+        => SavedOoxml.SheetXml(wb).Root!
+            .Element(SavedOoxml.Main + "dataValidations")
+            ?.Elements(SavedOoxml.Main + "dataValidation").ToArray()
+            ?? Array.Empty<XElement>();
 }
