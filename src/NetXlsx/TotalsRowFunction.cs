@@ -1,7 +1,7 @@
 // TotalsRowFunction — per-column aggregation function for table
 // totals rows (decision I-64). Mirrors the OOXML
 // ST_TotalsRowFunction enum, exposed as a NetXlsx-namespaced public
-// enum so callers don't take an NPOI dependency in their code.
+// enum so callers don't take an engine dependency in their code.
 
 namespace NetXlsx;
 

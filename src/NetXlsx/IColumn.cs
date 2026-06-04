@@ -27,13 +27,13 @@ public interface IColumn
 
     /// <summary>
     /// Whether this column is hidden in Excel. Setter takes effect
-    /// immediately; reading reflects the current NPOI state.
+    /// immediately; reading reflects the current stored state.
     /// </summary>
     bool Hidden { get; set; }
 
     /// <summary>
-    /// Column width in Excel "character" units. Setting writes through
-    /// to NPOI's 256ths-of-a-character integer representation.
+    /// Column width in Excel "character" units — stored as the OOXML
+    /// <c>col/@width</c> value (fractional widths are preserved).
     /// </summary>
     double WidthUnits { get; set; }
 
@@ -61,7 +61,8 @@ public interface IColumn
     /// <summary>
     /// Sets <paramref name="style"/> as the column's default style. New
     /// cells in this column inherit it; existing cells are unaffected
-    /// (NPOI's <c>SetDefaultColumnStyle</c> semantics).
+    /// (matches NPOI's <c>SetDefaultColumnStyle</c> semantics — the v1
+    /// contract, kept across the I-82 engine swap).
     /// </summary>
     IColumn SetDefaultStyle(CellStyle style);
 }

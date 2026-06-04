@@ -14,9 +14,9 @@ namespace NetXlsx;
 /// </summary>
 public enum ImageFormat
 {
-    /// <summary>PNG (lossless, alpha supported). NPOI <c>PictureType.PNG</c>.</summary>
+    /// <summary>PNG (lossless, alpha supported).</summary>
     Png,
-    /// <summary>JPEG (lossy, no alpha). NPOI <c>PictureType.JPEG</c>.</summary>
+    /// <summary>JPEG (lossy, no alpha).</summary>
     Jpeg,
 }
 

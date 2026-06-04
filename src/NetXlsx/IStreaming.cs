@@ -6,10 +6,11 @@ using System.Threading.Tasks;
 namespace NetXlsx;
 
 /// <summary>
-/// A write-only, append-only workbook backed by NPOI's SXSSF streaming
-/// writer. Deliberately narrower than <see cref="IWorkbook"/>: random
-/// access is absent because once a row is flushed past the window, it
-/// cannot be revisited (design §6.3, decision #7).
+/// A write-only, append-only workbook backed by a forward-only
+/// streaming writer with bounded memory. Deliberately narrower than
+/// <see cref="IWorkbook"/>: random access is absent because once a row
+/// is flushed past the window, it cannot be revisited (design §6.3,
+/// decision #7).
 /// <para>
 /// Use via <see cref="Workbook.CreateStreaming"/>. For random-access
 /// workbooks (read, edit, multi-pass write) use
@@ -147,9 +148,11 @@ public interface IStreamingCell
     /// <summary>
     /// Writes a string value. Streaming cells store plain strings only —
     /// the rich-text surface from <see cref="ICell.SetRichText"/> is
-    /// deliberately absent here because NPOI's SXSSF writer (NPOI 2.7.x)
-    /// emits formatting runs as plain text, dropping per-run fonts at
-    /// flush time. Decision I-50 / decision #7 (streaming type-honesty).
+    /// deliberately absent here. The restriction originated with the v1
+    /// streaming engine (NPOI's SXSSF dropped per-run fonts at flush
+    /// time) and is retained at v2.0.0; offering it would be an
+    /// additive surface decision. Decision I-50 / decision #7
+    /// (streaming type-honesty).
     /// </summary>
     void SetString(string value);
     /// <summary>Writes a double value.</summary>

@@ -105,11 +105,11 @@ public class WorkbookOptions
 public sealed class StreamingOptions : WorkbookOptions
 {
     /// <summary>
-    /// Number of rows held in memory before older rows are flushed to
-    /// disk. Passed through to NPOI's
-    /// <c>SXSSFWorkbook(XSSFWorkbook, int)</c> constructor. Larger
-    /// values reduce flush frequency but raise peak memory. Default:
-    /// <c>100</c> (NPOI default).
+    /// Number of rows held in memory per sheet before older rows are
+    /// flushed to the on-disk spill stream. Larger values reduce flush
+    /// frequency but raise peak memory. Default: <c>100</c> (the
+    /// classic SXSSF window size — the v1 contract, kept across the
+    /// I-82 engine swap).
     /// </summary>
     public int RowAccessWindowSize { get; init; } = 100;
 

@@ -13,8 +13,9 @@ namespace NetXlsx;
 /// not update after the snapshot is taken.
 /// <para>
 /// The pools sit behind decision #4: equal <see cref="CellStyle"/>
-/// values share one underlying NPOI <c>ICellStyle</c>, and fonts
-/// with identical properties share one <c>IFont</c>. Hit / miss
+/// values share one underlying stylesheet <c>&lt;xf&gt;</c> entry, and
+/// fonts with identical properties share one <c>&lt;font&gt;</c>
+/// entry. Hit / miss
 /// counters track how often this dedup kicked in vs allocated a
 /// new entry.
 /// </para>

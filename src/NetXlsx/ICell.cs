@@ -11,9 +11,10 @@ using System.Threading.Tasks;
 namespace NetXlsx;
 
 /// <summary>
-/// Classification of a cell's stored value. Mirrors NPOI's
-/// <c>CellType</c> with the addition of <c>Date</c>, which OOXML stores
-/// as a numeric value with a date-style number format.
+/// Classification of a cell's stored value. Mirrors the classic
+/// POI/NPOI <c>CellType</c> taxonomy with the addition of <c>Date</c>,
+/// which OOXML stores as a numeric value with a date-style number
+/// format.
 /// </summary>
 public enum CellKind
 {
@@ -166,7 +167,9 @@ public interface ICell
     /// <see cref="CellKind.Formula"/>.
     /// </summary>
     /// <exception cref="FormulaException">
-    /// The formula body is empty or NPOI cannot parse it.
+    /// The formula body is empty or fails structural validation
+    /// (unbalanced parentheses, unterminated string literal). Semantic
+    /// errors are Excel's to report — no evaluation is attempted.
     /// </exception>
     void SetFormula(string formula);
 
@@ -255,8 +258,8 @@ public interface ICell
     /// </para>
     /// <para>
     /// Resolved through the workbook's style-pool dedup (decision #4) —
-    /// equal merged styles share one underlying NPOI
-    /// <c>ICellStyle</c> index.
+    /// equal merged styles share one underlying stylesheet
+    /// <c>&lt;xf&gt;</c> (cellXfs) entry.
     /// </para>
     /// </summary>
     ICell Style(CellStyle style);

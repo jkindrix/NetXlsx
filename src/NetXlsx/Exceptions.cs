@@ -53,7 +53,8 @@ public sealed class SheetNameException : WorkbookException
 /// <summary>
 /// Thrown when opening a file that is not a valid <c>.xlsx</c> workbook —
 /// e.g., an <c>.xls</c> binary, a corrupt OPC package, or arbitrary
-/// non-OOXML content. Wraps the underlying NPOI exception when available.
+/// non-OOXML content. Wraps the underlying parse or packaging
+/// exception when available.
 /// </summary>
 public sealed class MalformedFileException : WorkbookException
 {
@@ -90,12 +91,12 @@ public sealed class ResourceLimitExceededException : WorkbookException
 
 /// <summary>
 /// Thrown by <see cref="ICell.SetFormula"/> (and other formula-related
-/// APIs) when a formula expression cannot be parsed by NPOI, or when a
-/// caller supplies an empty body. The original NPOI exception is
-/// preserved as <see cref="Exception.InnerException"/> when present;
-/// the message includes the offending expression. Per design decision
-/// #46 / §7.8, no formula evaluation is attempted — this exception
-/// covers parse-time failures only.
+/// APIs) when a formula expression fails structural validation
+/// (unbalanced parentheses, unterminated string literal), or when a
+/// caller supplies an empty body. The message includes the offending
+/// expression. Per design decision #46 / §7.8, no formula evaluation
+/// is attempted — semantic errors are Excel's to report; this
+/// exception covers structural failures only.
 /// </summary>
 public sealed class FormulaException : WorkbookException
 {

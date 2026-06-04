@@ -55,8 +55,8 @@ public interface ISheet
 
     /// <summary>
     /// Appends a new row immediately after the last written row. For an
-    /// empty sheet, creates row 1. Idempotent w.r.t. the underlying NPOI
-    /// row index (never overwrites an existing row).
+    /// empty sheet, creates row 1. Idempotent w.r.t. the stored row
+    /// index (never overwrites an existing row).
     /// </summary>
     IRow AppendRow();
 
@@ -208,7 +208,7 @@ public interface ISheet
     /// <param name="flipV">Whether the connector is flipped vertically.</param>
     /// <param name="headEnd">Arrowhead decoration on the start (head) end.</param>
     /// <param name="tailEnd">Arrowhead decoration on the end (tail) end.</param>
-    /// <param name="lineWidthPoints">Line width in points. <c>null</c> leaves the NPOI default.</param>
+    /// <param name="lineWidthPoints">Line width in points. <c>null</c> omits the explicit width (Excel renders the theme-referenced default).</param>
     /// <returns>The created connector — use <see cref="IConnector.Underlying"/> for advanced properties.</returns>
     IConnector AddConnector(ConnectorType type, string startCell, string endCell,
         Color? lineColor = null,
@@ -308,10 +308,11 @@ public interface ISheet
     System.Collections.Generic.IReadOnlyList<string> MergedRanges { get; }
 
     /// <summary>
-    /// Whether this sheet is hidden from Excel's tab bar. Mirrors NPOI's
-    /// <c>SheetVisibility.Hidden</c>. (NPOI's <c>VeryHidden</c> state —
-    /// hidden from VBA — is not modeled here in v1; reach through
-    /// <see cref="Underlying"/> if you need it.)
+    /// Whether this sheet is hidden from Excel's tab bar — OOXML's
+    /// <c>&lt;sheet state="hidden"&gt;</c>. (The <c>veryHidden</c> state —
+    /// hidden even from Excel's Unhide list, settable only from code —
+    /// is not modeled here in v1; reach through
+    /// <see cref="IWorkbook.Underlying"/> if you need it.)
     /// </summary>
     bool Hidden { get; set; }
 
@@ -364,12 +365,10 @@ public interface ISheet
     /// owning workbook has been disposed, or may produce undefined
     /// values otherwise.
     /// <para>
-    /// NPOI 2.7.3's <c>XSSFSheet</c> has no public <c>RemoveTable</c>
-    /// method (the source has one upstream but the 2.7.x line never
-    /// exposed it). This implementation reaches across the
-    /// protected <c>POIXMLDocumentPart.RemoveRelation</c> via
-    /// reflection, scoped to that single method. Captured in
-    /// <c>docs/implementation-notes.md</c>.
+    /// (The surface exists because the v1 engine, NPOI 2.7.3, never
+    /// exposed a public table-removal API — design.md I-63 records the
+    /// origin. The v1 reflection workaround died with the I-82 engine
+    /// swap; the SDK engine deletes the part through supported API.)
     /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="table"/> is null.</exception>

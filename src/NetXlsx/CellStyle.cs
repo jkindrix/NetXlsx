@@ -1,14 +1,14 @@
 // Cell style value record + supporting enums per design §6.7 / §6.8.
 // CellStyle equality is structural; the style-pool dedup (decision #4)
-// keys NPOI ICellStyle instances on CellStyle value equality.
+// keys stylesheet <xf> (cellXfs) entries on CellStyle value equality.
 
 namespace NetXlsx;
 
 /// <summary>
 /// Immutable description of a cell's visual style. Equality is structural:
 /// two <see cref="CellStyle"/> values with the same property values share
-/// one underlying NPOI <c>ICellStyle</c> via the workbook's style-pool
-/// dedup (decision #4). Properties typed as <c>Nullable{T}</c>: <c>null</c>
+/// one underlying stylesheet <c>&lt;xf&gt;</c> entry via the workbook's
+/// style-pool dedup (decision #4). Properties typed as <c>Nullable{T}</c>: <c>null</c>
 /// means "inherit existing" when applied via <see cref="ICell.Style"/>;
 /// a non-null value overwrites the cell's current style on that axis.
 /// </summary>
