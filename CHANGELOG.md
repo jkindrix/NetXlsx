@@ -9,6 +9,8 @@ changes (decision I19).
 
 ## [Unreleased]
 
+## [2.0.1] — 2026-06-04
+
 ### Fixed
 
 - **The v2.0.0 bulk-write O(n²) regression (I-87).** The SDK engine's
