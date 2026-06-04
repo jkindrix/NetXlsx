@@ -168,9 +168,24 @@ internal sealed class OoxmlCell : ICell
             case CellKind.String: return ReadString(c!);
             case CellKind.Bool: return ReadBool(c!) ? "TRUE" : "FALSE";
             case CellKind.Number:
-                return ReadNumber(c!).ToString("G17", CultureInfo.InvariantCulture);
+                return FormatNumberForDisplay(c!);
             default: return string.Empty;
         }
+    }
+
+    // §7.10: a date-formatted numeric cell renders through its number format
+    // (the ExcelDateFormat renderer — NPOI-engine parity over the cross-engine
+    // matrix, Excel-correct on NPOI's mangle corners); plain numbers stay
+    // invariant G17. A negative serial has no date to render — both engines
+    // fall back to the raw value.
+    private string FormatNumberForDisplay(S.Cell c)
+    {
+        double value = ReadNumber(c);
+        if (value >= 0 && IsDateFormatted(c)
+            && Wb.StylePool.NumberFormatOf(c.StyleIndex?.Value ?? 0) is { } code
+            && ExcelDateFormat.TryFormat(code, Wb.FromSerial(value), value) is { } rendered)
+            return rendered;
+        return value.ToString("G17", CultureInfo.InvariantCulture);
     }
 
     public double? GetNumber()
