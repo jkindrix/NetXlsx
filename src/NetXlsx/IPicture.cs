@@ -21,10 +21,43 @@ public enum ImageFormat
 }
 
 /// <summary>
+/// A solid line border around a picture (decision I-86). Set via
+/// <see cref="IPicture.Border"/>; written as
+/// <c>&lt;a:ln&gt;&lt;a:solidFill&gt;…&lt;/a:solidFill&gt;&lt;/a:ln&gt;</c>
+/// on the picture's shape properties.
+/// </summary>
+public sealed record PictureBorder
+{
+    /// <summary>Explicit sRGB border color. The alpha channel is ignored
+    /// (drawing line colors are emitted as <c>a:srgbClr</c> RGB — the same
+    /// convention as <see cref="ISheet.AddShape"/>'s line color).</summary>
+    public Color? Color { get; init; }
+
+    /// <summary>
+    /// Theme-based border color (the I-81 slot encoding: 0 = lt1, 1 = dk1,
+    /// 2 = lt2, 3 = dk2, 4–9 = accent1–6, 10 = hlink, 11 = folHlink).
+    /// When set, takes precedence over <see cref="Color"/> (the I-79
+    /// precedence rule) and is written as <c>a:schemeClr</c>.
+    /// <see cref="NetXlsx.ThemeColor.Tint"/> must be 0 — drawing line
+    /// colors carry no cell-style tint axis; tint-modulated borders are
+    /// reachable through <see cref="IPicture.Underlying"/>.
+    /// </summary>
+    public ThemeColor? ThemeColor { get; init; }
+
+    /// <summary>
+    /// Line width in points (1 pt = 12700 EMU), or null to omit the
+    /// width attribute (Excel renders its default hairline width).
+    /// Must be &gt; 0 and ≤ 1584 (the ST_LineWidth maximum).
+    /// </summary>
+    public double? WidthPoints { get; init; }
+}
+
+/// <summary>
 /// A picture anchored on an <see cref="ISheet"/>. Constructed via
-/// <see cref="ISheet.AddPicture(string, byte[], ImageFormat)"/>. v1.1
-/// exposes the format and sheet — for resizing, anchor manipulation,
-/// or alt-text, reach through <see cref="Underlying"/>.
+/// <see cref="ISheet.AddPicture(string, byte[], ImageFormat)"/>. Exposes
+/// the format, sheet, anchor geometry, and the solid line border
+/// (<see cref="Border"/>, decision I-86) — for resizing, anchor
+/// manipulation, or alt-text, reach through <see cref="Underlying"/>.
 /// </summary>
 public interface IPicture
 {
@@ -57,6 +90,36 @@ public interface IPicture
 
     /// <summary>The raw image bytes (decision I-81).</summary>
     byte[] Data { get; }
+
+    /// <summary>
+    /// The picture's solid line border (decision I-86), or null when the
+    /// picture has no border (no <c>&lt;a:ln&gt;</c> element, or one whose
+    /// fill is <c>a:noFill</c> — both render borderless).
+    /// <para>
+    /// <b>Set is a wholesale replacement of the <c>&lt;a:ln&gt;</c>
+    /// element:</b> line properties this record does not model (dash
+    /// style, gradient fill, caps, compound lines, …) do NOT survive a
+    /// read-modify-write, and setting null removes ANY existing
+    /// <c>&lt;a:ln&gt;</c> including a non-solid one. Full line control
+    /// remains available through <see cref="Underlying"/>.
+    /// </para>
+    /// <para>
+    /// Get returns null for borders this record cannot represent
+    /// faithfully: non-solid fills, color models other than
+    /// <c>a:srgbClr</c>/<c>a:schemeClr</c>, scheme names outside the I-81
+    /// slot map (e.g. <c>phClr</c>), and colors carrying transform child
+    /// elements (alpha, lumMod, …) — a documented divergence, never a
+    /// silent approximation.
+    /// </para>
+    /// </summary>
+    /// <exception cref="System.ArgumentException">On set: neither
+    /// <see cref="PictureBorder.Color"/> nor
+    /// <see cref="PictureBorder.ThemeColor"/> is set, or the theme color
+    /// has a non-zero tint.</exception>
+    /// <exception cref="System.ArgumentOutOfRangeException">On set: the
+    /// theme index is outside 0–11, or
+    /// <see cref="PictureBorder.WidthPoints"/> is not in (0, 1584].</exception>
+    PictureBorder? Border { get; set; }
 
     /// <summary>
     /// Escape hatch — direct access to the underlying Open XML SDK

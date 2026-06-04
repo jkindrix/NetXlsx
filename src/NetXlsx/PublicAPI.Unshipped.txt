@@ -1,1 +1,10 @@
 #nullable enable
+NetXlsx.IPicture.Border.get -> NetXlsx.PictureBorder?
+NetXlsx.IPicture.Border.set -> void
+NetXlsx.PictureBorder
+NetXlsx.PictureBorder.Color.get -> NetXlsx.Color?
+NetXlsx.PictureBorder.Color.init -> void
+NetXlsx.PictureBorder.ThemeColor.get -> NetXlsx.ThemeColor?
+NetXlsx.PictureBorder.ThemeColor.init -> void
+NetXlsx.PictureBorder.WidthPoints.get -> double?
+NetXlsx.PictureBorder.WidthPoints.init -> void

@@ -98,6 +98,29 @@ internal sealed class ThemeInfo
         return ResolveByName(IndexToName[index], tint);
     }
 
+    /// <summary>
+    /// Maps a drawingML scheme color name to its I-81 slot index
+    /// (the inverse of <see cref="IndexToName"/>), normalizing the
+    /// tx1/bg1/tx2/bg2 aliases the same way <see cref="ResolveByName"/>
+    /// does. Null for names outside the slot map (e.g. "phClr") —
+    /// used by the picture-border read-back (decision I-86).
+    /// </summary>
+    public static int? SchemeNameToIndex(string? name)
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+
+        string key = name switch
+        {
+            "tx1" => "dk1",
+            "bg1" => "lt1",
+            "tx2" => "dk2",
+            "bg2" => "lt2",
+            _ => name,
+        };
+        int i = Array.IndexOf(IndexToName, key);
+        return i >= 0 ? i : null;
+    }
+
     /// <summary>EMU width for a 1-based lnRef idx; null if out of range.</summary>
     public int? LineWidthEmu(int oneBasedIdx)
     {
