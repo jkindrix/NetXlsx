@@ -23,19 +23,10 @@
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
   </ItemGroup>
 
-  <!-- Consumer-side MSBuild guards (AOT/trim block per decision I2).
-       Packed at buildTransitive/ so the guards flow through ProjectReference
-       chains to indirect consumers. -->
-  <ItemGroup>
-    <None Include="buildTransitive\NetXlsx.targets"
-          Pack="true"
-          PackagePath="buildTransitive\$(PackageId).targets"
-          Visible="false" />
-    <None Include="buildTransitive\NetXlsx.targets"
-          Pack="true"
-          PackagePath="build\$(PackageId).targets"
-          Visible="false" />
-  </ItemGroup>
+  <!-- The consumer-side AOT/trim MSBuild guards (NXLS0100/0101, decision I2)
+       were REMOVED at the v2.0.0 cutover: the Open XML SDK engine passed the
+       PublishTrimmed + PublishAot audit (zero IL/AOT warnings; representative
+       create/style/save/open surface verified under a native binary). -->
 
   <!-- Wire the source generator into this library.
        The generator project's output is referenced as an analyzer assembly. -->
