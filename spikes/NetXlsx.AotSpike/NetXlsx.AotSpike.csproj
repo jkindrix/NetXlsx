@@ -26,6 +26,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Deliberate post-v2.0.0: this spike is the HISTORICAL I2-era probe of
+         NPOI's AOT/trim posture (see Program.cs header). It is not part of the
+         shipped library closure; the reference stays so the measured evidence
+         keeps compiling while NPOI remains pinned for the test-side oracles. -->
     <PackageReference Include="NPOI" />
   </ItemGroup>
 

@@ -1,5 +1,13 @@
 // Spike 4 — AOT / trim posture
 //
+// HISTORICAL (2026-06-04): this spike measured the *NPOI* engine's AOT/trim
+// posture and fed the pre-v1 roadmap matrix (decision I2). The v2.0.0 engine
+// swap (I-82) retired NPOI from the library; the shipped engine's AOT/trim
+// posture was re-audited against DocumentFormat.OpenXml with a separate
+// probe (clean PublishTrimmed + PublishAot, zero warnings — NetXlsx now
+// declares <IsAotCompatible>). The NPOI reference below is deliberate: it
+// preserves the spike as measured evidence, not part of any shipped closure.
+//
 // Goal: publish a minimal program that exercises NPOI's xlsx write path
 // under PublishAot=true + PublishTrimmed=true. Capture:
 //   - Number of trim/AOT analyzer warnings (IL2xxx / IL3xxx)

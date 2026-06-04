@@ -198,7 +198,7 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes
 - [Roadmap](docs/roadmap.md) — binary feature matrix v1.0 / v1.1 / v2.0 / v3.0 / Never, per-release DoD, process rules.
 - [Implementation notes](docs/implementation-notes.md) — patterns and lessons from the implementation phase (not yet a methodology — see file header).
 - [Scheduled spikes](docs/scheduled-spikes.md) — quarterly re-checks (historical: the NPOI AOT/trim re-check is retired with the v2.0.0 engine swap).
-- [NPOI workarounds](docs/npoi-workarounds.md) — catalog of NPOI quirks the facade routes around (currently empty by design).
+- [NPOI workarounds](docs/npoi-workarounds.md) — historical: the NPOI quirk catalog, retired empty at the v2.0.0 engine swap.
 - [Pre-impl spikes](spikes/results/) — measured outcomes for style-dedup feasibility, streaming back-pressure, async wrapping cost, and AOT/trim posture.
 - [Changelog](CHANGELOG.md) — Keep-a-Changelog format, slice-level entries with public-API deltas.
 
