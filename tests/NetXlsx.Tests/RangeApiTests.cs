@@ -174,10 +174,15 @@ public class RangeApiTests
         sheet.Range("A1:D4").Value(1);
         sheet.Range("A1:D4").Apply(new CellStyle { Bold = true });
 
-        var idx = sheet["A1"].Underlying.CellStyle.Index;
+        var sheetXml = SavedOoxml.SheetXml(wb);
+        var idx = SavedOoxml.CellStyleIndex(sheetXml, "A1");
+        idx.Should().NotBeNull("the styled cell must carry an explicit style index");
         for (int r = 1; r <= 4; r++)
             for (int c = 1; c <= 4; c++)
-                sheet[r, c].Underlying.CellStyle.Index.Should().Be(idx);
+            {
+                var address = $"{(char)('A' + c - 1)}{r}";
+                SavedOoxml.CellStyleIndex(sheetXml, address).Should().Be(idx);
+            }
     }
 
     // ---- Merge() ------------------------------------------------------
@@ -226,7 +231,8 @@ public class RangeApiTests
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
         sheet.Range("A1:B2").Value(1).Apply(new CellStyle { NumberFormat = NumberFormats.Currency });
-        var styleIdxBefore = sheet["A1"].Underlying.CellStyle.Index;
+        var styleIdxBefore = SavedOoxml.CellStyleIndex(SavedOoxml.SheetXml(wb), "A1");
+        styleIdxBefore.Should().NotBeNull("the styled cell must carry an explicit style index");
 
         sheet.Range("A1:B2").ClearContents();
 
@@ -235,7 +241,7 @@ public class RangeApiTests
                 sheet[r, c].Kind.Should().Be(CellKind.Empty);
 
         // Style index remains because Clear only clears the cell value.
-        sheet["A1"].Underlying.CellStyle.Index.Should().Be(styleIdxBefore);
+        SavedOoxml.CellStyleIndex(SavedOoxml.SheetXml(wb), "A1").Should().Be(styleIdxBefore);
     }
 
     // ---- Round-trip ---------------------------------------------------

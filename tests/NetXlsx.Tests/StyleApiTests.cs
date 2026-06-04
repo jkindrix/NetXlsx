@@ -83,7 +83,7 @@ public class StyleApiTests
         sheet["A1"].SetNumber(1234.56);
         sheet["A1"].Style(new CellStyle { NumberFormat = NumberFormats.Currency });
 
-        sheet["A1"].Underlying.CellStyle.GetDataFormatString().Should().Be(NumberFormats.Currency);
+        sheet["A1"].GetStyle().NumberFormat.Should().Be(NumberFormats.Currency);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class StyleApiTests
         sheet["A1"].SetNumber(1234.56);
         sheet["A1"].NumberFormat(NumberFormats.NumberTwo);
 
-        sheet["A1"].Underlying.CellStyle.GetDataFormatString().Should().Be(NumberFormats.NumberTwo);
+        sheet["A1"].GetStyle().NumberFormat.Should().Be(NumberFormats.NumberTwo);
     }
 
     [Fact]
@@ -105,9 +105,12 @@ public class StyleApiTests
         sheet["A1"].SetString("Header");
         sheet["A1"].Style(new CellStyle { Bold = true });
 
-        var font = sheet["A1"].Underlying.CellStyle.GetFont(wb.Underlying);
-        font.IsBold.Should().BeTrue();
+        // The persisted stylesheet carries a bold font…
+        SavedOoxml.StylesXml(wb).Descendants(SavedOoxml.Main + "font")
+            .Should().Contain(f => f.Element(SavedOoxml.Main + "b") != null,
+                "a bold cell font must persist as <font><b/>");
 
+        // …and the public read-back agrees.
         var roundtripped = sheet["A1"].GetStyle();
         roundtripped.Bold.Should().Be(true);
     }
@@ -120,9 +123,12 @@ public class StyleApiTests
         sheet["A1"].SetString("hi");
         sheet["A1"].Style(new CellStyle { Background = Color.LightGray });
 
-        sheet["A1"].Underlying.CellStyle.FillPattern.Should()
-            .Be(NPOI.SS.UserModel.FillPattern.SolidForeground);
+        // The persisted stylesheet carries a solid pattern fill…
+        SavedOoxml.StylesXml(wb).Descendants(SavedOoxml.Main + "patternFill")
+            .Should().Contain(p => (string?)p.Attribute("patternType") == "solid",
+                "a background color must persist as a solid patternFill");
 
+        // …and the public read-back agrees.
         var rt = sheet["A1"].GetStyle();
         rt.Background.Should().Be(Color.LightGray);
     }
@@ -156,11 +162,13 @@ public class StyleApiTests
             sheet[i, 1].Style(style);
         }
 
-        var firstIdx = sheet[1, 1].Underlying.CellStyle.Index;
+        var sheetXml = SavedOoxml.SheetXml(wb);
+        var firstIdx = SavedOoxml.CellStyleIndex(sheetXml, "A1");
+        firstIdx.Should().NotBeNull("the styled cell must carry an explicit style index");
         for (int i = 2; i <= 100; i++)
         {
-            sheet[i, 1].Underlying.CellStyle.Index.Should().Be(firstIdx,
-                "structurally-equal styles must share one NPOI ICellStyle (decision #4)");
+            SavedOoxml.CellStyleIndex(sheetXml, $"A{i}").Should().Be(firstIdx,
+                "structurally-equal styles must share one cellXfs entry (decision #4)");
         }
     }
 
@@ -175,7 +183,10 @@ public class StyleApiTests
         sheet["A1"].SetDate(new DateOnly(2026, 5, 16));
         sheet["A2"].SetDate(new DateOnly(2026, 5, 17));
 
-        sheet["A1"].Underlying.CellStyle.Index.Should().Be(sheet["A2"].Underlying.CellStyle.Index,
+        var sheetXml = SavedOoxml.SheetXml(wb);
+        var a1 = SavedOoxml.CellStyleIndex(sheetXml, "A1");
+        a1.Should().NotBeNull("the date default style must persist on the cell");
+        SavedOoxml.CellStyleIndex(sheetXml, "A2").Should().Be(a1,
             "the date default style is allocated through the pool and dedup-shared");
     }
 

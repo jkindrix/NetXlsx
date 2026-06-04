@@ -141,21 +141,17 @@ public class DateTimeApiTests
     public void SetDate_Preserves_Existing_Explicit_Style()
     {
         // Decision I-18: default date format applies only if cell has no
-        // prior style. We don't have a public style API yet, but we can
-        // exercise the contract through .Underlying.
+        // prior style — exercised through the public styling API.
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
         var cell = sheet["A1"];
 
-        // Manually set a non-default style via the escape hatch.
-        var customStyle = wb.Underlying.CreateCellStyle();
-        var customFormatId = wb.Underlying.CreateDataFormat().GetFormat("dd-mmm-yyyy");
-        customStyle.DataFormat = customFormatId;
-        cell.Underlying.CellStyle = customStyle;
+        // Set a non-default date format before writing the date.
+        cell.NumberFormat("dd-mmm-yyyy");
 
         cell.SetDate(new DateOnly(2026, 5, 16));
 
-        // The custom style index should be preserved (not replaced by our default).
-        cell.Underlying.CellStyle.Index.Should().Be(customStyle.Index);
+        // The custom format should be preserved (not replaced by our default).
+        cell.GetStyle().NumberFormat.Should().Be("dd-mmm-yyyy");
     }
 }

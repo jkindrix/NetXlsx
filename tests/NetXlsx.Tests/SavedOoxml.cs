@@ -14,6 +14,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Xml.Linq;
 
 namespace NetXlsx.Tests;
@@ -63,6 +64,23 @@ internal static class SavedOoxml
     /// </summary>
     public static bool BoolAttr(XElement? element, string attribute)
         => element?.Attribute(attribute)?.Value is "1" or "true";
+
+    /// <summary>
+    /// The <c>&lt;c&gt;</c> element for an A1 address in a saved sheet
+    /// XML, or null when the cell was never materialized.
+    /// </summary>
+    public static XElement? Cell(XDocument sheetXml, string a1Address)
+        => sheetXml.Root!.Element(Main + "sheetData")!
+            .Elements(Main + "row")
+            .SelectMany(r => r.Elements(Main + "c"))
+            .FirstOrDefault(c => (string?)c.Attribute("r") == a1Address);
+
+    /// <summary>
+    /// The cell's persisted style index (<c>c/@s</c> into cellXfs);
+    /// null when absent (= xf 0, the default).
+    /// </summary>
+    public static int? CellStyleIndex(XDocument sheetXml, string a1Address)
+        => (int?)Cell(sheetXml, a1Address)?.Attribute("s");
 
     private static XDocument ReadPart(Stream zipStream, string partPath)
     {
