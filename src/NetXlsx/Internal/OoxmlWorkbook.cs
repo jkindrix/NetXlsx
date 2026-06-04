@@ -45,6 +45,12 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     private bool? _date1904;
     private bool _disposed;
     private int _inMutation;
+    // Relationship-orphan OPC parts captured at Open (decision #44 / SDK-quirk
+    // #18): zip entries with a registered content type but no relationship
+    // chain are invisible to the SDK's typed part graph and would be dropped
+    // by the clone-based Save. Empty for created workbooks and for real-world
+    // files (whose parts are rel-wired), so the common case carries no cost.
+    private readonly List<(Uri Uri, string ContentType, byte[] Bytes)> _orphanParts = new();
 
     internal WorkbookOptions Options => _options;
 
@@ -217,6 +223,11 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             throw new MalformedFileException(malformedMessage);
         }
 
+        // Snapshot the source bytes before the SDK takes the backing stream —
+        // the orphan-part capture below enumerates the package's raw OPC view,
+        // which must not race the live document over the same stream.
+        byte[] sourceBytes = backing.ToArray();
+
         SpreadsheetDocument document;
         try
         {
@@ -247,6 +258,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
 
             wb.IndexExistingSheets();
             wb.EnforceReadLimits();
+            wb.CaptureOrphanParts(sourceBytes);
             return wb;
         }
         catch (WorkbookException)
@@ -301,6 +313,58 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             var wrapper = new OoxmlSheet(this, name, wsPart);
             _sheetsByIndex.Add(wrapper);
             _sheetsByName[name] = wrapper;
+        }
+    }
+
+    /// <summary>
+    /// Captures relationship-orphan OPC parts (decision #44 / SDK-quirk #18).
+    /// The SDK part graph is relationship-defined, so a zip entry with a
+    /// registered content type but no .rels chain — legal OPC, and pinned by
+    /// the golden RoundTripPreservationTests — is invisible to
+    /// <c>GetAllParts()</c> and silently dropped by the clone-based
+    /// <see cref="Save(Stream, bool)"/>. This snapshots each orphan's URI,
+    /// content type, and bytes from the source's raw packaging view;
+    /// <see cref="ReinjectOrphanParts"/> restores them into every Save.
+    /// </summary>
+    private void CaptureOrphanParts(byte[] sourceBytes)
+    {
+        var reachable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in _document.GetAllParts())
+            reachable.Add(part.Uri.ToString());
+
+        using var ms = new MemoryStream(sourceBytes, writable: false);
+        using var pkg = System.IO.Packaging.Package.Open(ms, FileMode.Open, FileAccess.Read);
+        foreach (var part in pkg.GetParts())
+        {
+            // Relationship parts are infrastructure, not content — the clone
+            // re-emits the ones that matter and an orphan has none by definition.
+            if (part.ContentType == "application/vnd.openxmlformats-package.relationships+xml")
+                continue;
+            if (reachable.Contains(part.Uri.ToString()))
+                continue;
+
+            using var s = part.GetStream(FileMode.Open, FileAccess.Read);
+            using var buf = new MemoryStream();
+            s.CopyTo(buf);
+            _orphanParts.Add((part.Uri, part.ContentType, buf.ToArray()));
+        }
+    }
+
+    /// <summary>
+    /// Re-adds the captured orphan parts to the finalized clone bytes in
+    /// <paramref name="tmp"/>. A part that has since become reachable (e.g.
+    /// the consumer wired a relationship through the OpenXmlDocument escape
+    /// hatch) is already in the clone and is skipped.
+    /// </summary>
+    private void ReinjectOrphanParts(MemoryStream tmp)
+    {
+        using var pkg = System.IO.Packaging.Package.Open(tmp, FileMode.Open, FileAccess.ReadWrite);
+        foreach (var (uri, contentType, bytes) in _orphanParts)
+        {
+            if (pkg.PartExists(uri)) continue;
+            var part = pkg.CreatePart(uri, contentType, System.IO.Packaging.CompressionOption.Normal);
+            using var s = part.GetStream(FileMode.Create, FileAccess.Write);
+            s.Write(bytes, 0, bytes.Length);
         }
     }
 
@@ -453,8 +517,21 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         using (var tmp = new MemoryStream())
         {
             using (_document.Clone(tmp)) { }
-            tmp.Position = 0;
-            tmp.CopyTo(stream);
+            if (_orphanParts.Count > 0)
+            {
+                // The clone walked the relationship graph and dropped the
+                // orphans (SDK-quirk #18) — restore them. Closing the package
+                // may dispose tmp, so read via ToArray (valid on a disposed
+                // MemoryStream) instead of repositioning.
+                ReinjectOrphanParts(tmp);
+                byte[] finished = tmp.ToArray();
+                stream.Write(finished, 0, finished.Length);
+            }
+            else
+            {
+                tmp.Position = 0;
+                tmp.CopyTo(stream);
+            }
         }
 
         if (!leaveOpen) stream.Dispose();
