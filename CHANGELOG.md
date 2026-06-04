@@ -9,6 +9,19 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Added
+
+- **Picture borders (I-86).** `IPicture.Border` — its first mutating member —
+  reads and writes a solid line border (`<a:ln><a:solidFill>…`) on the
+  picture's shape properties via the new `PictureBorder` record
+  (`Color`/`ThemeColor`/`WidthPoints`; theme wins over explicit RGB per the
+  I-79 precedence rule, theme aliases `tx1`/`bg1`/`tx2`/`bg2` are normalized
+  on read). Set replaces the `<a:ln>` element wholesale and `null` removes
+  it; get returns `null` for borders the record cannot represent faithfully
+  (non-solid fills, unmapped scheme names, color-transform children) rather
+  than approximating. Closes the ANIMAL PSS "10306 blister card" fidelity
+  pin — a regenerated picture border now needs no escape-hatch authoring.
+
 ## [2.0.1] — 2026-06-04
 
 ### Fixed

@@ -1523,6 +1523,67 @@ targets (">500k styled cells/s"; "30k rows < 3s" extrapolated to ~12 s).
 - No public symbol added or changed — XML-doc additions on the hatches
   only; PublicAPI snapshot untouched.
 
+*Picture borders — **I-86** (added 2026-06-04, post-v2.0.1; operator decision
+2026-05-31, advisor O-13 sign-off 2026-06-04 — the O-2 fidelity pin: the
+ANIMAL PSS "10306 blister card specs" picture carries
+`<a:ln><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:ln>` that
+`AddPicture` could not reproduce).* The first mutating `IPicture` member:
+
+```csharp
+public sealed record PictureBorder
+{
+    public Color? Color { get; init; }            // explicit sRGB (alpha ignored — the AddShape lineColor convention)
+    public ThemeColor? ThemeColor { get; init; }  // wins over Color (I-79 precedence); Tint must be 0
+    public double? WidthPoints { get; init; }     // null → omit @w; (0, 1584] (ST_LineWidth max)
+}
+// on IPicture:
+PictureBorder? Border { get; set; }               // null = no visible border
+```
+
+- **Option A (record + property) over a fluent `SetBorder`** — properties are
+  the house idiom for value-shaped state (`IColumn.Width`, `ISheet.Hidden`);
+  one symmetric member beats two asymmetric. A 6th `AddPicture` overload was
+  rejected earlier (operator steer 2026-05-31): a border is orthogonal to
+  anchoring and composes with all 5 anchor forms as a post-add property.
+- **Set is a WHOLESALE replacement of `<a:ln>`** (pinned at sign-off):
+  unmodeled line props (dash, gradient, caps, compound) do not survive a
+  read-modify-write, and set-null removes ANY `<a:ln>` including a non-solid
+  one (explicit removal intent). The hatch remains the full-control path.
+  Emission: `<a:ln [w=pts×12700]><a:solidFill><a:srgbClr|a:schemeClr/>
+  </a:solidFill></a:ln>`, positioned before the CT_ShapeProperties effect/3-D/
+  extLst tail (the SDK-quirk-#8 discipline applied locally; open-mutate
+  fixture pins it against an injected `<a:effectLst>`).
+- **Get returns null for non-representable borders** rather than a silent
+  approximation: absent `<a:ln>`, `noFill` (the source file's borderless
+  `<a:ln w="1"><a:noFill/>` idiom renders identically to no `<a:ln>` — no
+  representation needed, pinned), gradients/patterns, color models other than
+  srgb/scheme, scheme names outside the I-81 slot map (`phClr`), and color
+  TRANSFORM children (`alpha`, `lumMod`, …) on an otherwise-solid color.
+- **Theme emission uses the canonical I-81 slot names** (index 1 → `dk1`);
+  the alias forms (`tx1`/`bg1`/`tx2`/`bg2`) are normalized on READ via
+  `ThemeInfo.SchemeNameToIndex` (the one place the slot map lives). The
+  ANIMAL PSS `val="tx1"` therefore reads as `ThemeColor(1)` and re-emits as
+  `val="dk1"` — render-identical in Excel (spreadsheet drawings carry no
+  clrMap remapping; tx1 IS dk1 there).
+- **`ThemeColor.Tint` must be 0** (ArgumentException otherwise): drawingML
+  line colors have no cell-style `@tint` axis — Excel encodes drawing tints
+  as `lumMod`/`lumOff` transform children whose mapping from the cell tint
+  formula is approximate. Emitting an approximation would be quiet styling
+  drift; tint-modulated borders stay hatch territory (additive later if
+  demanded, own I-NN).
+- **Corrupt `a:srgbClr/@val` fails loud** as `MalformedFileException` (the
+  I-83/quirk-#13 default for a new opened-file leaf parse site).
+- Validation: neither color axis set → ArgumentException; theme index
+  outside 0–11 → ArgumentOutOfRangeException; `WidthPoints` outside
+  (0, 1584] (NaN included) → ArgumentOutOfRangeException. Thrown with
+  paramName `value` (the property-setter convention).
+- Tests: `PictureBorderTests` (emission shape, alias read, slot matrix,
+  wholesale replace, non-representable→null matrix, fail-loud, validation,
+  save/reopen round-trip, open-mutate ordering), `DisposedWorkbookMatrixTests`
+  gained the full `IPicture` group (13 rows — Border is the first mutating
+  member, so the interface previously had no group), PublicAPI snapshot +
+  `PublicApiSnapshotTests` (new public type `PictureBorder`).
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
