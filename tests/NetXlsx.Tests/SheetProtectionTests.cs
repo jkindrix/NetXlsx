@@ -1,9 +1,16 @@
 // Coverage for the v1.1 sheet-protection slice: ISheet.Protect /
 // Unprotect / IsProtected; SheetProtection record semantics; file
-// round-trip preservation; granular lock flags propagated to NPOI.
+// round-trip preservation; granular lock flags propagated to the
+// persisted <sheetProtection> element.
+//
+// OOXML's lock attributes have INVERTED defaults: the format/insert/
+// delete/sort/autoFilter/pivotTables family defaults to TRUE (locked)
+// when absent, so "locked" often serializes as an OMITTED attribute and
+// "unlocked" as an explicit "0". LockFlag encodes that.
 
 using System;
 using System.IO;
+using System.Xml.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -115,16 +122,16 @@ public class SheetProtectionTests
         var sh = wb.AddSheet("S");
         sh.Protect(options: SheetProtection.LockAll);
 
-        // Inspect the NPOI sheet-protection element to confirm the
+        // Inspect the persisted sheet-protection element to confirm the
         // flags were propagated.
-        var sp = sh.Underlying.GetCTWorksheet().sheetProtection;
+        var sp = ProtectionElement(wb);
         sp.Should().NotBeNull();
-        sp.formatCells.Should().BeTrue();
-        sp.formatColumns.Should().BeTrue();
-        sp.insertRows.Should().BeTrue();
-        sp.deleteColumns.Should().BeTrue();
-        sp.sort.Should().BeTrue();
-        sp.autoFilter.Should().BeTrue();
+        LockFlag(sp!, "formatCells").Should().BeTrue();
+        LockFlag(sp!, "formatColumns").Should().BeTrue();
+        LockFlag(sp!, "insertRows").Should().BeTrue();
+        LockFlag(sp!, "deleteColumns").Should().BeTrue();
+        LockFlag(sp!, "sort").Should().BeTrue();
+        LockFlag(sp!, "autoFilter").Should().BeTrue();
     }
 
     [Fact]
@@ -134,11 +141,12 @@ public class SheetProtectionTests
         var sh = wb.AddSheet("S");
         sh.Protect(options: new SheetProtection { LockSort = true });
 
-        var sp = sh.Underlying.GetCTWorksheet().sheetProtection;
-        sp.sort.Should().BeTrue();
-        // Other flags remain at their NPOI defaults (false).
-        sp.formatCells.Should().BeFalse();
-        sp.autoFilter.Should().BeFalse();
+        var sp = ProtectionElement(wb);
+        sp.Should().NotBeNull();
+        LockFlag(sp!, "sort").Should().BeTrue();
+        // Other flags remain unlocked.
+        LockFlag(sp!, "formatCells").Should().BeFalse();
+        LockFlag(sp!, "autoFilter").Should().BeFalse();
     }
 
     // ---- File round-trip ----------------------------------------------
@@ -164,9 +172,10 @@ public class SheetProtectionTests
             {
                 var sh = wb["S"];
                 sh.IsProtected.Should().BeTrue();
-                var sp = sh.Underlying.GetCTWorksheet().sheetProtection;
-                sp.formatCells.Should().BeTrue();
-                sp.sort.Should().BeTrue();
+                var sp = ProtectionElement(wb);
+                sp.Should().NotBeNull();
+                LockFlag(sp!, "formatCells").Should().BeTrue();
+                LockFlag(sp!, "sort").Should().BeTrue();
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
@@ -192,4 +201,21 @@ public class SheetProtectionTests
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    private static XElement? ProtectionElement(IWorkbook wb)
+        => SavedOoxml.SheetXml(wb).Root!
+            .Element(SavedOoxml.Main + "sheetProtection");
+
+    /// <summary>
+    /// Reads a sheetProtection lock attribute honoring its OOXML schema
+    /// default: the format/insert/delete/sort/autoFilter/pivotTables
+    /// family defaults to TRUE (locked) when the attribute is absent.
+    /// </summary>
+    private static bool LockFlag(XElement sp, string attribute, bool oxmlDefault = true)
+        => sp.Attribute(attribute) is { } a
+            ? a.Value is "1" or "true"
+            : oxmlDefault;
+
 }

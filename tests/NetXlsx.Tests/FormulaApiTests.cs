@@ -101,13 +101,14 @@ public class FormulaApiTests
         sheet["B1"].SetNumber(3);
         sheet["C1"].SetFormula("=A1+B1");
 
-        // No evaluator was called — NPOI's cached result remains its
-        // default. Excel will recompute on open. We assert through the
-        // escape hatch because there's no public surface for "what
-        // value did we pre-compute" (we don't).
-        var raw = sheet["C1"].Underlying;
-        raw.CachedFormulaResultType.Should().Be(NPOI.SS.UserModel.CellType.Numeric);
-        raw.NumericCellValue.Should().Be(0.0,
+        // No evaluator was called, so the persisted cell must carry the
+        // formula with no meaningful cached <v> — Excel recomputes on
+        // open (design decision #46). Engines differ on the artifact
+        // shape (NPOI emits an empty <v/>, the SDK engine omits it).
+        var cell = SavedOoxml.Cell(SavedOoxml.SheetXml(wb), "C1")!;
+        cell.Element(SavedOoxml.Main + "f")!.Value.Should().Be("A1+B1");
+        var v = cell.Element(SavedOoxml.Main + "v");
+        (v is null || v.Value is "" or "0").Should().BeTrue(
             "design decision #46 — formulas are written with no cached value; Excel recalculates on open");
     }
 

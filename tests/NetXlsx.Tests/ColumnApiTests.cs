@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -125,11 +126,13 @@ public class ColumnApiTests
         sheet.Column("A").SetDefaultStyle(new CellStyle { NumberFormat = NumberFormats.Currency });
         sheet.Column("A").SetDefaultStyle(new CellStyle { NumberFormat = NumberFormats.Currency });
 
-        // Default-style on a column doesn't materialize cells, but the
-        // style pool entry should be reused — verified indirectly by
-        // creating a cell and observing its style is set up.
-        var npoiStyle = sheet.Underlying.GetColumnStyle(0);
-        npoiStyle.Should().NotBeNull();
+        // Default-style on a column doesn't materialize cells; the
+        // persisted <col> entry must carry a style index.
+        var col = SavedOoxml.SheetXml(wb).Root!
+            .Element(SavedOoxml.Main + "cols")!
+            .Elements(SavedOoxml.Main + "col")
+            .First(c => (int?)c.Attribute("min") == 1);
+        ((int?)col.Attribute("style")).Should().NotBeNull();
     }
 
     // ---- ForEachPopulated --------------------------------------------
