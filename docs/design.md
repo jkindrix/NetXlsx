@@ -81,7 +81,7 @@ These are below the API contract but above implementation discretion. They are d
 |-----|--------------------------------|------------------------------------------------------------------------------|--------------------------------------------------------------------|
 | I1  | NPOI version pin               | `2.7.x` — exact patch chosen at scaffold (current candidate `2.7.3`); pinned in `Directory.Packages.props` | One source of truth; bumped via PR with golden-file diff review     |
 | I2  | AOT / trim posture             | **AOT-incompatible AND trim-incompatible.** Measured by spike 4 (2026-05-15) against NPOI 2.7.3: both `PublishAot=true` and `PublishTrimmed=true` produce binaries that throw `POIXMLException` at `XSSFWorkbook` init. The facade layer is AOT-clean by construction; the engine is not. Re-evaluate when NPOI removes its `System.Xml.Serialization` / `System.Reflection.Emit` dependencies | Spike-measured. See `spikes/results/spike-4-aot-trim.md` |
-| I3  | `AutoSizeColumn` on headless Linux | Ship with documented font dependency; if `libgdiplus` + a fallback font are unavailable, `AutoSizeColumn` throws `MissingFontException : WorkbookException` with installation guidance | NPOI's column-sizing requires font metrics; failing loud is better than silently producing wrong widths |
+| I3  | `AutoSizeColumn` on headless Linux | Ship with documented font dependency; if `libgdiplus` + a fallback font are unavailable, `AutoSizeColumn` throws `MissingFontException : WorkbookException` with installation guidance | NPOI's column-sizing requires font metrics; failing loud is better than silently producing wrong widths. *Superseded on the SDK engine by I-84 (embedded metric tables — environment-independent; the failure mode becomes "font not in the embedded set")* |
 | I4  | A1 parser — accepted forms     | See §6.11; canonical form returned by `ICell.Address` is uppercase, no `$`, no sheet prefix | Real callers paste many forms; canonicalizing on output makes diffs stable |
 | I5  | Source generator architecture  | `IIncrementalGenerator`; cross-assembly `[Worksheet]` types are ignored (only the current compilation is scanned); diagnostic catalog under `NXLS0001+` (see §6.12) | Modern Roslyn; same scoping rule as `System.Text.Json`; explicit diagnostic IDs prevent renumbering churn |
 | I6  | `GetValue<T>()` mismatch       | Returns `null` (for `T?`) or `default(T)` (for non-nullable `T`) when conversion fails; never throws on type mismatch. Throws only on dispose / sheet-removed states | Predictable; lets callers chain `?? fallback`; matches `IDataReader.GetValueOrDefault` convention |
@@ -621,23 +621,24 @@ without a new I-NN) → ✅ drawings (split: ✅ pictures; ✅ connectors/shapes
 round-trip — slice complete) → ✅ CF/validation/tables/autofilter/sort → ✅ charts →
 ✅ formulas/comments/hyperlinks + workbook protection → ✅ streaming (zero public-API
 change needed) → ✅ closeout (date `GetString` rendering + named-style persistence)
-→ **`IColumn.AutoSize` (embedded font metrics — its own slice, direction decided)
-←NEXT** → source-gen runtime helpers (verification only; sourcegen emits public-API
-calls) → cutover readiness.
+→ ✅ `IColumn.AutoSize` (embedded font metrics, I-84 — the LAST `NotYet()` stub;
+the SDK engine is now functionally complete) → **source-gen runtime helpers
+(verification only; sourcegen emits public-API calls) + cutover readiness ←NEXT**.
 
 *Cell-styles slice — deferred within the surface* (tracked here so a later slice
 picks them up, not lost): (a) ✅ LANDED (closeout sub-slice, 2026-06-03) — date-cell
 `GetString` renders through the cell's number format via `Internal/ExcelDateFormat.cs`.
 (b) ✅ LANDED (closeout sub-slice, 2026-06-03) — named styles persist into
 `cellStyleXfs`/`cellStyles` and rehydrate on open (the I-67 equivalent). (c)
-`IColumn.AutoSize` — STILL OPEN, the single remaining `NotYet()` stub; direction
-decided 2026-06-03 (operator): embedded font-metric tables generated from
-openly-licensed metric-compatible fonts (Carlito↔Calibri, Liberation↔Arial; numeric
-width tables only, no font-file embedding), zero runtime dependency — pillar #3
-("MIT all the way down") rules out a direct SixLabors.Fonts dependency surviving
-cutover. Unknown fonts keep the `MissingFontException` fail-loud contract; takes a
-fresh I-NN superseding I3's environment-dependence; cross-engine width parity is
-tolerance-based, not exact.
+✅ LANDED (AutoSize slice, 2026-06-03, decision **I-84** — see its sub-decision
+note below): embedded font-metric tables generated from openly-licensed
+metric-compatible fonts (Carlito↔Calibri, Liberation↔Arial/Times/Courier;
+numeric width tables only, no font-file embedding), zero runtime dependency —
+pillar #3 ("MIT all the way down") ruled out a direct SixLabors.Fonts
+dependency surviving cutover. Unknown fonts keep the `MissingFontException`
+fail-loud contract, now deterministic; cross-engine width parity is
+tolerance-based, not exact. **The deferral list is now EMPTY — the SDK
+engine has no remaining `NotYet()` stubs.**
 
 *Schema-validation gate — I-82 sub-decision (added 2026-05-31).* The engine
 swap's founding premise is that the Open XML SDK is schema-complete, so engine
@@ -1243,6 +1244,72 @@ when a table keyed by index gains its first entry on an OPENED file, ask what
 existing index references into that table mean (the xfId=0 re-parenting hazard
 was invisible in created-file fixtures).
 
+*AutoSize via embedded font metrics — I-82 sub-decision, **I-84** (added
+2026-06-03; supersedes I3's environment-dependence on the SDK engine).* The
+last `NotYet()` stub. `IColumn.AutoSize` on the SDK engine measures text with
+**embedded numeric font-metric tables** instead of the host's font stack:
+`tools/FontMetricsGen` (deliberately not in the solution; provenance rules in
+its README) parses the head/hhea/maxp/cmap/hmtx/loca/glyf tables of
+openly-licensed metric-compatible fonts and emits
+`Internal/FontMetricsTables.g.cs` — per-char advance widths for
+U+0020–U+00FF plus common typographic extras, the `'0'` glyph's ink width,
+and ascent/descent, all unitsPerEm-relative. **Only numbers ship; no font
+bytes** — the MIT posture (mission pillar #3) is untouched, which is also why
+a direct SixLabors.Fonts dependency was rejected (Apache-2.0 at 1.x, the Six
+Labors Split License at ≥2.0; today SixLabors is NPOI-transitive and the
+cutover deletes it).
+
+- **Metric set** (all SIL-OFL sources; regular/bold/italic/bold-italic each):
+  Carlito ↔ Calibri (+ Aptos / Aptos Narrow as the documented best-effort
+  stand-in — no open metric twin exists yet); Liberation Sans ↔ Arial /
+  Arimo / Helvetica; Liberation Serif ↔ Times New Roman / Tinos; Liberation
+  Mono ↔ Courier New / Cousine. Arial Narrow is deliberately absent —
+  Liberation 1.x's Narrow is GPL-lineage, and provenance purity beats
+  coverage. Fonts outside the set throw `MissingFontException` naming the
+  font and pointing at `IColumn.Width(double)` — I3's fail-loud contract,
+  now **deterministic** (the failure mode is "font not in the embedded
+  table", identical on every machine), headless-safe, AOT-clean.
+- **Formula = NPOI 2.7.3 SheetUtil, oracle-dumped before implementation:**
+  `cellWidth = (round(linePx@96dpi, ToEven) + 5) / defaultCharWidth * 1.05
+  + indent`, with `defaultCharWidth = ceil(inkWidth('0') of font 0)`;
+  per-`\n` lines measure independently and the max wins;
+  `AutoSizeColumn(col)` semantics = `useMergedCells=false`, so merged-region
+  cells are skipped outright; an all-empty column is a **no-op** (no `<col>`
+  written); result caps at 255 units; the `<col>` carries
+  `bestFit`+`customWidth` — every point NPOI-verified attribute-for-attribute.
+- **Documented approximations / divergences** (each pinned in
+  `AutoSizeTests`): the numerator sums per-char advances where NPOI measures
+  the ink bounding box (~1px ≈ 0.13 width units wide; no kerning); non-date
+  numeric formats measure shortest round-trip invariant text, not a
+  DataFormatter rendering (`#,##0.00` separators are not reproduced — only
+  date codes have a renderer, §7.10); a fresh formula with no cached result
+  is **skipped** where NPOI measures the `"0"` its empty cached `<v/>` reads
+  back as (an artifact, not a contract); rotated cells (opened files only —
+  `CellStyle` cannot author rotation) use ascent−descent as the line-height
+  proxy, marginally wide, never clipped; unmapped chars fall back to the
+  digit advance.
+- **Cross-engine width parity is TOLERANCE-based (25%), not exact, and
+  HeadlessNoFonts-gated** — NPOI's widths are environment-dependent by
+  construction (SixLabors `SystemFonts` with silent Arial/first-family
+  fallback). Oracle finding worth remembering: on the reference box NPOI
+  never measured Calibri at all — **SixLabors does NOT honor fontconfig
+  substitution** (`fc-match Calibri → Carlito` is irrelevant to it), so
+  "Calibri" silently measured as real msttcorefonts Arial with
+  `defaultCharWidth` 8, where the Excel-correct Calibri divisor is 7 (Excel's
+  own MDW for Calibri 11). The SDK engine's 7 is the *correct* value; the
+  differential's tolerance absorbs exactly this class of host skew. The real
+  precision instrument is `AutoSizeTests`' exact pinned widths — properties
+  of the embedded tables, environment-independent, CI-safe with no
+  HeadlessNoFonts filter.
+
+What this slice taught: probe the oracle's FONT RESOLUTION, not just its
+formula — the handoff assumed fontconfig substitution applied to NPOI's
+measurement and the probe disproved it in one line (`IFont2Font(Calibri) →
+Arial`); and when replacing an environment-dependent surface with an embedded
+one, pin the *deterministic* expectations in plain tests and reserve the
+cross-engine differential for tolerance smoke — inverting that (tolerance
+everywhere) would have thrown away the determinism the slice exists to buy.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
@@ -1829,7 +1896,7 @@ public interface IColumn
     double WidthUnits { get; set; }               // Excel column-width units
     IColumn Width(double units);
 
-    IColumn AutoSize();                           // throws MissingFontException on headless Linux without fonts (I3)
+    IColumn AutoSize();                           // throws MissingFontException — NPOI engine: headless host without fonts (I3); SDK engine: font outside the embedded metric set (I-84)
     IColumn ForEachPopulated(Action<ICell> apply);
     IColumn SetDefaultStyle(CellStyle style);     // applies as the column-level default; new cells in this column inherit
 }
@@ -2123,7 +2190,7 @@ public sealed class StyleBudgetExceededException : WorkbookException { ... }
 public sealed class MalformedFileException : WorkbookException { ... }
 public sealed class ResourceLimitExceededException : WorkbookException { ... }
 public sealed class FormulaException : WorkbookException { ... }
-public sealed class MissingFontException : WorkbookException { ... }   // I3 — AutoSize on headless Linux
+public sealed class MissingFontException : WorkbookException { ... }   // I3/I-84 — AutoSize font metrics unavailable
 ```
 
 ### 5.1 Extended benchmark coverage — I-62
