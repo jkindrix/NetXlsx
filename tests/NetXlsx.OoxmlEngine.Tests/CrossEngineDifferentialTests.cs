@@ -564,4 +564,113 @@ public class CrossEngineDifferentialTests
                 wb.Unprotect();
             },
             wb => wb.IsProtected));
+
+    // ---- date-cell GetString rendering (closeout slice) --------------------
+    // The agreement matrix for §7.10 date display-formatting: the SDK engine's
+    // ExcelDateFormat renderer vs NPOI's DataFormatter. Formats where NPOI
+    // demonstrably mangles (quoted literals, lowercase meridiems, A/P,
+    // meridiem-before-hour) are EXCLUDED here and pinned Excel-correct
+    // SDK-side in DateGetStringTests, with NPOI's output noted inline.
+
+    private static string DateStr(IWorkbook wb) => wb["S"]["A1"].GetString();
+
+    private static Action<IWorkbook> DateCell(string format, DateTime value) => wb =>
+    {
+        var c = wb.AddSheet("S")["A1"];
+        c.SetDate(value);
+        c.NumberFormat(format);
+    };
+
+    private static Action<IWorkbook> SerialCell(string format, double serial) => wb =>
+    {
+        var c = wb.AddSheet("S")["A1"];
+        c.SetNumber(serial);
+        c.NumberFormat(format);
+    };
+
+    [Theory]
+    [InlineData("yyyy-mm-dd")]
+    [InlineData("yyyy-mm-dd hh:mm:ss")]
+    [InlineData("h:mm:ss")]
+    [InlineData("m/d/yyyy")]
+    [InlineData("m/d/yy")]
+    [InlineData("d-mmm-yy")]
+    [InlineData("d-mmm")]
+    [InlineData("mmm-yy")]
+    [InlineData("h:mm AM/PM")]
+    [InlineData("h:mm:ss AM/PM")]
+    [InlineData("h:mm")]
+    [InlineData("m/d/yyyy h:mm")]
+    [InlineData("mm:ss")]
+    [InlineData("mm:ss.0")]
+    [InlineData("dddd, mmmm d, yyyy")]
+    [InlineData("ddd d mmmmm yy")]
+    [InlineData("yy")]
+    [InlineData("hh:mm")]
+    [InlineData("hhh:mm")]
+    [InlineData("m/d/yyyy;@")]
+    [InlineData("[$-409]m/d/yyyy")]
+    [InlineData("[Red]yyyy-mm-dd")]
+    [InlineData("yyyy\\-mm")]
+    [InlineData("dd.mm.yyyy")]
+    [InlineData("[h]:mm:ss")]
+    [InlineData("[hh]:mm")]
+    [InlineData("[mm]:ss")]
+    [InlineData("[s]")]
+    public void Date_GetString_Afternoon_Agrees(string format)
+        => AssertAgree(Both(
+            DateCell(format, new DateTime(2026, 6, 3, 13, 45, 30, 500)),
+            DateStr));
+
+    [Theory]
+    [InlineData("h:mm:ss")]
+    [InlineData("hh:mm")]
+    [InlineData("h:mm AM/PM")]
+    [InlineData("mm:ss.0")]
+    public void Date_GetString_Morning_Agrees(string format)
+        => AssertAgree(Both(
+            DateCell(format, new DateTime(2026, 6, 3, 9, 5, 7)),
+            DateStr));
+
+    [Theory]
+    [InlineData("[h]:mm:ss")]
+    [InlineData("[mm]:ss")]
+    [InlineData("[s]")]
+    [InlineData("yyyy-mm-dd")]
+    public void Date_GetString_Duration_Serial_Agrees(string format)
+        => AssertAgree(Both(SerialCell(format, 1.0 + 3.5 / 24.0), DateStr));
+
+    [Theory]
+    [InlineData(0.0)]      // the epoch day
+    [InlineData(-1.25)]    // negative serial — raw-value fallback on both engines
+    public void Date_GetString_Edge_Serials_Agree(double serial)
+        => AssertAgree(Both(SerialCell("m/d/yyyy", serial), DateStr));
+
+    [Fact]
+    public void Date_GetString_Default_Styles_Agree()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s["A1"].SetDate(new DateOnly(2026, 6, 3));
+                s["A2"].SetDate(new DateTime(2026, 6, 3, 9, 5, 7));
+                s["A3"].SetTime(new TimeOnly(13, 45, 30));
+                s["A4"].SetDuration(TimeSpan.FromHours(27.5));
+            },
+            wb =>
+            {
+                var s = wb["S"];
+                return new[]
+                {
+                    s["A1"].GetString(), s["A2"].GetString(),
+                    s["A3"].GetString(), s["A4"].GetString(),
+                };
+            }));
+
+    [Fact]
+    public void Date_GetString_1904_Agrees()
+        => AssertAgree(Both(
+            DateCell("yyyy-mm-dd hh:mm:ss", new DateTime(2026, 6, 3, 13, 45, 30)),
+            DateStr,
+            options: new WorkbookOptions { DateSystem = DateSystem.Excel1904 }));
 }
