@@ -81,27 +81,21 @@ Each capability has a binary answer per release: **Yes** = supported in that ver
 | **Platform**                            |      |      |      |      |       |
 | `net8.0`, `net9.0`                      | Yes  |      |      |      |       |
 | `netstandard2.0` / .NET Framework       |      |      |      |      | No    |
-| Native AOT compatible                   |      |      |      |      | Deferred† |
-| Trim compatible                         |      |      |      |      | Deferred† |
+| Native AOT compatible                   |      |      | [x]† |      |       |
+| Trim compatible                         |      |      | [x]† |      |       |
 
-† AOT/Trim are **deferred, not refused.** Spike 4 (see
+† AOT/Trim were deferred through v1.x because Spike 4 (see
 `spikes/results/spike-4-aot-trim.md`) measured both as runtime-incompatible
 with NPOI 2.7.3 — `XSSFWorkbook` initialization throws `POIXMLException`
-under both `PublishAot=true` and `PublishTrimmed=true`. The facade layer
-itself is AOT-clean; the engine is not. The build-time MSBuild guards
-`NXLS0100` / `NXLS0101` prevent silent runtime failures by failing the
-build loudly.
-
-Two paths to promote these matrix cells to `Yes`:
-- **NPOI 3.x** removes its `System.Xml.Serialization` /
-  `System.Reflection.Emit` dependencies (no announced date). Quarterly
-  re-spike per `docs/scheduled-spikes.md` Spike 4-Q.
-- **Native OOXML engine** (`docs/long-term.md`) implemented from
-  scratch with AOT-clean design from day one. Long-term R&D track;
-  not v1.0 work.
-
-Either resolution lifts the deferral. The matrix is updated when one
-of them lands, not when one of them is decided.
+under both `PublishAot=true` and `PublishTrimmed=true`; the build-time
+MSBuild guards `NXLS0100` / `NXLS0101` failed consumer builds loudly
+rather than letting them fail at runtime. **Resolved at the v2.0.0
+engine swap (decision I-82):** neither of the two paths anticipated
+below (NPOI 3.x; from-scratch engine) landed it — the cutover to
+Microsoft's Open XML SDK did. The engine passed the `PublishTrimmed` +
+`PublishAot` audit (zero IL/AOT warnings), the consumer guards are
+removed, and the library declares `<IsAotCompatible>` (implying
+`IsTrimmable`) so consumer publish analyzers see the claim.
 
 ## Release themes
 

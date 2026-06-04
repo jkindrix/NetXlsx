@@ -1,5 +1,17 @@
 # NPOI 3.x adoption plan
 
+> **Status update (2026-06-04): MOOT — NPOI was retired from the library
+> at the v2.0.0 cutover (decision I-82 in `docs/design.md`).** NetXlsx's
+> engine is Microsoft's Open XML SDK; NPOI survives only as a test-side
+> independent reader oracle, where its license posture is irrelevant
+> (never shipped to consumers). This plan never activated and never will.
+> It is retained as the **why** record for how the NPOI-upstream option
+> was weighed — including the acceptance criteria below, which document
+> what the library required of its engine at the time. In particular, the
+> AOT/trim checklist item is resolved: the SDK engine passed the
+> `PublishTrimmed` + `PublishAot` audit, the `NXLS0100/0101` guards are
+> removed, and the `roadmap.md` matrix rows read `[x]` at v2.0.
+
 NetXlsx is pinned at NPOI 2.7.3 per decision **I23** (last clean
 Apache-2.0 release before the Open Source Maintenance Fee EULA
 introduced in 2.8.0). When and if NPOI 3.x ships, this doc is the
@@ -49,7 +61,8 @@ Per the NetXlsx surface, the NPOI 3.x acceptance criteria are:
 - [ ] **AOT + trim compatibility** measured via a re-run of
       `spikes/NetXlsx.AotSpike/`. If either still fails at runtime,
       the MSBuild guards `NXLS0100/0101` stay in place and the
-      matrix rows in `roadmap.md` stay `Deferred†`.
+      matrix rows in `roadmap.md` stay `Deferred†`. *(Resolved by I-82
+      instead — see the status banner; the guards are removed.)*
 - [ ] **No regression on the current test suite** (434 per TFM at
       v1.0.0; future releases may add more — assert "current count,
       no failures" rather than a literal number).

@@ -1,10 +1,11 @@
 # NetXlsx — long-term direction
 
-> **Status update (2026-05-31): the v2.0 engine question is DECIDED — see
-> decision I-82 in `docs/design.md`.** NetXlsx is swapping from NPOI 2.7.3
-> to Microsoft's Open XML SDK (`DocumentFormat.OpenXml`), grown additively
-> behind new `Workbook.CreateOoxml()`/`OpenOoxml()` factories and cut over
-> to the default engine at v2.0.0. This is a conscious divergence from the
+> **Status update (2026-05-31, swap COMPLETE 2026-06-04): the v2.0 engine
+> question is DECIDED — see decision I-82 in `docs/design.md`.** NetXlsx
+> swapped from NPOI 2.7.3 to Microsoft's Open XML SDK
+> (`DocumentFormat.OpenXml`), grown additively behind swap-era factories
+> (since removed) and cut over to the default engine at v2.0.0
+> (`v2.0.0-alpha.1` is the RC). This is a conscious divergence from the
 > EV-ranked option below (bind ClosedXML): raw Open XML SDK lets NetXlsx own
 > its full surface end-to-end instead of wrapping another wrapper. The
 > content below is retained as the **why** record for how the options were

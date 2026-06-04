@@ -564,8 +564,8 @@ DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument { get; }
 
 // POST-CUTOVER REALITY (phase 2, 2026-06-04 — see the cutover note below):
 // OpenXmlDocument was REMOVED (never shipped; subsumed by the retyped
-// .Underlying), and the *Ooxml factories are temporary aliases of the
-// default factories, slated for removal at the OoxmlEngine.Tests fold.
+// .Underlying), and the *Ooxml factories were temporary aliases of the
+// default factories — REMOVED at the fold slice (2026-06-04), as pinned.
 ```
 
 **I-82 (added 2026-05-31):** NetXlsx swaps its engine from NPOI 2.7.3 to
@@ -601,8 +601,9 @@ factory methods, alongside the untouched NPOI engine:
 cutover: `IWorkbook.Underlying`'s return type changes to `SpreadsheetDocument`,
 `Create()`/`Open()` route to the SDK engine, the ~34 NPOI reach-through tests in
 `NetXlsx.Tests` migrate in one batch, the `NetXlsx.OoxmlEngine.Tests` conformance
-suite folds into the main suite, and the NPOI `PackageReference` + its transitive
-security overrides are dropped. The cutover is gated on the **full v1.3 behavioral
+suite folds into the main suite (done 2026-06-04 — it now lives at
+`tests/NetXlsx.Tests/Engine/`, namespace `NetXlsx.Tests.Engine`), and the NPOI
+`PackageReference` + its transitive security overrides are dropped. The cutover is gated on the **full v1.3 behavioral
 suite passing against the SDK engine** — no exceptions.
 
 *Slice order* (each ends green on its tests before the next starts): ✅ foundation
@@ -661,8 +662,8 @@ engine has no remaining `NotYet()` stubs.**
 *Schema-validation gate — I-82 sub-decision (added 2026-05-31).* The engine
 swap's founding premise is that the Open XML SDK is schema-complete, so engine
 output is correct "for free." That premise is now *enforced*, not assumed: a
-reusable gate (`OpenXmlValidationGate.AssertValid` in
-`tests/NetXlsx.OoxmlEngine.Tests`) runs `DocumentFormat.OpenXml.Validation.
+reusable gate (`OpenXmlValidationGate.AssertValid`, since the post-cutover fold
+in `tests/NetXlsx.Tests/Engine/`) runs `DocumentFormat.OpenXml.Validation.
 OpenXmlValidator` over a workbook's live `OpenXmlDocument` and asserts zero
 errors, dumping each error's part URI / element XPath / id / description on
 failure. Fixtures cover every landed feature (scalar values; fonts/fills/borders/
@@ -1386,7 +1387,9 @@ decisions pinned at the flip:
   as exact aliases only because ~640 OoxmlEngine.Tests call sites use
   them; they MUST be removed at the post-cutover OoxmlEngine.Tests fold
   slice, before v2.0.0 final — they have never shipped and must never
-  ship.
+  ship. **SATISFIED 2026-06-04:** the fold slice rewrote every call site
+  onto the default factories and deleted the aliases; only the git-only
+  `v2.0.0-alpha.1` tag ever carried them.
 - **`Open(Stream)` preconditions KEPT** (CanSeek + Position==0): change
   only what must change at the flip; relaxing to readable-only is additive
   and deliberately deferred past v2.0.0.
@@ -1428,9 +1431,10 @@ decisions pinned at the flip:
   through the now-default `Open` → `Save` on flipped main — 26/26, 31/31,
   36/36, 17/17, 50/50 parts preserved; every output reopens cleanly.
 - **Explicitly NOT in this slice:** the OoxmlEngine.Tests fold (own
-  post-cutover slice, decided 2026-06-04), public `CellStyle.Locked` /
-  `SetError`-style symbols (candidates queued post-cutover), the
-  Open(Stream) relaxation.
+  post-cutover slice, decided 2026-06-04; landed later the same day —
+  37 files into `tests/NetXlsx.Tests/Engine/`, aliases removed, zero
+  tests lost), public `CellStyle.Locked` / `SetError`-style symbols
+  (candidates queued post-cutover), the Open(Stream) relaxation.
 
 ### 6.2.13 Connectors — I-79, I-80
 
@@ -2566,7 +2570,7 @@ The decisions in §3 govern the API and contracts. The decisions below govern th
 | S24 | XML docs                       | Mandatory on every public symbol; CI fails on missing                         | Quality gate from §5                                               |
 | S25 | API documentation site         | Deferred to v1.1 (DocFX); v1.0 ships in-repo markdown only                   | Internal use first; site can come later                            |
 | S26 | NPOI workaround catalog        | `docs/npoi-workarounds.md`, populated as workarounds are discovered           | Surfaces NPOI bugs we route around; informs future upstream PRs    |
-| S27 | AOT/trim consumer build guard  | `buildTransitive/NetXlsx.targets` shipped in nupkg emits MSBuild errors `NXLS0100` (`PublishAot`) and `NXLS0101` (`PublishTrimmed`). Latter has `<NetXlsxAllowTrimmed>true</…>` escape hatch. IDs fall in the `0100-0199` MSBuild-guard range per S16 | Enforce decision I2 at build time rather than relying on runtime failure; added 2026-05-16, IDs unified 2026-05-16 |
+| S27 | AOT/trim consumer build guard  | **REMOVED at the v2.0.0 cutover (I-82, 2026-06-04):** the Open XML SDK engine passed the `PublishTrimmed` + `PublishAot` audit, so the guards are gone and the library declares `<IsAotCompatible>` (implies `IsTrimmable`) instead. Historical shape: `buildTransitive/NetXlsx.targets` shipped in nupkg emitted MSBuild errors `NXLS0100` (`PublishAot`) and `NXLS0101` (`PublishTrimmed`); the latter had a `<NetXlsxAllowTrimmed>true</…>` escape hatch. IDs fell in the `0100-0199` MSBuild-guard range per S16 | Enforced decision I2 at build time while the NPOI engine was AOT-incompatible; added 2026-05-16, retired with the engine |
 | S28 | Analyzer suppressions          | `.editorconfig` suppresses `CA1716` (Set vs VB keyword), `CA1720` (CellKind.String), `RS0026` (intentional optional-param overloads). Each suppression has an inline rationale comment | C#-only internal library; design uses identifiers/patterns these rules consider ambiguous in other languages |
 | S29 | Date-time default style cache  | `XssfWorkbook` holds a lazy per-workbook cache of four format-only `ICellStyle` instances (date / datetime / time / duration). NOT the full §4 style pool — interim until the styling-API slice lands. Composes cleanly: the four cached styles will register as dedup entries once the pool exists | Avoid per-cell style allocation in the date/time slice without blocking on the full pool |
 
