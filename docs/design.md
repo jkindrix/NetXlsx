@@ -622,8 +622,17 @@ round-trip — slice complete) → ✅ CF/validation/tables/autofilter/sort → 
 ✅ formulas/comments/hyperlinks + workbook protection → ✅ streaming (zero public-API
 change needed) → ✅ closeout (date `GetString` rendering + named-style persistence)
 → ✅ `IColumn.AutoSize` (embedded font metrics, I-84 — the LAST `NotYet()` stub;
-the SDK engine is now functionally complete) → **source-gen runtime helpers
-(verification only; sourcegen emits public-API calls) + cutover readiness ←NEXT**.
+the SDK engine is now functionally complete) → ✅ O-15 cutover-readiness scout
+(2026-06-03; throwaway branch — surfaced 8 real divergences, and corrected the
+"sourcegen emits public-API calls only" assumption: the generated ReadRows body
+reached through `.Underlying.LastRowNum`) → ✅ pre-cutover parity slice
+(2026-06-03 — closes the scout's full (a)-list: WorkbookOptions read limits +
+write caps, the #43/I-59 concurrency contract, OoxmlRange disposed guards +
+`Value` scalar parity, relationship-orphan OPC preservation per decision #44,
+the SDK Open malformed-input gate per quirk #17, and `ISheet.LastRowNumber`
+(**I-85**) replacing the sourcegen reach-through) → **re-scout (red list must
+equal the (b) `.Underlying` reach-through batch exactly) + the cutover
+conversation ←NEXT**.
 
 *Cell-styles slice — deferred within the surface* (tracked here so a later slice
 picks them up, not lost): (a) ✅ LANDED (closeout sub-slice, 2026-06-03) — date-cell
@@ -1310,6 +1319,31 @@ one, pin the *deterministic* expectations in plain tests and reserve the
 cross-engine differential for tolerance smoke — inverting that (tolerance
 everywhere) would have thrown away the determinism the slice exists to buy.
 
+*`ISheet.LastRowNumber` — I-82 sub-decision, **I-85** (added 2026-06-03,
+pre-cutover parity slice; operator/advisor-approved shape).* The O-15 scout
+found the source generator's emitted `ReadRows<T>` body reaching through
+`sheet.Underlying.LastRowNum` (NPOI, 0-based) — generated consumer code that
+breaks on the SDK engine and, worse, would break at cutover inside *consumers'
+compiled assemblies*. The fix is a real public member, not a generator
+heuristic (probing rows until N consecutive empties was rejected: it bakes an
+approximation into every consumer's generated code forever):
+
+- `int ISheet.LastRowNumber { get; }` — **1-based** index of the last row
+  containing **at least one cell**; `0` when the sheet has no cells at all.
+- An empty-but-materialized row does NOT count (`Row(int)` / `AppendRow()` on
+  an untouched index create a row element with no cells). A **cleared** cell
+  still counts — both engines' `ICell.Clear` blanks the cell node without
+  removing it (NPOI `SetBlank`; SDK keeps the `<c>`), so the contract is
+  engine-stable.
+- Deliberately narrower than NPOI's `LastRowNum` (last row *element*): the
+  cell-bearing definition is the one ReadRows-style consumers actually want,
+  and it is identical across engines by construction.
+- No speculative `FirstRowNumber` (YAGNI — the generator needs the last index,
+  nothing else), and it is an `ISheet` member only, NOT `IStreamingSheet`
+  (streaming is write-only/forward-only).
+- The generator now emits `sheet.LastRowNumber` — public API only, valid on
+  both engines throughout the swap and after cutover.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
@@ -1482,6 +1516,7 @@ public interface ISheet
     // Rows / columns (1-based)
     IRow AppendRow();                             // append after last written row; row 1 if empty
     IRow Row(int index);                          // sheet.Row(1) == first row
+    int LastRowNumber { get; }                    // 1-based last row with >=1 cell; 0 when empty (I-85)
     IColumn Column(int index);                    // sheet.Column(1) == "A"
     IColumn Column(string letter);                // sheet.Column("B")
 

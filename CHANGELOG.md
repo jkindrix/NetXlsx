@@ -509,6 +509,50 @@ functionally complete** — every `IWorkbook`/`ISheet`/`IRow`/`ICell`/`IRange`/
   are skipped, and cross-engine width parity is tolerance-based (25%),
   not exact — NPOI's widths are environment-dependent by construction.
 
+**Pre-cutover parity slice (closes the O-15 scout's (a)-list).** The
+cutover-readiness scout (2026-06-03, throwaway branch) ran the full v1.3
+suites against the SDK engine and surfaced 8 real divergences beyond the
+expected `.Underlying` reach-throughs; this slice closes all of them:
+
+- **WorkbookOptions read limits** (`ReadMaxSheets` /
+  `ReadMaxUncompressedBytes`) are enforced post-open on `OpenOoxml`, and
+  the **write caps** (`MaxRowsPerSheet` / `MaxColsPerSheet`) gate the sheet
+  indexer, `Range` corners, `AppendRow`, `Row(int)`, `Column(int)` and
+  `IRow.Cell(int)` with the NPOI engine's exception wording.
+- **Concurrency contract**: decision #43's opportunistic reentry counter
+  (raced structural mutation → `InvalidOperationException` naming
+  `StrictConcurrencyDetection`) and decision I-59's strict real-lock mode
+  now guard `AddSheet` / `AddNamedRange` on the SDK engine. Previously a
+  raced `AddSheet` corrupted the package.
+- **`IRange` parity**: the bounds properties gained disposed-workbook
+  guards (decision #42), and `IRange.Value` now dispatches the unsigned
+  scalars (`ushort`/`uint`/`ulong`) and throws the pinned
+  "is not a supported scalar" message.
+- **Relationship-orphan OPC parts survive Save** (decision #44): the SDK
+  part graph is relationship-defined, so legal-OPC zip entries with no
+  .rels chain were silently dropped by the clone-based Save. The engine
+  now captures orphans at Open and re-injects them into every Save,
+  byte-identical.
+- **Open malformed-input gate** (the I-60 equivalent): empty input, zips
+  with no workbook part, and lazily-surfaced package corruption now throw
+  `MalformedFileException` from `OpenOoxml` instead of opening a phantom
+  package or leaking raw `InvalidOperationException`.
+
+### Added — `ISheet.LastRowNumber` (I-85)
+
+`int ISheet.LastRowNumber { get; }` — the 1-based index of the last row
+containing at least one cell, `0` when the sheet has no cells. An
+empty-but-materialized row (from `Row(int)` / `AppendRow()`) does not
+count; a cleared cell still does. Implemented on both engines with
+identical semantics.
+
+Motivation: the source generator's emitted `ReadRows<T>` body reached
+through `sheet.Underlying.LastRowNum` (NPOI-typed, 0-based) — generated
+consumer code that would break at cutover. The generator now emits
+`sheet.LastRowNumber`; regenerated code is engine-agnostic. (A
+generator-side row-probing heuristic was rejected — it would bake an
+approximation into every consumer's compiled assembly.)
+
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
 focused **v2.0.0** cutover slice, gated on the full suite passing against
@@ -524,7 +568,10 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `ChartTests`, `FormulaTests`, `CommentTests`, `HyperlinkTests`,
 `WorkbookProtectionTests`, `CrossEngineDifferentialTests`,
 `CrossEngineMalformedInputTests`, `StreamingEngineTests`,
-`DateGetStringTests`, `NamedStylePersistenceTests`, `AutoSizeTests`).
+`DateGetStringTests`, `NamedStylePersistenceTests`, `AutoSizeTests`,
+`WorkbookOptionsParityTests`, `ConcurrencyContractTests`,
+`RangeContractParityTests`, `OpenMalformedGateTests`,
+`OrphanPartPreservationTests`, `LastRowNumberTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 
