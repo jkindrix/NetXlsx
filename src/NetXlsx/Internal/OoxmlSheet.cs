@@ -296,6 +296,26 @@ internal sealed partial class OoxmlSheet : ISheet
         return new OoxmlRow(this, index);
     }
 
+    public int LastRowNumber
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            // Decision I-85: last row containing >=1 cell element. A row
+            // materialized with no cells (Row(int)/AppendRow on an untouched
+            // index) does not count; Clear() keeps the <c> node, so a cleared
+            // cell still does.
+            int last = 0;
+            foreach (var r in Data.Elements<S.Row>())
+            {
+                if (!r.Elements<S.Cell>().Any()) continue;
+                int ri = (int)(r.RowIndex?.Value ?? 0);
+                if (ri > last) last = ri;
+            }
+            return last;
+        }
+    }
+
     public IColumn Column(int index)
     {
         _workbook.ThrowIfDisposed();

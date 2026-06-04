@@ -69,6 +69,16 @@ public interface ISheet
     IRow Row(int index);
 
     /// <summary>
+    /// The 1-based index of the last row that contains at least one cell,
+    /// or <c>0</c> when the sheet has no cells at all (decision I-85).
+    /// A row that has been materialized but holds no cells — e.g. via
+    /// <see cref="Row(int)"/> or <see cref="AppendRow"/> on an otherwise
+    /// untouched index — does not count. A cleared cell still counts:
+    /// <see cref="ICell.Clear"/> blanks the cell without removing it.
+    /// </summary>
+    int LastRowNumber { get; }
+
+    /// <summary>
     /// Returns the column at the 1-based <paramref name="index"/>
     /// (<c>1 == "A"</c>). Columns are lazy handles — accessing one
     /// neither materializes cells nor mutates the file.

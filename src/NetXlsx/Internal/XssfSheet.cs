@@ -111,6 +111,29 @@ internal sealed partial class XssfSheet : ISheet
         return new XssfRow(_workbook, this, npoiRow);
     }
 
+    public int LastRowNumber
+    {
+        get
+        {
+            _workbook.ThrowIfDisposed();
+            // Decision I-85: last row containing >=1 cell. A row materialized
+            // with no cells (Row(int)/AppendRow on an untouched index) does
+            // not count; SetBlank keeps the cell, so a cleared cell does.
+            int last = 0;
+            var rows = _underlying.GetRowEnumerator();
+            while (rows.MoveNext())
+            {
+                if (rows.Current is XSSFRow row
+                    && row.PhysicalNumberOfCells > 0
+                    && row.RowNum + 1 > last)
+                {
+                    last = row.RowNum + 1;
+                }
+            }
+            return last;
+        }
+    }
+
     public IColumn Column(int index)
     {
         _workbook.ThrowIfDisposed();

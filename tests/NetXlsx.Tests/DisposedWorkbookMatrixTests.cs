@@ -67,6 +67,7 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "this[r,c]", (Action<ISheet>)(s => { var _ = s[1, 1]; }) };
         yield return new object[] { "AppendRow", (Action<ISheet>)(s => s.AppendRow()) };
         yield return new object[] { "Row(1)", (Action<ISheet>)(s => s.Row(1)) };
+        yield return new object[] { "LastRowNumber", (Action<ISheet>)(s => { var _ = s.LastRowNumber; }) };
         yield return new object[] { "Underlying", (Action<ISheet>)(s => { var _ = s.Underlying; }) };
         yield return new object[] { "FreezeRows", (Action<ISheet>)(s => s.FreezeRows(1)) };
         yield return new object[] { "FreezeColumns", (Action<ISheet>)(s => s.FreezeColumns(1)) };

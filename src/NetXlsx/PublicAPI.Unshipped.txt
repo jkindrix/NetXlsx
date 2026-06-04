@@ -38,6 +38,7 @@ NetXlsx.ISheet.ConditionalFormattingCount.get -> int
 NetXlsx.ISheet.CreateSplitPane(int xSplitTwips, int ySplitTwips) -> void
 NetXlsx.ISheet.GroupColumns(int startCol, int endCol) -> void
 NetXlsx.ISheet.GroupRows(int startRow, int endRow) -> void
+NetXlsx.ISheet.LastRowNumber.get -> int
 NetXlsx.ISheet.RemoveConditionalFormatting(int index) -> void
 NetXlsx.ISheet.SetRowGroupCollapsed(int row, bool collapsed) -> void
 NetXlsx.ISheet.SortRange(string! a1Range, params NetXlsx.SortKey![]! keys) -> void
