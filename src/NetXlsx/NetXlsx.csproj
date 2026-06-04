@@ -7,6 +7,12 @@
     <PackageId>NetXlsx</PackageId>
     <!-- Description + PackageTags inherited from Directory.Build.props -->
 
+    <!-- The repo README doubles as the nuget.org landing page (rendered
+         markdown; repo-relative links degrade to plain text there, which
+         is acceptable). Packing it clears the NU5039-adjacent authoring
+         warning and gives the storefront real content. -->
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
     <!-- Declares the v2.0.0 AOT/trim posture so consumers' own publish
          analyzers can see the claim (I-82; the engine passed the
          PublishTrimmed + PublishAot audit at the cutover). Implies
@@ -23,6 +29,7 @@
          projects). -->
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="MinVer" PrivateAssets="all" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
   <ItemGroup Label="PublicAPI snapshot">

@@ -84,7 +84,9 @@ now-default `Open` → `Save` on the flipped engine: 26/26, 31/31,
 **Package metadata.** The NuGet `<Description>` and `<PackageTags>` no
 longer describe the library as a facade over NPOI — the storefront now
 matches the v2.0.0 reality (Open XML SDK engine, AOT/trim-compatible,
-MIT all the way down).
+MIT all the way down). The repo README is now packed as the package
+readme (`<PackageReadmeFile>`), so nuget.org renders a real landing
+page instead of warning about a missing one.
 
 **`FilterCriteria.In` limitation re-grounded (doc-only).** The 3+-value
 `NotSupportedException` was documented as an NPOI 2.7.3 engine limit;
