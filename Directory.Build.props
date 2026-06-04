@@ -42,8 +42,8 @@
     <PackageProjectUrl>https://github.com/jkindrix/NetXlsx</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/jkindrix/NetXlsx</RepositoryUrl>
-    <PackageTags>xlsx;excel;npoi;spreadsheet;ooxml;source-generator</PackageTags>
-    <Description>Idiomatic C# facade over NPOI for creating and reading .xlsx spreadsheets. Adds fluent ergonomics, automatic style-pool deduplication (avoids NPOI's 64K-style cap), typed import/export via source generator, and a first-class .Underlying escape hatch for anything not yet wrapped.</Description>
+    <PackageTags>xlsx;excel;openxml;spreadsheet;ooxml;source-generator;aot</PackageTags>
+    <Description>Idiomatic C# library for creating and reading .xlsx spreadsheets — the ergonomic layer the raw Open XML SDK doesn't give you. Fluent styling with automatic style-pool deduplication (avoids Excel's 64K-style cap), typed import/export via compile-time source generator, forward-only streaming writes, and a first-class .Underlying escape hatch to the SDK objects for anything not yet wrapped. AOT/trim-compatible; MIT all the way down.</Description>
   </PropertyGroup>
 
   <PropertyGroup Label="Versioning (MinVer)">

@@ -81,6 +81,11 @@ TFMs.
 now-default `Open` → `Save` on the flipped engine: 26/26, 31/31,
 36/36, 17/17 and 50/50 parts preserved; every output reopens cleanly.
 
+**Package metadata.** The NuGet `<Description>` and `<PackageTags>` no
+longer describe the library as a facade over NPOI — the storefront now
+matches the v2.0.0 reality (Open XML SDK engine, AOT/trim-compatible,
+MIT all the way down).
+
 *(Cutover test migration: phase 1 moved the suite's NPOI reach-through
 assertions to persisted-OOXML / public-API observables; phase 2
 rewrote the deliberate residue against the SDK hatch and collapsed the
