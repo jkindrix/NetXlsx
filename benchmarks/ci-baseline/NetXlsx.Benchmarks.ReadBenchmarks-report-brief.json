@@ -1,0 +1,90 @@
+{
+   "Title":"NetXlsx.Benchmarks.ReadBenchmarks-20260604-224003",
+   "HostEnvironmentInfo":{
+      "BenchmarkDotNetCaption":"BenchmarkDotNet",
+      "BenchmarkDotNetVersion":"0.15.8",
+      "OsVersion":"Linux Ubuntu 24.04.4 LTS (Noble Numbat)",
+      "ProcessorName":"AMD EPYC 9V74",
+      "PhysicalProcessorCount":1,
+      "PhysicalCoreCount":2,
+      "LogicalCoreCount":4,
+      "RuntimeVersion":".NET 10.0.8 (10.0.8, 10.0.826.23019)",
+      "Architecture":"X64",
+      "HasAttachedDebugger":false,
+      "HasRyuJit":true,
+      "Configuration":"RELEASE",
+      "DotNetCliVersion":"10.0.300",
+      "ChronometerFrequency":{
+         "Hertz":1000000000
+      },
+      "HardwareTimerKind":"Unknown"
+   },
+   "Benchmarks":[
+      {
+         "DisplayInfo":"ReadBenchmarks.OpenAndReadColumnSum: ShortRun(IterationCount=3, LaunchCount=1, WarmupCount=3)",
+         "Namespace":"NetXlsx.Benchmarks",
+         "Type":"ReadBenchmarks",
+         "Method":"OpenAndReadColumnSum",
+         "MethodTitle":"OpenAndReadColumnSum",
+         "Parameters":"",
+         "FullName":"NetXlsx.Benchmarks.ReadBenchmarks.OpenAndReadColumnSum",
+         "HardwareIntrinsics":"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL VectorSize=256",
+         "Statistics":{
+            "OriginalValues":[
+               11351916.296875,11275416.8125,11299754.0625
+            ],
+            "N":3,
+            "Min":11275416.8125,
+            "LowerFence":11230210.82421875,
+            "Q1":11287585.4375,
+            "Median":11299754.0625,
+            "Mean":11309029.057291666,
+            "Q3":11325835.1796875,
+            "UpperFence":11383209.79296875,
+            "Max":11351916.296875,
+            "InterquartileRange":38249.7421875,
+            "LowerOutliers":[
+               
+            ],
+            "UpperOutliers":[
+               
+            ],
+            "AllOutliers":[
+               
+            ],
+            "StandardError":22565.17910187656,
+            "Variance":1527561923.6993,
+            "StandardDeviation":39084.03668634165,
+            "Skewness":0.22394483444093205,
+            "Kurtosis":0.666666666666681,
+            "ConfidenceInterval":{
+               "N":3,
+               "Mean":11309029.057291666,
+               "StandardError":22565.17910187656,
+               "Level":12,
+               "Margin":713038.32308197,
+               "Lower":10595990.734209696,
+               "Upper":12022067.380373636
+            },
+            "Percentiles":{
+               "P0":11275416.8125,
+               "P25":11287585.4375,
+               "P50":11299754.0625,
+               "P67":11317489.2221875,
+               "P80":11331051.403125,
+               "P85":11336267.6265625,
+               "P90":11341483.85,
+               "P95":11346700.0734375,
+               "P100":11351916.296875
+            }
+         },
+         "Memory":{
+            "Gen0Collections":14,
+            "Gen1Collections":10,
+            "Gen2Collections":1,
+            "TotalOperations":64,
+            "BytesAllocatedPerOperation":3515699
+         }
+      }
+   ]
+}
