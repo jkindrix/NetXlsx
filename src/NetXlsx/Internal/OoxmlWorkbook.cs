@@ -44,6 +44,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     private Dictionary<string, CellStyle>? _namedStyles;
     private bool? _date1904;
     private bool _disposed;
+    private int _inMutation;
 
     internal WorkbookOptions Options => _options;
 
@@ -362,6 +363,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     public ISheet AddSheet(string name)
     {
         ThrowIfDisposed();
+        using var _ = EnterMutation();
         Workbook.ValidateSheetName(name);
         if (_sheetsByName.ContainsKey(name))
             throw new SheetNameException(name, "a sheet with this name already exists (case-insensitive)");
@@ -472,6 +474,72 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     internal void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, nameof(IWorkbook));
+    }
+
+    /// <summary>
+    /// Begins a mutating operation scope (mirrors the NPOI engine's
+    /// <c>XssfWorkbook.EnterMutation</c>). Returns an <see cref="IDisposable"/>
+    /// that releases the scope on dispose. If another thread is already inside
+    /// a mutation when this is called, throws
+    /// <see cref="InvalidOperationException"/> per decision #43.
+    /// </summary>
+    /// <remarks>
+    /// The default mode is not a lock: nested same-thread mutations are also
+    /// detected (the counter is process-global per workbook). Cell-level writes
+    /// via <see cref="ICell"/> do not enter this scope; the counter guards
+    /// higher-level structural mutations (AddSheet, AddNamedRange) where the
+    /// read of internal collections — or, on this engine, the SDK part graph —
+    /// during another thread's mutation would corrupt.
+    /// </remarks>
+    private readonly object _strictLock = new();
+
+    internal MutationScope EnterMutation()
+    {
+        // Strict mode (decision I-59): take a real per-workbook lock.
+        // Reentrant on the same thread (Monitor is reentrant), so nested
+        // same-thread mutations are permitted in strict mode — unlike
+        // the opportunistic counter which rejects them. The trade-off
+        // is deliberate: strict mode is for "another thread cannot
+        // silently corrupt me", not for "fluent-chain reentrancy is
+        // forbidden". Callers concerned about reentrancy can compose
+        // their own external guard.
+        if (Options.StrictConcurrencyDetection)
+        {
+            Monitor.Enter(_strictLock);
+            return new MutationScope(this, strict: true);
+        }
+
+        // Default opportunistic counter (decision #43).
+        if (Interlocked.CompareExchange(ref _inMutation, 1, 0) != 0)
+        {
+            throw new InvalidOperationException(
+                "Concurrent or reentrant mutation detected on IWorkbook. " +
+                "Workbooks are not thread-safe (decision #43); serialize access externally. " +
+                "Pass WorkbookOptions { StrictConcurrencyDetection = true } for a real-lock mode (decision I-59).");
+        }
+        return new MutationScope(this, strict: false);
+    }
+
+    internal readonly struct MutationScope : IDisposable
+    {
+        private readonly OoxmlWorkbook _owner;
+        private readonly bool _strict;
+        public MutationScope(OoxmlWorkbook owner, bool strict)
+        {
+            _owner = owner;
+            _strict = strict;
+        }
+        public void Dispose()
+        {
+            if (_strict)
+            {
+                Monitor.Exit(_owner._strictLock);
+            }
+            else
+            {
+                Interlocked.Exchange(ref _owner._inMutation, 0);
+            }
+        }
     }
 
     // Named ranges (AddNamedRange / NamedRanges) land in OoxmlWorkbook.Names.cs

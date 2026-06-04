@@ -35,6 +35,8 @@ internal sealed partial class OoxmlWorkbook
         if (formula.Length == 0)
             throw new ArgumentException("formula cannot be empty", nameof(formula));
 
+        using var _ = EnterMutation();
+
         ValidateDefinedName(name);
 
         uint? localSheetId = null;
