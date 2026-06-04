@@ -82,7 +82,28 @@ internal sealed partial class OoxmlSheet : ISheet
     private Dictionary<int, S.Row>? _rowCache;
     private int _cachedMaxRow;
 
-    internal void InvalidateRowCache() => _rowCache = null;
+    // Last-resolved-cell memo (I-87). Bulk write patterns touch the same
+    // address consecutively (Set then Style; read-merge-write inside Style),
+    // and within-row sibling walks pay a CellAddress.Parse per visited <c> —
+    // the memo turns the repeat resolution into one reference comparison.
+    // Trusted only while the node is parented under the live resolved row
+    // (the same liveness discipline as the row cache); reset with it.
+    private S.Cell? _lastCell;
+    private int _lastCellRow, _lastCellCol;
+
+    internal void InvalidateRowCache()
+    {
+        _rowCache = null;
+        _lastCell = null;
+    }
+
+    private S.Cell MemoCell(int rowIndex, int col, S.Cell cell)
+    {
+        _lastCell = cell;
+        _lastCellRow = rowIndex;
+        _lastCellCol = col;
+        return cell;
+    }
 
     private Dictionary<int, S.Row> EnsureRowCache(S.SheetData data)
     {
@@ -139,8 +160,11 @@ internal sealed partial class OoxmlSheet : ISheet
     {
         var row = FindRow(rowIndex);
         if (row is null) return null;
+        if (_lastCellRow == rowIndex && _lastCellCol == col
+            && _lastCell is { } memo && ReferenceEquals(memo.Parent, row))
+            return memo;
         foreach (var c in row.Elements<S.Cell>())
-            if (ColumnOf(c) == col) return c;
+            if (ColumnOf(c) == col) return MemoCell(rowIndex, col, c);
         return null;
     }
 
@@ -186,17 +210,40 @@ internal sealed partial class OoxmlSheet : ISheet
     internal S.Cell GetOrCreateCell(int rowIndex, int col)
     {
         var row = GetOrCreateRow(rowIndex);
+
+        // Memo hit: consecutive operations on the same address skip the walk.
+        if (_lastCellRow == rowIndex && _lastCellCol == col
+            && _lastCell is { } memo && ReferenceEquals(memo.Parent, row))
+            return memo;
+
+        // Tail fast path (the within-row analogue of the row append path):
+        // ascending-column writes append after the current tail with a single
+        // ColumnOf instead of a sibling walk. A non-<c> tail (e.g. a row
+        // <extLst> on an opened file) falls through to the general walk,
+        // which appends after it exactly as the pre-I-87 code did.
+        if (row.LastChild is S.Cell tail)
+        {
+            int tc = ColumnOf(tail);
+            if (tc == col) return MemoCell(rowIndex, col, tail);
+            if (tc < col)
+            {
+                var appended = new S.Cell { CellReference = CellAddress.Format(rowIndex, col) };
+                row.AppendChild(appended);
+                return MemoCell(rowIndex, col, appended);
+            }
+        }
+
         S.Cell? successor = null;
         foreach (var c in row.Elements<S.Cell>())
         {
             int cc = ColumnOf(c);
-            if (cc == col) return c;
+            if (cc == col) return MemoCell(rowIndex, col, c);
             if (cc > col) { successor = c; break; }
         }
         var newCell = new S.Cell { CellReference = CellAddress.Format(rowIndex, col) };
         if (successor is null) row.AppendChild(newCell);
         else row.InsertBefore(newCell, successor);
-        return newCell;
+        return MemoCell(rowIndex, col, newCell);
     }
 
     internal OoxmlCell CellHandle(int row, int col) => new(this, row, col);

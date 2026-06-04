@@ -219,7 +219,8 @@ public interface IWorkbook : IDisposable
     /// (workbook, sheet, row, or cell) resets the engine's internal row
     /// lookup caches, so the acquire → mutate → continue-via-facade pattern
     /// always observes hatch mutations. Structurally mutating the sheet grid
-    /// (adding, removing, or renumbering <c>&lt;row&gt;</c> elements) through
+    /// (adding, removing, or renumbering <c>&lt;row&gt;</c> or <c>&lt;c&gt;</c>
+    /// elements) through
     /// a <em>stored</em> reference after intervening facade calls is outside
     /// that contract — re-acquire any <c>Underlying</c> member after such
     /// mutations. The engine additionally liveness-checks cached rows per

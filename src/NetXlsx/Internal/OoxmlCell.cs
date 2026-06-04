@@ -514,10 +514,17 @@ internal sealed class OoxmlCell : ICell
         // Merge: non-null axes in `style` overlay the cell's current style; null
         // axes inherit. CellStyle.Default (all-null) is a no-op. Resolved through
         // the pool's dedup so equal merged styles share one cellXfs index (#4).
+        // Re-applying the same immutable style instance from the same starting
+        // xf is served by the pool's apply-memo (I-87) — identical result by
+        // construction, no Merge allocation.
         var c = _sheet.GetOrCreateCell(_row, _col);
-        var current = Wb.StylePool.ReadStyle(c.StyleIndex?.Value ?? 0);
-        var merged = Merge(current, style);
-        uint idx = Wb.StylePool.GetOrCreate(merged);
+        uint from = c.StyleIndex?.Value ?? 0;
+        if (!Wb.StylePool.TryMemoizedApply(style, from, out uint idx))
+        {
+            var merged = Merge(Wb.StylePool.ReadStyle(from), style);
+            idx = Wb.StylePool.GetOrCreate(merged);
+            Wb.StylePool.MemoizeApply(style, from, idx);
+        }
         c.StyleIndex = idx == 0 ? null : idx;
         return this;
     }

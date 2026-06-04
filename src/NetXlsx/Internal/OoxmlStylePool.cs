@@ -162,6 +162,43 @@ internal sealed class OoxmlStylePool
 
     // ---- Allocation ---------------------------------------------------------
 
+    // Apply-memo (I-87): bulk styled writes re-apply the same immutable
+    // CellStyle instances over and over (the documented palette pattern), and
+    // each apply pays a Merge record allocation plus a record value-hash on
+    // the dedup lookup. Since CellStyle is a sealed record with init-only
+    // state, (same instance, same starting xf index) always merges to the
+    // same result — memoize the apply by reference. The cap bounds growth for
+    // the anti-pattern of allocating a fresh CellStyle per cell (those
+    // entries can never hit). Cleared with the row caches on every
+    // escape-hatch access (an out-of-band stylesheet edit is the same
+    // coherence class as an out-of-band grid edit).
+    private const int ApplyMemoCap = 1024;
+    private readonly Dictionary<CellStyle, (uint From, uint To)> _applyMemo =
+        new(ReferenceEqualityComparer.Instance);
+
+    internal bool TryMemoizedApply(CellStyle style, uint from, out uint to)
+    {
+        if (_applyMemo.TryGetValue(style, out var m) && m.From == from)
+        {
+            // A memo hit IS a pool hit — the application reused an existing
+            // pooled entry; only the merge/dedup work was skipped. Keeps the
+            // public StyleHitCount diagnostic contract intact.
+            StyleHitCount++;
+            to = m.To;
+            return true;
+        }
+        to = 0u;
+        return false;
+    }
+
+    internal void MemoizeApply(CellStyle style, uint from, uint to)
+    {
+        if (_applyMemo.Count >= ApplyMemoCap) _applyMemo.Clear();
+        _applyMemo[style] = (from, to);
+    }
+
+    internal void ClearApplyMemo() => _applyMemo.Clear();
+
     /// <summary>
     /// Resolves <paramref name="style"/> to a cellXfs index, allocating a new
     /// <c>&lt;xf&gt;</c> (and its font/fill/border/numFmt) only when no

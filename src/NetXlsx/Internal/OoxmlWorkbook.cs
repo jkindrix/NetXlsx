@@ -569,10 +569,12 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     }
 
     // I-87: every escape-hatch getter routes here — any handed-out DOM node
-    // can reach every sheet via part traversal, so all row caches reset.
+    // can reach every sheet (and the stylesheet) via part traversal, so all
+    // row caches and the style apply-memo reset.
     internal void InvalidateRowCaches()
     {
         foreach (var sheet in _sheetsByIndex) sheet.InvalidateRowCache();
+        StylePool.ClearApplyMemo();
     }
 
     // Internal accessor for engine code that needs the document without the
