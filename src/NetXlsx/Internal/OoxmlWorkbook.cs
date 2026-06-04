@@ -208,6 +208,15 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             throw;
         }
 
+        // Malformed-input gate, part 1 (SDK-quirk #17, the I-60 equivalent):
+        // System.IO.Packaging opens an EMPTY read/write stream by CREATING a
+        // brand-new package rather than throwing — explicitly reject it.
+        if (backing.Length == 0)
+        {
+            backing.Dispose();
+            throw new MalformedFileException(malformedMessage);
+        }
+
         SpreadsheetDocument document;
         try
         {
@@ -227,9 +236,30 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         var wb = new OoxmlWorkbook(document, backing, options);
         try
         {
+            // Malformed-input gate, part 2 (SDK-quirk #17): a valid zip with no
+            // workbook part (empty zip, random entries) opens without complaint —
+            // require the workbook part up front. Package-level corruption (e.g.
+            // a relationship pointing at a missing part) surfaces lazily as a raw
+            // InvalidOperationException at first part access; the catch below
+            // classifies it to MalformedFileException instead of leaking it.
+            if (document.WorkbookPart is null)
+                throw new MalformedFileException(malformedMessage);
+
             wb.IndexExistingSheets();
             wb.EnforceReadLimits();
             return wb;
+        }
+        catch (WorkbookException)
+        {
+            // Our own contract exceptions (MalformedFileException above,
+            // ResourceLimitExceededException from the read limits) propagate.
+            wb.Dispose();
+            throw;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException || IsKnownMalformedOpenException(ex))
+        {
+            wb.Dispose();
+            throw new MalformedFileException(malformedMessage, ex);
         }
         catch
         {
