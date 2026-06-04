@@ -1,14 +1,14 @@
 {
-   "Title":"NetXlsx.Benchmarks.ReadBenchmarks-20260520-144431",
+   "Title":"NetXlsx.Benchmarks.ReadBenchmarks-20260604-162555",
    "HostEnvironmentInfo":{
       "BenchmarkDotNetCaption":"BenchmarkDotNet",
-      "BenchmarkDotNetVersion":"0.14.0",
-      "OsVersion":"Debian GNU/Linux forky/sid WSL",
+      "BenchmarkDotNetVersion":"0.15.8",
+      "OsVersion":"Linux Debian GNU/Linux forky/sid",
       "ProcessorName":"12th Gen Intel Core i9-12900",
       "PhysicalProcessorCount":1,
       "PhysicalCoreCount":8,
       "LogicalCoreCount":16,
-      "RuntimeVersion":".NET 10.0.2 (10.0.225.61305)",
+      "RuntimeVersion":".NET 10.0.2 (10.0.2, 10.0.225.61305)",
       "Architecture":"X64",
       "HasAttachedDebugger":false,
       "HasRyuJit":true,
@@ -28,21 +28,21 @@
          "MethodTitle":"OpenAndReadColumnSum",
          "Parameters":"",
          "FullName":"NetXlsx.Benchmarks.ReadBenchmarks.OpenAndReadColumnSum",
-         "HardwareIntrinsics":"AVX2,AES,BMI1,BMI2,FMA,LZCNT,PCLMUL,POPCNT,AvxVnni,SERIALIZE VectorSize=256",
+         "HardwareIntrinsics":"AVX2+BMI1+BMI2+F16C+FMA+LZCNT+MOVBE,AVX,SSE3+SSSE3+SSE4.1+SSE4.2+POPCNT,X86Base+SSE+SSE2,AES+PCLMUL,AvxVnni,SERIALIZE VectorSize=256",
          "Statistics":{
             "OriginalValues":[
-               10057549.71875,6737263.71875,6437613.53125
+               11815159.78125,11766156.609375,11580045.796875
             ],
             "N":3,
-            "Min":6437613.53125,
-            "LowerFence":3872486.484375,
-            "Q1":6587438.625,
-            "Median":6737263.71875,
-            "Mean":7744142.322916667,
-            "Q3":8397406.71875,
-            "UpperFence":11112358.859375,
-            "Max":10057549.71875,
-            "InterquartileRange":1809968.09375,
+            "Min":11580045.796875,
+            "LowerFence":11496765.71484375,
+            "Q1":11673101.203125,
+            "Median":11766156.609375,
+            "Mean":11720454.0625,
+            "Q3":11790658.1953125,
+            "UpperFence":11966993.68359375,
+            "Max":11815159.78125,
+            "InterquartileRange":117556.9921875,
             "LowerOutliers":[
                
             ],
@@ -52,38 +52,38 @@
             "AllOutliers":[
                
             ],
-            "StandardError":1159933.6034215451,
-            "Variance":4036337893039.4697,
-            "StandardDeviation":2009063.9345325648,
-            "Skewness":0.3752899582326683,
-            "Kurtosis":0.6666666666666665,
+            "StandardError":71615.14854954017,
+            "Variance":15386188505.318115,
+            "StandardDeviation":124041.07587939616,
+            "Skewness":-0.318429070101805,
+            "Kurtosis":0.6666666666666666,
             "ConfidenceInterval":{
                "N":3,
-               "Mean":7744142.322916667,
-               "StandardError":1159933.6034215451,
+               "Mean":11720454.0625,
+               "StandardError":71615.14854954017,
                "Level":12,
-               "Margin":36652805.09124539,
-               "Lower":-28908662.768328723,
-               "Upper":44396947.414162055
+               "Margin":2262970.978359471,
+               "Lower":9457483.084140528,
+               "Upper":13983425.040859472
             },
             "Percentiles":{
-               "P0":6437613.53125,
-               "P25":6587438.625,
-               "P50":6737263.71875,
-               "P67":7866160.95875,
-               "P80":8729435.31875,
-               "P85":9061463.91875,
-               "P90":9393492.51875,
-               "P95":9725521.11875,
-               "P100":10057549.71875
+               "P0":11580045.796875,
+               "P25":11673101.203125,
+               "P50":11766156.609375,
+               "P67":11782817.6878125,
+               "P80":11795558.5125,
+               "P85":11800458.829687499,
+               "P90":11805359.146875,
+               "P95":11810259.4640625,
+               "P100":11815159.78125
             }
          },
          "Memory":{
-            "Gen0Collections":4,
-            "Gen1Collections":1,
+            "Gen0Collections":5,
+            "Gen1Collections":2,
             "Gen2Collections":0,
-            "TotalOperations":32,
-            "BytesAllocatedPerOperation":5325550
+            "TotalOperations":64,
+            "BytesAllocatedPerOperation":3516994
          }
       }
    ]
