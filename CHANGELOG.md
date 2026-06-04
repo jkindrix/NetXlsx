@@ -9,6 +9,8 @@ changes (decision I19).
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-06-04
+
 ### v2.0.0 cutover — the Open XML SDK is THE engine (I-82) — BREAKING
 
 The engine swap announced below is complete: every factory
