@@ -629,8 +629,8 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             sb.Append("            throw new global::NetXlsx.WorkbookException(\"Header '").Append(headerName).AppendLine("' not found in header row.\");");
         }
         sb.AppendLine();
-        sb.AppendLine("        var lastRow0 = sheet.Underlying.LastRowNum;   // NPOI 0-based");
-        sb.AppendLine("        for (int r = headerRowIndex + 1; r <= lastRow0 + 1; r++)");
+        sb.AppendLine("        var lastRow = sheet.LastRowNumber;   // 1-based; 0 when the sheet is empty (decision I-85)");
+        sb.AppendLine("        for (int r = headerRowIndex + 1; r <= lastRow; r++)");
         sb.AppendLine("        {");
         sb.AppendLine("            var row = sheet.Row(r);");
         // End-of-data heuristic: row is fully empty for the mapped columns.
