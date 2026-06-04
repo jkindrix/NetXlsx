@@ -1,5 +1,22 @@
 name: Benchmarks
 
+# Regression gate design (I-87). The pre-v2.0.1 gate was hollow: it compared
+# against a cache that REFRESHED on every main push (a regression that landed
+# on main became the next run's baseline) and the compare step was
+# continue-on-error on main pushes — so "workflow green" never meant "no
+# regression"; that's how the v2.0.0 14.5x bulk-write regression shipped
+# undetected. The gate now:
+#   * compares every run (push, PR, dispatch) against the COMMITTED
+#     `benchmarks/ci-baseline/` briefs — no cache, no ratchet;
+#   * can FAIL — there is no continue-on-error anywhere;
+#   * treats a missing committed baseline as a loud FAILURE, not a silent
+#     record-and-pass (the old "fresh path" was a second hollowness);
+#   * refreshes the baseline only as a deliberate act: dispatch the workflow,
+#     download the `bench-results-*` artifact from the run, commit its briefs
+#     to `benchmarks/ci-baseline/` (see benchmarks/README.md).
+# The committed `benchmarks/baseline/` (dev-local hardware) is a separate
+# reference for local pre-PR checks — never compared against CI runs.
+
 on:
   push:
     branches: [main]
@@ -18,11 +35,6 @@ on:
       - 'Directory.Build.props'
       - '.github/workflows/bench.yml'
   workflow_dispatch:
-    inputs:
-      refresh_baseline:
-        description: 'Refresh the cached baseline with this run'
-        required: false
-        default: 'false'
 
 permissions:
   contents: read
@@ -53,23 +65,6 @@ jobs:
         with:
           python-version: '3.x'
 
-      # Cache key hashes runtime-affecting inputs only: .cs sources
-      # under src/ + benchmarks/ + the package-version pins. PublicAPI
-      # snapshot files, AnalyzerReleases md, CHANGELOG, and other
-      # build-time-only metadata are intentionally excluded — they
-      # don't affect benchmark timings, and including them caused
-      # spurious cache misses on PRs that only touched metadata
-      # (the v1.0 release PR was the trigger case). On PRs the cache
-      # is read-only by default; main-branch push runs refresh it.
-      - name: Restore baseline cache
-        id: cache-baseline
-        uses: actions/cache@v5
-        with:
-          path: benchmarks/ci-baseline
-          key: bench-baseline-${{ runner.os }}-${{ hashFiles('src/**/*.cs', 'benchmarks/**/*.cs', 'Directory.Packages.props') }}
-          restore-keys: |
-            bench-baseline-${{ runner.os }}-
-
       - name: Restore (dotnet)
         run: dotnet restore
 
@@ -83,35 +78,22 @@ jobs:
           cp BenchmarkDotNet.Artifacts/results/*-report-brief.json benchmarks/current/
           ls -la benchmarks/current/
 
-      - name: Compare against CI baseline (rolling cache)
-        id: compare
-        # On main pushes we still run compare for visibility (so the run
-        # log shows what changed), but use continue-on-error: regressions
-        # are surfaced as annotations on main but don't block the refresh
-        # step below. PRs (and dispatch without refresh) still fail loud.
-        continue-on-error: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.refresh_baseline == 'true') }}
+      # The gate. Compares against the COMMITTED CI baseline; a missing
+      # baseline fails loud (bootstrap: dispatch a run, commit its artifact
+      # briefs to benchmarks/ci-baseline/). Threshold 25%: the committed-
+      # baseline comparison spans different runner instances, which adds
+      # variance over the design DoD's 10% — 25% still fails decisively on
+      # the regression class that matters while not crying wolf on runner
+      # jitter. If a run looks like pure noise (test-stack-only bumps),
+      # re-run before treating it as real.
+      - name: Compare against committed CI baseline
         run: |
-          mkdir -p benchmarks/ci-baseline
           if [ -z "$(ls -A benchmarks/ci-baseline 2>/dev/null)" ]; then
-            echo "::notice::No CI baseline cached yet — recording current run as the new baseline."
-            cp benchmarks/current/*.json benchmarks/ci-baseline/
-            echo "fresh_baseline=true" >> $GITHUB_OUTPUT
-          else
-            python3 benchmarks/compare-bench.py benchmarks/current benchmarks/ci-baseline --threshold 15
+            echo "::error::No committed CI baseline found at benchmarks/ci-baseline/."
+            echo "::error::Seed it deliberately: dispatch this workflow, download the bench-results artifact, commit its briefs to benchmarks/ci-baseline/."
+            exit 1
           fi
-
-      # On main pushes (and explicit dispatch with refresh_baseline=true)
-      # overwrite the cached baseline with the just-run results so the
-      # next PR is compared against a current snapshot. This step runs
-      # even if the Compare step flagged a regression — the regression
-      # is INFORMATION about what just changed on main, not a blocker
-      # to recording the new state.
-      - name: Refresh baseline (main push or explicit dispatch)
-        if: always() && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.refresh_baseline == 'true'))
-        run: |
-          rm -rf benchmarks/ci-baseline/*
-          cp benchmarks/current/*.json benchmarks/ci-baseline/
-          echo "::notice::Baseline refreshed with current run's numbers. The next PR will be compared against these."
+          python3 benchmarks/compare-bench.py benchmarks/current benchmarks/ci-baseline --threshold 25
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v7
@@ -120,11 +102,3 @@ jobs:
           name: bench-results-${{ github.run_number }}
           path: benchmarks/current/
           if-no-files-found: error
-
-      - name: Upload baseline (for inspection)
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: bench-baseline-${{ github.run_number }}
-          path: benchmarks/ci-baseline/
-          if-no-files-found: ignore

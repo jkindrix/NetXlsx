@@ -1,7 +1,7 @@
 # Benchmarks
 
 BenchmarkDotNet harness exercising the v1.0 performance claims from
-`docs/design.md §5`. Sized to complete in ~45 seconds on a modern
+`docs/design.md §4`. Sized to complete in ~45 seconds on a modern
 laptop so the regression gate is fast enough for every PR.
 
 ## Layout
@@ -17,6 +17,7 @@ benchmarks/
 ├── baseline/                         # dev-local reference (faster hw, not CI's numbers)
 │   ├── NetXlsx.Benchmarks.WriteBenchmarks-report-brief.json
 │   └── NetXlsx.Benchmarks.ReadBenchmarks-report-brief.json
+├── ci-baseline/                      # committed CI-hardware baseline — the bench.yml gate's comparand
 └── compare-bench.py                  # comparator: regress > N% → exit 1
 ```
 
@@ -46,21 +47,39 @@ Compare manually against the committed baseline:
 python3 benchmarks/compare-bench.py BenchmarkDotNet.Artifacts/results benchmarks/baseline
 ```
 
-### CI cache (not committed; CI-hardware reference)
+### `benchmarks/ci-baseline/` (committed; CI-hardware reference)
 
-The `.github/workflows/bench.yml` workflow caches its run output keyed
-by `hash(src/, benchmarks/*.cs, Directory.Packages.props)`. On a main
-push, the cache for that key is populated with the run's results.
-Subsequent PRs that touch a tracked path produce a new cache key, and
-the workflow falls back via `restore-keys` to the closest previous
-baseline.
+The `.github/workflows/bench.yml` gate compares every run — main push,
+PR, and dispatch alike — against the briefs **committed** in
+`benchmarks/ci-baseline/` and fails the build if any benchmark
+regresses more than **25%** (`compare-bench.py`). There is no rolling
+cache and no `continue-on-error`: a regression that lands on main keeps
+failing the gate until it is either fixed or the baseline is refreshed
+deliberately. A missing committed baseline fails the run loud rather
+than silently recording the current run as the new truth.
 
-The PR runs the comparator (`compare-bench.py`) against the cached
-baseline and fails the build if any benchmark regresses more than
-**15%**. The 15% threshold includes 5% headroom over the design DoD's
-10% requirement for measurement noise on short-run CI benchmarks
-(`ColdCreateAndSave` in particular has high variance because OPC
-packaging dominates and varies with disk state).
+History (I-87): the pre-v2.0.1 gate compared against an Actions cache
+that refreshed on every main push and soft-failed its compare step
+there — a 14.5× bulk-write regression shipped to the v2.0.0 tag with a
+green Benchmarks badge. The committed-baseline design makes refresh a
+reviewable git event instead of a workflow side effect.
+
+Refresh deliberately, after accepting an intentional perf change:
+
+1. Dispatch the Benchmarks workflow (`gh workflow run bench.yml`) or
+   take any recent run on the desired commit.
+2. Download its results artifact:
+   `gh run download <run-id> -n bench-results-<run-number>`.
+3. Copy the `*-report-brief.json` files into `benchmarks/ci-baseline/`,
+   inspect the diff, and commit.
+
+The threshold is 25% (the design DoD says 10%): committed-baseline
+comparisons span different runner instances, which adds variance over a
+same-runner A/B — 25% still fails decisively on real regressions while
+not crying wolf on runner jitter (`ColdCreateAndSave` in particular has
+high variance because OPC packaging dominates and varies with disk
+state). If a failure looks like pure noise on a test-stack-only bump,
+re-run the workflow before treating it as real.
 
 ## Running locally
 
@@ -79,7 +98,7 @@ dotnet run --project benchmarks/NetXlsx.Benchmarks --configuration Release --fra
 
 ## What's measured
 
-| Benchmark | What it exercises | Design §5 target |
+| Benchmark | What it exercises | Design §4 target |
 |---|---|---|
 | `WriteBenchmarks.ColdCreateAndSave` | OPC packaging + workbook bootstrap | < 50 ms |
 | `WriteBenchmarks.Write5kRows` | In-memory mixed-type write path | (proxy for 30k < 3s) |
@@ -87,7 +106,7 @@ dotnet run --project benchmarks/NetXlsx.Benchmarks --configuration Release --fra
 | `WriteBenchmarks.StreamingWrite_50kRows` | SXSSF streaming path | (proxy for 1M < 30s) |
 | `ReadBenchmarks.OpenAndReadColumnSum` | Open + read | (proxy for 100k < 4s) |
 
-The 5k / 50k / 1k variants are CI-sized scale-downs of the design-§5
+The 5k / 50k / 1k variants are CI-sized scale-downs of the design-§4
 targets, picked so a full run completes in under a minute on a typical
-runner. Full-scale validation runs against the original §5 numbers are
+runner. Full-scale validation runs against the original §4 numbers are
 done manually before each v1.0+ release (not in CI).
