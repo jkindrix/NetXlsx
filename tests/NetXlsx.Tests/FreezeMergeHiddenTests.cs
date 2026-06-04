@@ -24,10 +24,10 @@ public class FreezeMergeHiddenTests
         sheet.AppendRow().Set(1, "Header");
         sheet.FreezeRows(1);
 
-        var pane = sheet.Underlying.PaneInformation;
+        var pane = SplitPaneTests.Pane(wb);
         pane.Should().NotBeNull();
-        pane.HorizontalSplitPosition.Should().Be(1, "row 1 is frozen above the split");
-        pane.VerticalSplitPosition.Should().Be(0);
+        SplitPaneTests.YSplit(pane!).Should().Be(1, "row 1 is frozen above the split");
+        SplitPaneTests.XSplit(pane!).Should().Be(0);
     }
 
     [Fact]
@@ -37,9 +37,10 @@ public class FreezeMergeHiddenTests
         var sheet = wb.AddSheet("S");
         sheet.FreezeColumns(2);
 
-        var pane = sheet.Underlying.PaneInformation;
-        pane.VerticalSplitPosition.Should().Be(2);
-        pane.HorizontalSplitPosition.Should().Be(0);
+        var pane = SplitPaneTests.Pane(wb);
+        pane.Should().NotBeNull();
+        SplitPaneTests.XSplit(pane!).Should().Be(2);
+        SplitPaneTests.YSplit(pane!).Should().Be(0);
     }
 
     [Fact]
@@ -49,9 +50,10 @@ public class FreezeMergeHiddenTests
         var sheet = wb.AddSheet("S");
         sheet.FreezePane(1, 3);
 
-        var pane = sheet.Underlying.PaneInformation;
-        pane.HorizontalSplitPosition.Should().Be(1);
-        pane.VerticalSplitPosition.Should().Be(3);
+        var pane = SplitPaneTests.Pane(wb);
+        pane.Should().NotBeNull();
+        SplitPaneTests.YSplit(pane!).Should().Be(1);
+        SplitPaneTests.XSplit(pane!).Should().Be(3);
     }
 
     [Fact]
@@ -78,8 +80,9 @@ public class FreezeMergeHiddenTests
             }
             using (var wb = Workbook.Open(path))
             {
-                var pane = wb["S"].Underlying.PaneInformation;
-                pane.HorizontalSplitPosition.Should().Be(1);
+                var pane = SplitPaneTests.Pane(wb);
+                pane.Should().NotBeNull();
+                SplitPaneTests.YSplit(pane!).Should().Be(1);
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
