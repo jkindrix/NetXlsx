@@ -114,9 +114,9 @@ public sealed class StreamingOptions : WorkbookOptions
     public int RowAccessWindowSize { get; init; } = 100;
 
     /// <summary>
-    /// Whether SXSSF compresses on-disk temp files. Trades CPU for
-    /// disk I/O — usually a wash for typical row sizes. Default:
-    /// <c>false</c>.
+    /// Whether the streaming writer compresses on-disk temp files.
+    /// Trades CPU for disk I/O — usually a wash for typical row sizes.
+    /// Default: <c>false</c>.
     /// </summary>
     public bool CompressTempFiles { get; init; }
 }

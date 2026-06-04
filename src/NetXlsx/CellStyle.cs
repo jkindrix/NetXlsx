@@ -36,10 +36,10 @@ public sealed record CellStyle
 
     /// <summary>
     /// Theme-based background color (decision I-79). When set, takes
-    /// precedence over <see cref="Background"/> and is applied via
-    /// <c>XSSFColor.Theme</c> + <c>Tint</c>. This preserves Excel's
-    /// exact color rendering when a theme is present, since explicit
-    /// RGB doesn't always match Excel's tint calculation.
+    /// precedence over <see cref="Background"/> and is written as the
+    /// OOXML theme-index + tint color. This preserves Excel's exact
+    /// color rendering when a theme is present, since explicit RGB
+    /// doesn't always match Excel's tint calculation.
     /// </summary>
     public ThemeColor? BackgroundTheme { get; init; }
 

@@ -20,8 +20,8 @@
 //   LineWidthPoints spPr/ln/@w / 12700, null when unset (0 is OOXML's unset default).
 //   LineStyleRefIndex style/lnRef/@idx (=1 for an engine-created connector).
 //
-// The NPOI escape hatch (Underlying -> XSSFConnector) throws NotSupportedException,
-// the same divergence as OoxmlPicture/OoxmlShape.
+// The escape hatch (Underlying, #32 / I-82) hands out the live xdr:cxnSp
+// ConnectionShape element, same contract as OoxmlPicture/OoxmlShape.
 
 using System;
 using DocumentFormat.OpenXml;

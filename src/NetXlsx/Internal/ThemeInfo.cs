@@ -1,6 +1,6 @@
 // Parsed view of an OOXML theme1.xml, used by IWorkbook.ResolveThemeColor
-// and GetThemeLineWidthEmu (decision I-81). Built lazily from
-// XSSFWorkbook.GetTheme() bytes, then cached on the workbook wrapper.
+// and GetThemeLineWidthEmu (decision I-81). Built lazily from the
+// workbook's theme-part bytes, then cached on the workbook wrapper.
 
 using System;
 using System.Collections.Generic;
