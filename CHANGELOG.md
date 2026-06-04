@@ -9,6 +9,33 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The v2.0.0 bulk-write O(n²) regression (I-87).** The SDK engine's
+  `GetOrCreateRow`/`MaxRowIndex` linearly scanned every `<row>` element on
+  each call (~12 full scans per appended 10-cell row), making bulk in-memory
+  writes quadratic — `Write5kRows` regressed from 251 ms (v1.x) to 3,652 ms
+  and `StyledWrite_SmallPalette` from 8.8 ms to 41.4 ms, violating the
+  design §4 targets (">500k styled cells/s", "30k rows < 3 s"). Row lookups
+  are now served by a row-index cache with a documented escape-hatch
+  coherence contract: accessing any `Underlying` member resets the caches
+  (so acquire → mutate → continue-via-facade always observes hatch
+  mutations), backstopped by per-access liveness checks. Bulk writes return
+  to the v1.x performance class; no public API change.
+  v2.0.0 was never published to NuGet; the first publishable version is
+  ≥ v2.0.1.
+
+### CI
+
+- **The benchmark regression gate can actually fail now (I-87).** The
+  previous gate compared against a rolling cache that refreshed on every
+  main push with a soft-failing compare step — a regression that landed on
+  main silently became the next run's baseline (how the O(n²) regression
+  shipped with a green Benchmarks badge). The gate now compares every run
+  against the committed `benchmarks/ci-baseline/` briefs, fails loud on a
+  missing baseline, and is refreshed only as a deliberate, reviewable
+  commit (see `benchmarks/README.md`).
+
 ## [2.0.0] — 2026-06-04
 
 ### v2.0.0 cutover — the Open XML SDK is THE engine (I-82) — BREAKING

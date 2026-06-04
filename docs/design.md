@@ -1436,6 +1436,71 @@ decisions pinned at the flip:
   tests lost), public `CellStyle.Locked` / `SetError`-style symbols
   (candidates queued post-cutover), the Open(Stream) relaxation.
 
+*The v2.0.0 bulk-write O(n²) regression and the row-index cache — **I-87**
+(added 2026-06-04, the v2.0.1 blocking slice).* The v2.0.0 SDK engine
+shipped with a quadratic bulk DOM write path: `OoxmlSheet.GetOrCreateRow`
+and `MaxRowIndex` linearly scanned every `<row>` element on each call, and
+every `row.Set(...)` routes `GetOrCreateCell` → `GetOrCreateRow` — ~12 full
+row scans per appended 10-cell row. Probe-verified superlinear (append loop
+timed separately from Save): 1k/2k/4k/8k rows → 412/460/1687/9691 ms.
+Dev-local bench evidence: `Write5kRows` 251 ms (v1.x NPOI) → 3,652 ms
+(14.5×); `StyledWrite_SmallPalette` 8.8 → 41.4 ms — violating the §4
+targets (">500k styled cells/s"; "30k rows < 3s" extrapolated to ~12 s).
+`Save` was linear and unaffected; streaming unaffected.
+
+- **Why the bench gate never caught it:** `.github/workflows/bench.yml`
+  ratcheted its baseline cache on every main push and marked the compare
+  step `continue-on-error` there, so a regression that landed on main
+  became the next run's baseline — "Benchmarks workflow green" never meant
+  "no regression". Additionally the cache key hashed `src/**/*.cs`, so any
+  engine change invalidated the cache into the "no baseline → record
+  current, never compare" path. Both fixed in this slice: the gate now
+  compares every run against a **committed CI-hardware baseline**
+  (`benchmarks/ci-baseline/`, seeded from a CI run artifact — comparing CI
+  runs against the dev-local `benchmarks/baseline/` would be the
+  cross-hardware nonsense the bench README warns about), the compare step
+  can FAIL on main pushes and PRs alike, a missing baseline fails loud,
+  and baseline refresh is a deliberate act (dispatch → download artifact →
+  commit). Gate-audit lesson: read what the compare step can actually
+  *fail on*, not the workflow conclusion.
+- **Release posture (advisor-pinned 2026-06-04):** the `v2.0.0` tag stands
+  (git-only), but v2.0.0 must never reach NuGet — the first publishable
+  version is ≥ v2.0.1.
+- **The fix — a row-index → `<row>` element cache on `OoxmlSheet`**
+  (`Dictionary<int, S.Row>` + a cached max-row pointer, built lazily in
+  one scan, the ThemeInfo cache precedent). Cache-coherence model:
+  - The engine itself never removes or renumbers a `<row>` (SortRange
+    detaches/re-homes `<c>` elements only; `Clear`/`ClearContents` keep
+    nodes); every engine row insert goes through `GetOrCreateRow`, which
+    maintains the cache. Rows without an explicit `@r` stay invisible to
+    indexed lookups (the pre-cache scan semantics); duplicate `@r` keeps
+    the first in document order.
+  - **Every escape-hatch getter** (`IWorkbook`/`ISheet`/`IRow`/`ICell`
+    `.Underlying`) **invalidates all sheets' caches** — any handed-out DOM
+    node reaches the whole package via part traversal, so per-sheet scoping
+    would be false precision. The acquire → mutate → continue-via-facade
+    pattern is therefore always coherent.
+  - **Backstops for out-of-contract stored-reference mutation:** every
+    cache hit is liveness-checked (still parented under the current
+    `<sheetData>`, `@r` unchanged → two comparisons); the append and
+    max-row fast paths verify the cached max against the live tail (O(1));
+    a sub-max miss falls back to the pre-fix ordered scan and adopts any
+    out-of-band row it finds. A detected violation triggers a one-shot
+    rebuild — a stale/detached node is never served.
+  - The residual hole — structurally mutating the grid through a *stored*
+    reference after intervening facade calls, in ways the backstops cannot
+    see (e.g. a mid-document insert that leaves the tail intact) — is the
+    documented hatch coherence contract on `IWorkbook.Underlying`:
+    re-acquire any `Underlying` member after such mutations.
+- **Result:** the probe goes linear (8k-row append loop 9691 → 155 ms);
+  `Write5kRows` and `StyledWrite_SmallPalette` return to their v1.x
+  recovery targets (251 ms / 8.8 ms class — see `benchmarks/baseline/`);
+  the full suite is green on both TFMs with zero behavioral changes.
+  `RowCacheCoherenceTests` pins the coherence model (hatch add/remove/
+  renumber, stored-reference backstops, SortRange + save/reopen).
+- No public symbol added or changed — XML-doc additions on the hatches
+  only; PublicAPI snapshot untouched.
+
 ### 6.2.13 Connectors — I-79, I-80
 
 ```csharp
