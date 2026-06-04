@@ -712,4 +712,77 @@ public class CrossEngineDifferentialTests
                 null,
                 null,
                 wb.GetRegisteredStyle("X")?.Italic)));
+
+    // ---- AutoSize (I-84 — TOLERANCE-based, not exact) -----------------------
+    //
+    // The engines measure with different metric pipelines: NPOI resolves fonts
+    // through the HOST's font stack (SixLabors SystemFonts — with silent
+    // fallback to Arial / the first installed family for fonts it can't find),
+    // while the SDK engine uses the embedded metric-twin tables (I-84,
+    // deterministic everywhere). NPOI's numbers therefore vary BY MACHINE —
+    // on this project's reference box, "Calibri" silently measures as real
+    // Arial, skewing both the line width and the defaultCharWidth divisor
+    // (8px Arial-fallback vs the Excel-correct 7px for Calibri 11). A 25%
+    // relative tolerance absorbs the documented fallback skew while still
+    // catching formula-level regressions (a broken divisor or padding shows
+    // up as 2x+, not 25%). HeadlessNoFonts: the NPOI side needs an OS font
+    // stack at all — exactly the environment-dependence I-84 removes.
+
+    private static void AssertWidthWithin25Percent((double Npoi, double Sdk) r)
+        => Math.Abs(r.Sdk - r.Npoi).Should().BeLessThanOrEqualTo(
+            Math.Abs(r.Npoi) * 0.25,
+            $"SDK width {r.Sdk} should be within 25% of NPOI width {r.Npoi}");
+
+    private static double ReadAutoSizedWidth(IWorkbook wb)
+        => wb["S"].Column("A").AutoSize().WidthUnits;
+
+    [Fact]
+    [Trait("Category", "HeadlessNoFonts")]
+    public void AutoSize_Default_Font_String_Width_Agrees_Within_Tolerance()
+        => AssertWidthWithin25Percent(Both(
+            wb => wb.AddSheet("S")["A1"].SetString("Hello, World! A longer string of text"),
+            ReadAutoSizedWidth));
+
+    [Fact]
+    [Trait("Category", "HeadlessNoFonts")]
+    public void AutoSize_Arial_String_Width_Agrees_Within_Tolerance()
+        => AssertWidthWithin25Percent(Both(
+            wb =>
+            {
+                var c = wb.AddSheet("S")["A1"];
+                c.SetString("Hello, World! A longer string of text");
+                c.Style(new CellStyle { FontName = "Arial", FontSize = 10 });
+            },
+            ReadAutoSizedWidth));
+
+    [Fact]
+    [Trait("Category", "HeadlessNoFonts")]
+    public void AutoSize_Number_Width_Agrees_Within_Tolerance()
+        => AssertWidthWithin25Percent(Both(
+            wb => wb.AddSheet("S")["A1"].SetNumber(1234.5678),
+            ReadAutoSizedWidth));
+
+    [Fact]
+    [Trait("Category", "HeadlessNoFonts")]
+    public void AutoSize_Date_Width_Agrees_Within_Tolerance()
+        => AssertWidthWithin25Percent(Both(
+            wb =>
+            {
+                var c = wb.AddSheet("S")["A1"];
+                c.SetDate(new DateTime(2026, 6, 3));
+                c.NumberFormat("d-mmm-yy");
+            },
+            ReadAutoSizedWidth));
+
+    [Fact]
+    [Trait("Category", "HeadlessNoFonts")]
+    public void AutoSize_Merged_Only_Column_Is_A_NoOp_On_Both_Engines()
+        => AssertAgree(Both(
+            wb =>
+            {
+                var s = wb.AddSheet("S");
+                s.MergeCells("A1:B2");
+                s["A1"].SetString("Merged content string");
+            },
+            ReadAutoSizedWidth));   // exact: both engines leave the default width
 }
