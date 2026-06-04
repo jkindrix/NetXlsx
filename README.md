@@ -1,8 +1,8 @@
 # NetXlsx
 
-Idiomatic C# facade over [NPOI](https://github.com/nissl-lab/npoi) for creating and reading `.xlsx` spreadsheets.
+Idiomatic C# library for creating and reading `.xlsx` spreadsheets, built on Microsoft's [Open XML SDK](https://github.com/dotnet/Open-XML-SDK).
 
-**Status:** **v1.3.0** release-PR ready on `main` (2026-05-22), pending operator tag. v1.3 closes the named-style OOXML round-trip gap (decision I-67) and lands a partial `FilterCriteria.In(...)` for 1–2-value lists (I-68). **v1.2.0** released 2026-05-22 (RemoveTable, table totals row, workbook password, per-column AutoFilter criteria — decisions I-63 through I-66). **v1.1.0** released 2026-05-22 (the 10-slice "common asks" set + fuzz harness + post-review polish — decisions I-50…I-62). **v1.0.0** released 2026-05-20.
+**Status:** **v2.0.0-alpha.1** — the release candidate for the v2.0.0 engine swap (decision I-82, cut over 2026-06-04): the engine is Microsoft's Open XML SDK, NPOI is removed from the library, and the escape hatches are SDK-typed (a breaking change for `.Underlying` consumers; see the [CHANGELOG](CHANGELOG.md) migration table). The full v1.3 behavioral suite passes against the new engine on both target frameworks. **v1.3.0** (named-style round-trip, partial `FilterCriteria.In` — I-67/I-68), **v1.2.0** and **v1.1.0** released 2026-05-22; **v1.0.0** released 2026-05-20.
 
 The public surface is exercised on every CI build, across both target frameworks, by five suites — unit, golden-file, source-generator, fuzz, and public-API snapshot. (An exact count isn't quoted here: it's not gated, so a hand-maintained number only drifts. Run `bash build/build.sh test` for the current tally.) The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. The [roadmap](docs/roadmap.md) lists the v1.2 and beyond backlog.
 
@@ -10,28 +10,28 @@ Targets `net8.0` and `net10.0` (both LTS). MIT-licensed.
 
 ## Why this exists
 
-NPOI is the only complete OOXML implementation for .NET, but its API is a Java port — it shows. NetXlsx is a thin, opinionated layer on top that:
+Raw OOXML is verbose and easy to get subtly wrong; the Open XML SDK is schema-complete but deliberately low-level. NetXlsx is a thin, opinionated layer on top that (v1.x wrapped NPOI; the v2.0.0 engine swap, decision I-82, moved to the SDK with the same public surface):
 
-- **Adds fluent ergonomics.** `sheet.Range("A1:C1").Value("header").Apply(new CellStyle { Bold = true })` instead of the multi-step NPOI dance.
-- **Deduplicates styles automatically.** A single internal pool keyed off `CellStyle` value equality. Avoids NPOI's 64K-style cap that bites every team writing many-colored reports (spike-measured at 60–64K — this is a correctness fix, not just polish).
+- **Adds fluent ergonomics.** `sheet.Range("A1:C1").Value("header").Apply(new CellStyle { Bold = true })` instead of hand-building schema elements.
+- **Deduplicates styles automatically.** A single internal pool keyed off `CellStyle` value equality. Avoids Excel's 64K-style cap that bites every team writing many-colored reports (spike-measured at 60–64K — this is a correctness fix, not just polish).
 - **Generates typed export/import at compile time.** `[Worksheet]` on a record gets you `sheet.AddRows<T>(items)` / `sheet.ReadRows<T>()` via source generator. No reflection at runtime, AOT-safe in principle.
-- **Doesn't hide NPOI.** Every public type exposes `.Underlying` returning the raw `XSSF*` (or `SXSSF*` for streaming) handle. The facade is *additive over NPOI*, not a sandbox.
+- **Doesn't hide the OOXML.** Every random-access public type exposes `.Underlying` returning the raw Open XML SDK object (`SpreadsheetDocument`, `Worksheet`, `Cell`, parts for charts/tables). The facade is *additive over the document*, not a sandbox.
 - **Splits streaming from random-access at the type level.** `Workbook.CreateStreaming()` returns `IStreamingWorkbook` — not the same type as the random-access one. Random-access members are absent from the streaming surface because they'd lie. (Looking at you, EPPlus.)
 
 ### How is this different from ClosedXML / EPPlus / MiniExcel?
 
 | | NetXlsx | ClosedXML | EPPlus | MiniExcel |
 |---|---|---|---|---|
-| Engine | wraps NPOI | own OOXML impl | own OOXML impl | own OOXML impl |
+| Engine | Open XML SDK (Microsoft) | own OOXML impl | own OOXML impl | own OOXML impl |
 | License | MIT | MIT | Commercial (since 5.0) | Apache-2.0 |
 | `.xls` (legacy) | no (explicit `Never`) | no | no | yes |
-| Streaming write | yes (SXSSF) | partial | yes | yes |
+| Streaming write | yes (forward-only, bounded memory) | partial | yes | yes |
 | Typed export via source gen | yes | no (reflection) | no (reflection) | yes |
 | Style auto-dedup | yes (required for correctness past 60K cells) | yes | yes | n/a |
 | Formula *evaluation* | no (explicit `Never`) | yes (limited) | yes | no |
 | Escape hatch to raw OOXML | yes (`.Underlying`) | partial | partial | no |
 
-**Pick NetXlsx if** you're already using NPOI and want better ergonomics, you write large styled reports (the dedup pool is real), or you want compile-time-checked typed mapping without runtime reflection. **Pick ClosedXML** if you need formula evaluation or want a non-NPOI engine. **Pick MiniExcel** if you need `.xls` support.
+**Pick NetXlsx if** you want an MIT-licensed, AOT-friendly library on Microsoft's own OOXML implementation, you write large styled reports (the dedup pool is real), or you want compile-time-checked typed mapping without runtime reflection. **Pick ClosedXML** if you need formula evaluation. **Pick MiniExcel** if you need `.xls` support.
 
 ## Requirements & known limitations
 
@@ -39,9 +39,9 @@ NPOI is the only complete OOXML implementation for .NET, but its API is a Java p
 
 > **Actively-maintained engine since v2.0.0.** The pre-v2 "deliberately frozen engine" posture (NPOI pinned at 2.7.3 for license reasons; upstream security patches not flowing in) no longer applies: the engine is `DocumentFormat.OpenXml` — MIT-licensed and maintained by Microsoft — and upstream fixes flow through normal version bumps. See [SECURITY.md](SECURITY.md) for the current dependency posture.
 
-> **Not thread-safe by default; opt-in real lock available.** NPOI is not thread-safe; the default facade detection is opportunistic — a reentry counter (decision #43) that *may* surface concurrent mutations as `InvalidOperationException` but has a race-window gap. **Multi-threaded callers should pass `WorkbookOptions { StrictConcurrencyDetection = true }`** (decision I-59) — that mode takes a real per-workbook `Monitor` lock on every mutating path, serializes safely, and accepts a small throughput cost in exchange for a hard "you cannot silently corrupt this workbook" guarantee. The opportunistic default is the right choice for single-threaded callers (zero lock overhead); under concurrent load it will produce flaky "works in tests, fails under load" reports, so flip the option deliberately.
+> **Not thread-safe by default; opt-in real lock available.** Workbooks are not thread-safe; the default facade detection is opportunistic — a reentry counter (decision #43) that *may* surface concurrent mutations as `InvalidOperationException` but has a race-window gap. **Multi-threaded callers should pass `WorkbookOptions { StrictConcurrencyDetection = true }`** (decision I-59) — that mode takes a real per-workbook `Monitor` lock on every mutating path, serializes safely, and accepts a small throughput cost in exchange for a hard "you cannot silently corrupt this workbook" guarantee. The opportunistic default is the right choice for single-threaded callers (zero lock overhead); under concurrent load it will produce flaky "works in tests, fails under load" reports, so flip the option deliberately.
 
-> **`IColumn.AutoSize()` requires font metrics.** On headless Linux without `libgdiplus` + a fallback font (e.g. DejaVu), `AutoSize()` throws `MissingFontException` with install commands (design decision I3). The deterministic alternative is `IColumn.Width(double)` with an explicit width.
+> **`IColumn.AutoSize()` is deterministic and headless-safe since v2.0.0** (decision I-84): widths are measured against embedded numeric font-metric tables (metric-compatible SIL-OFL twins of Calibri/Arial/Times/Courier families) — no fontconfig, no `libgdiplus`, identical results on every machine. Fonts outside the embedded set throw `MissingFontException` naming the font; the fallback is `IColumn.Width(double)` with an explicit width.
 
 ## What works today
 
@@ -97,7 +97,7 @@ sheet["A1"].Style(new CellStyle
 sheet["B2"].NumberFormat(NumberFormats.Currency);
 ```
 
-`ICell.Style(...)` is a **merge** — non-null axes of the overlay override the existing style; null axes are left untouched. Equal merged styles share one underlying NPOI style index via an internal pool (decision #4), keeping the file under Excel's 64K-style cap even when many cells differ only by background color.
+`ICell.Style(...)` is a **merge** — non-null axes of the overlay override the existing style; null axes are left untouched. Equal merged styles share one underlying `cellXfs` index via an internal pool (decision #4), keeping the file under Excel's 64K-style cap even when many cells differ only by background color.
 
 ### Dates, times, durations, cell errors
 
@@ -174,20 +174,21 @@ foreach (var row in read["Sales"].ReadRows<SalesRow>())
     Console.WriteLine($"{row.Region}: {row.Revenue:C}");
 ```
 
-The generator (`NetXlsx.SourceGen`) emits stable diagnostic IDs `NXLS0001`–`NXLS0099` for invalid `[Worksheet]` / `[Column]` usage; build-time guards under `NXLS0100`–`NXLS0199` cover AOT/trim incompatibility.
+The generator (`NetXlsx.SourceGen`) emits stable diagnostic IDs `NXLS0001`–`NXLS0099` for invalid `[Worksheet]` / `[Column]` usage. (The `NXLS0100`–`NXLS0199` AOT/trim build guards were retired at v2.0.0 — the engine passed the AOT/trim audit.)
 
 ### Escape hatch
 
-When a wrapped operation does not yet exist, every public type exposes its raw NPOI counterpart:
+When a wrapped operation does not yet exist, every random-access public type exposes its raw Open XML SDK counterpart:
 
 ```csharp
-XSSFWorkbook raw    = workbook.Underlying;
-XSSFSheet    rawSh  = sheet.Underlying;
-XSSFRow      rawR   = row.Underlying;
-XSSFCell     rawC   = cell.Underlying;
+SpreadsheetDocument doc   = workbook.Underlying;  // the live document + part graph
+Worksheet           rawSh = sheet.Underlying;     // worksheet DOM root
+Row                 rawR  = row.Underlying;
+Cell                rawC  = cell.Underlying;      // materializes the node on access
+ChartPart           chart = myChart.Underlying;   // chart/table content lives in its own part
 ```
 
-This is by design (#1, #32) — the facade is *additive over NPOI*, not a sandbox around it.
+This is by design (#1, #32 / I-82) — the facade is *additive over the OOXML document*, not a sandbox around it. (The streaming surface has no hatch: rows stream forward-only and the package exists only at `Save`.)
 
 See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes (13 v1.0 + 7 v1.1) covering every public-surface area; each recipe doubles as a golden-file test.
 
@@ -196,7 +197,7 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes
 - [Design](docs/design.md) — 52 foundational + 32 implementation decisions, full interface sketch, performance targets, behavioral specifications, quality gates.
 - [Roadmap](docs/roadmap.md) — binary feature matrix v1.0 / v1.1 / v2.0 / v3.0 / Never, per-release DoD, process rules.
 - [Implementation notes](docs/implementation-notes.md) — patterns and lessons from the implementation phase (not yet a methodology — see file header).
-- [Scheduled spikes](docs/scheduled-spikes.md) — quarterly re-checks (e.g. NPOI AOT/trim posture, next due 2026-08-16).
+- [Scheduled spikes](docs/scheduled-spikes.md) — quarterly re-checks (historical: the NPOI AOT/trim re-check is retired with the v2.0.0 engine swap).
 - [NPOI workarounds](docs/npoi-workarounds.md) — catalog of NPOI quirks the facade routes around (currently empty by design).
 - [Pre-impl spikes](spikes/results/) — measured outcomes for style-dedup feasibility, streaming back-pressure, async wrapping cost, and AOT/trim posture.
 - [Changelog](CHANGELOG.md) — Keep-a-Changelog format, slice-level entries with public-API deltas.

@@ -9,6 +9,76 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### v2.0.0 cutover — the Open XML SDK is THE engine (I-82) — BREAKING
+
+The engine swap announced below is complete: every factory
+(`Create` / `CreateMacroEnabled` / `CreateStreaming` / `Open` /
+`OpenAsync`) now routes to the Open XML SDK engine, and NPOI is removed
+from the library (it survives only as a test-side independent oracle).
+`v2.0.0-alpha.1` is the release candidate cut from this state.
+
+**Breaking — `.Underlying` retypes to the SDK objects.** Consumers
+reaching through the escape hatch get a loud compile break and migrate
+as follows:
+
+| Member | Was (NPOI) | Now (Open XML SDK) |
+|---|---|---|
+| `IWorkbook.Underlying` | `XSSFWorkbook` | `DocumentFormat.OpenXml.Packaging.SpreadsheetDocument` |
+| `ISheet.Underlying` | `XSSFSheet` | `DocumentFormat.OpenXml.Spreadsheet.Worksheet` (DOM root; part via `.WorksheetPart`) |
+| `IRow.Underlying` | `XSSFRow` | `DocumentFormat.OpenXml.Spreadsheet.Row` |
+| `ICell.Underlying` | `XSSFCell` | `DocumentFormat.OpenXml.Spreadsheet.Cell` (materializes the node on access — a write-like act) |
+| `IPicture.Underlying` | `XSSFPicture` | `DocumentFormat.OpenXml.Drawing.Spreadsheet.Picture` |
+| `IShape.Underlying` | `XSSFSimpleShape` | `DocumentFormat.OpenXml.Drawing.Spreadsheet.Shape` |
+| `IConnector.Underlying` | `XSSFConnector` | `DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape` |
+| `IChart.Underlying` | `XSSFChart` | `DocumentFormat.OpenXml.Packaging.ChartPart` (DOM via `.ChartSpace`) |
+| `ITable.Underlying` | `XSSFTable` | `DocumentFormat.OpenXml.Packaging.TableDefinitionPart` (DOM via `.Table`) |
+
+**Breaking — streaming escape hatches removed.**
+`IStreamingWorkbook.Underlying` and `IStreamingSheet.Underlying` are
+gone, not retyped: the streaming engine writes rows forward-only
+through `OpenXmlWriter` and assembles the package only at `Save`, so
+there is no live document object to reach for at any earlier point —
+a member that could never return would be a standing lie.
+
+**Removed (never shipped).** `IWorkbook.OpenXmlDocument`, the swap-era
+SDK hatch, is subsumed by the retyped `.Underlying`. The swap-era
+factories `CreateOoxml` / `OpenOoxml` / `CreateStreamingOoxml` remain
+temporarily as exact aliases of the default factories and are removed
+at the post-cutover test-fold slice, before v2.0.0 final.
+
+**Unchanged on purpose.** `Open(Stream)` keeps its CanSeek +
+Position==0 preconditions (relaxing to readable-only is additive and
+deliberately deferred past v2.0.0). The public API surface is otherwise
+identical — the facade is the asset; only the hatch types moved.
+
+**Engine completions at the cutover.** `ICell.GetError` now reads
+`t="e"` error literals on the SDK engine (plain and formula-cached,
+decision #49 — including `#GETTING_DATA`, which NPOI's write API could
+not produce); `CreateMacroEnabled` produces a genuine
+`MacroEnabledWorkbook` (content type pinned by test).
+
+**Dependency posture.** `DocumentFormat.OpenXml` is the library's only
+runtime dependency. The NPOI package and the pre-v2 frozen-engine
+security posture are gone (SECURITY.md rewritten); the
+`SixLabors.ImageSharp` / `System.Security.Cryptography.Xml` transitive
+pins remain only for the non-shipping test/bench projects that keep
+NPOI as an oracle.
+
+**AOT/trim unlocked.** The engine passed the `PublishTrimmed` +
+`PublishAot` audit (zero IL/AOT warnings; representative workload
+verified under a native binary), so the consumer-side `NXLS0100` /
+`NXLS0101` build guards are removed.
+
+**Real-world gate.** The 5-file OPC stress sweep re-ran through the
+now-default `Open` → `Save` on the flipped engine: 26/26, 31/31,
+36/36, 17/17 and 50/50 parts preserved; every output reopens cleanly.
+
+*(Cutover test migration: phase 1 moved the suite's NPOI reach-through
+assertions to persisted-OOXML / public-API observables; phase 2
+rewrote the deliberate residue against the SDK hatch and collapsed the
+cross-engine differential harness — its de-risk mission completed at
+the flip — onto literal-pinned single-engine contracts.)*
+
 ### Engine swap to Open XML SDK — foundation slice (I-82)
 
 Begins the v2.0.0 engine swap from NPOI 2.7.3 to Microsoft's Open XML

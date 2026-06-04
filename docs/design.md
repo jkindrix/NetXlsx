@@ -559,8 +559,13 @@ public static IWorkbook Workbook.CreateOoxml(WorkbookOptions? options = null);
 public static IWorkbook Workbook.OpenOoxml(string path, WorkbookOptions? options = null);
 public static IWorkbook Workbook.OpenOoxml(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null);
 
-// On IWorkbook (additive):
+// On IWorkbook (additive during the swap):
 DocumentFormat.OpenXml.Packaging.SpreadsheetDocument? OpenXmlDocument { get; }
+
+// POST-CUTOVER REALITY (phase 2, 2026-06-04 — see the cutover note below):
+// OpenXmlDocument was REMOVED (never shipped; subsumed by the retyped
+// .Underlying), and the *Ooxml factories are temporary aliases of the
+// default factories, slated for removal at the OoxmlEngine.Tests fold.
 ```
 
 **I-82 (added 2026-05-31):** NetXlsx swaps its engine from NPOI 2.7.3 to
@@ -630,9 +635,13 @@ reached through `.Underlying.LastRowNum`) → ✅ pre-cutover parity slice
 write caps, the #43/I-59 concurrency contract, OoxmlRange disposed guards +
 `Value` scalar parity, relationship-orphan OPC preservation per decision #44,
 the SDK Open malformed-input gate per quirk #17, and `ISheet.LastRowNumber`
-(**I-85**) replacing the sourcegen reach-through) → **re-scout (red list must
-equal the (b) `.Underlying` reach-through batch exactly) + the cutover
-conversation ←NEXT**.
+(**I-85**) replacing the sourcegen reach-through) → ✅ re-scout (2026-06-03;
+red list == the (b) `.Underlying` reach-through batch exactly, fuzz fully
+green — the cutover gate was met) → ✅ cutover phase 1 (2026-06-04; the
+(i)-class reach-throughs migrated to persisted-OOXML / public-API
+assertions via the shared `SavedOoxml` helper) → ✅ **THE CUTOVER, phase 2
+(2026-06-04 — see the cutover sub-decision note below). The SDK engine is
+the engine; NPOI is deleted from the library.**
 
 *Cell-styles slice — deferred within the surface* (tracked here so a later slice
 picks them up, not lost): (a) ✅ LANDED (closeout sub-slice, 2026-06-03) — date-cell
@@ -1343,6 +1352,85 @@ approximation into every consumer's generated code forever):
   (streaming is write-only/forward-only).
 - The generator now emits `sheet.LastRowNumber` — public API only, valid on
   both engines throughout the swap and after cutover.
+
+*THE CUTOVER — I-82 phase 2 (executed 2026-06-04; operator green-lit,
+advisor-approved plan with amendments A1–A4).* The flip is done: every
+factory routes to the SDK engine, NPOI is deleted from the library, and
+`v2.0.0-alpha.1` is the RC tagged from this state (git tag only — NuGet
+publication remains a separate, post-vetting operator decision). The
+decisions pinned at the flip:
+
+- **Escape-hatch retype map.** `IWorkbook.Underlying` →
+  `SpreadsheetDocument`; `ISheet` → `Worksheet`; `IRow` → `Row`; `ICell` →
+  `Cell`; `IPicture`/`IShape`/`IConnector` → the `xdr` element classes
+  (`Picture`/`Shape`/`ConnectionShape`); `IChart` → `ChartPart`; `ITable` →
+  `TableDefinitionPart`. The part-vs-element asymmetry is deliberate:
+  chart/table content lives in its own OPC part (matching NPOI's
+  part-wrapper semantics — the part hands out both DOM and relationships),
+  while a worksheet's element root is strictly more useful than its part
+  (the part is one `.WorksheetPart` hop away). Every hatch checks disposal
+  BEFORE returning (the DisposedWorkbookMatrix contract).
+- **`ICell.Underlying` materializes the node** (advisor-confirmed):
+  reaching for the raw `<c>` is a write-like act — decision #40's lazy
+  cells stay lazy until the hatch is used; the materialized node persists
+  through Save (pinned by test).
+- **Streaming hatches REMOVED, not retyped** (advisor-confirmed):
+  `IStreamingWorkbook.Underlying` / `IStreamingSheet.Underlying` are gone.
+  The streaming engine assembles the package only at Save; a member that
+  structurally can never return is a standing lie (I-83 honesty).
+- **`IWorkbook.OpenXmlDocument` removed** — the swap-era hatch never
+  shipped in a release; the retyped `.Underlying` subsumes it. Clean
+  delete, no `[Obsolete]` dance.
+- **Swap-era factory aliases are TEMPORARY (pinned requirement, not an
+  option):** `CreateOoxml` / `OpenOoxml` / `CreateStreamingOoxml` remain
+  as exact aliases only because ~640 OoxmlEngine.Tests call sites use
+  them; they MUST be removed at the post-cutover OoxmlEngine.Tests fold
+  slice, before v2.0.0 final — they have never shipped and must never
+  ship.
+- **`Open(Stream)` preconditions KEPT** (CanSeek + Position==0): change
+  only what must change at the flip; relaxing to readable-only is additive
+  and deliberately deferred past v2.0.0.
+- **Engine completions forced by the flip:** `ICell.GetError` reads
+  `t="e"` error literals (decision #49; plain + formula-cached, including
+  `#GETTING_DATA`); `CreateMacroEnabled` produces a genuine
+  `MacroEnabledWorkbook` (document type + content type + round-trip
+  pinned per amendment A2).
+- **Cross-engine test family dispositioned (amendment A1)** — after the
+  reroute, every test that ran "both factories" would silently
+  self-compare; green-but-hollow violates the suite's honesty discipline.
+  Dispositions: the differential harness DELETED (its de-risk mission
+  completed at the flip; the pre-cutover re-scout — red list == the
+  reach-through batch exactly, fuzz green — is the evidence); the
+  malformed harness collapsed to single-engine `MalformedFileException`
+  pins (`MalformedInputContractTests`); DV/CF emission projections pinned
+  as LITERALS captured from the green pre-flip state (both engines
+  emitted them identically); the chart equivalence test deleted (absolute
+  per-type coverage lives in the same file); LastRowNumber/Sort/
+  NamedStyle/SchemaValidation fixtures made single-engine, synthesizing
+  the NPOI-shaped artifact where the artifact itself was the contract
+  (builtinId="0", an injected `<pageMargins>`). **Queued post-cutover
+  (named item):** converting selected pins to NPOI-as-independent-reader
+  oracles (write via SDK, reopen via raw test-side NPOI) where that adds
+  third-party verification.
+- **NPOI is TEST-ONLY now** (oracle-over-opinion, advisor-confirmed): an
+  explicit reference in NetXlsx.Tests (independent reader oracle, e.g.
+  DefaultColumnWidthTests), GoldenFiles (raw-OPC orphan-part fixture
+  authoring — the pinned #44 contract), Benchmarks (cross-library spikes)
+  and Cookbook (OpenEditSave's fixture-builder). It never ships in the
+  package; the ImageSharp/Cryptography.Xml transitive pins protect only
+  these non-shipping projects and go when the last test-side NPOI
+  reference goes. Full test de-NPOI is queued post-cutover.
+- **AOT/trim audited and unlocked:** `PublishTrimmed` + `PublishAot`
+  produce zero IL/AOT warnings and a representative workload runs
+  correctly as a native binary, so the I2/S27 consumer guards
+  (`buildTransitive/NetXlsx.targets`, NXLS0100/0101) are removed.
+- **Real-world gate (amendment A4):** the 5-file OPC stress sweep re-ran
+  through the now-default `Open` → `Save` on flipped main — 26/26, 31/31,
+  36/36, 17/17, 50/50 parts preserved; every output reopens cleanly.
+- **Explicitly NOT in this slice:** the OoxmlEngine.Tests fold (own
+  post-cutover slice, decided 2026-06-04), public `CellStyle.Locked` /
+  `SetError`-style symbols (candidates queued post-cutover), the
+  Open(Stream) relaxation.
 
 ### 6.2.13 Connectors — I-79, I-80
 
