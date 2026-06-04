@@ -26,8 +26,10 @@ internal sealed class OoxmlRow : IRow
     public ICell Cell(int column)
     {
         _sheet.WorkbookInternal.ThrowIfDisposed();
-        if (column < 1 || column > CellAddress.MaxColumn)
-            throw new ArgumentOutOfRangeException(nameof(column), column, $"column must be in [1, {CellAddress.MaxColumn}]");
+        // Effective cap: min(user-configured option, Excel hard cap) — mirrors XssfRow.
+        int colCap = Math.Min(_sheet.WorkbookInternal.Options.MaxColsPerSheet, CellAddress.MaxColumn);
+        if (column < 1 || column > colCap)
+            throw new ArgumentOutOfRangeException(nameof(column), column, $"column must be in [1, {colCap}]");
         return new OoxmlCell(_sheet, _index, column);
     }
 

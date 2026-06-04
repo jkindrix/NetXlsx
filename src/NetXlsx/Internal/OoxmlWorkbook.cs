@@ -224,8 +224,17 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         }
 
         var wb = new OoxmlWorkbook(document, backing, options);
-        wb.IndexExistingSheets();
-        return wb;
+        try
+        {
+            wb.IndexExistingSheets();
+            wb.EnforceReadLimits();
+            return wb;
+        }
+        catch
+        {
+            wb.Dispose();
+            throw;
+        }
     }
 
     // Open XML SDK surfaces malformed packages as OpenXmlPackageException, the
@@ -262,6 +271,63 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             _sheetsByIndex.Add(wrapper);
             _sheetsByName[name] = wrapper;
         }
+    }
+
+    /// <summary>
+    /// WorkbookOptions read limits, enforced post-open (mirrors the NPOI
+    /// engine's <c>XssfWorkbook.EnforceReadLimits</c>): <see cref="WorkbookOptions.ReadMaxSheets"/>
+    /// and <see cref="WorkbookOptions.ReadMaxUncompressedBytes"/>. The byte check is
+    /// best-effort over every relationship-reachable part — it catches over-the-line
+    /// payloads after they've been buffered, the right place to fail loud given the
+    /// whole package is already copied into the owned backing buffer.
+    /// </summary>
+    private void EnforceReadLimits()
+    {
+        // ReadMaxSheets
+        int sheetCount = _sheetsByIndex.Count;
+        if (sheetCount > _options.ReadMaxSheets)
+        {
+            throw new ResourceLimitExceededException(
+                "sheet count", _options.ReadMaxSheets, sheetCount);
+        }
+
+        // ReadMaxUncompressedBytes
+        long limit = _options.ReadMaxUncompressedBytes;
+        if (limit <= 0) return;
+        long total = 0;
+        foreach (var part in _document.GetAllParts())
+        {
+            using var s = part.GetStream(FileMode.Open, FileAccess.Read);
+            if (s.CanSeek)
+            {
+                total += s.Length;
+            }
+            else
+            {
+                // Length-by-read fallback for non-seekable part streams,
+                // bounded so we never read past the configured limit.
+                total += CountBytes(s, limit - total + 1);
+            }
+
+            if (total > limit)
+            {
+                throw new ResourceLimitExceededException(
+                    "uncompressed package size in bytes", limit, total);
+            }
+        }
+    }
+
+    private static long CountBytes(Stream s, long capPlusOne)
+    {
+        byte[] buf = new byte[4096];
+        long count = 0;
+        int read;
+        while ((read = s.Read(buf, 0, buf.Length)) > 0)
+        {
+            count += read;
+            if (count >= capPlusOne) break;
+        }
+        return count;
     }
 
     // ---- Bones --------------------------------------------------------------

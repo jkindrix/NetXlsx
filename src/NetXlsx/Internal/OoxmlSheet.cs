@@ -233,12 +233,29 @@ internal sealed partial class OoxmlSheet : ISheet
         get
         {
             _workbook.ThrowIfDisposed();
-            if (row < 1 || row > CellAddress.MaxRow)
-                throw new ArgumentOutOfRangeException(nameof(row), row, $"row must be in [1, {CellAddress.MaxRow}]");
-            if (column < 1 || column > CellAddress.MaxColumn)
-                throw new ArgumentOutOfRangeException(nameof(column), column, $"column must be in [1, {CellAddress.MaxColumn}]");
+            ValidateGridCoordinate(row, column);
             return new OoxmlCell(this, row, column);
         }
+    }
+
+    // Effective caps: min(user-configured option, Excel hard cap). The option
+    // defaults to the Excel hard cap, so default behavior is unchanged;
+    // configuring a smaller value fails earlier (mirrors XssfSheet).
+    private int EffectiveMaxRow =>
+        Math.Min(_workbook.Options.MaxRowsPerSheet, CellAddress.MaxRow);
+    private int EffectiveMaxColumn =>
+        Math.Min(_workbook.Options.MaxColsPerSheet, CellAddress.MaxColumn);
+
+    private void ValidateGridCoordinate(int row, int column)
+    {
+        int rowCap = EffectiveMaxRow;
+        int colCap = EffectiveMaxColumn;
+        if (row < 1 || row > rowCap)
+            throw new ArgumentOutOfRangeException(nameof(row), row,
+                $"row must be in [1, {rowCap}]");
+        if (column < 1 || column > colCap)
+            throw new ArgumentOutOfRangeException(nameof(column), column,
+                $"column must be in [1, {colCap}]");
     }
 
     public IRange Range(string a1Range)
@@ -252,9 +269,8 @@ internal sealed partial class OoxmlSheet : ISheet
     public IRange Range(int row1, int col1, int row2, int col2)
     {
         _workbook.ThrowIfDisposed();
-        foreach (var (label, v, max) in new[] { ("row1", row1, CellAddress.MaxRow), ("col1", col1, CellAddress.MaxColumn), ("row2", row2, CellAddress.MaxRow), ("col2", col2, CellAddress.MaxColumn) })
-            if (v < 1 || v > max)
-                throw new ArgumentOutOfRangeException(label, v, $"{label} must be in [1, {max}]");
+        ValidateGridCoordinate(row1, col1);
+        ValidateGridCoordinate(row2, col2);
         return new OoxmlRange(this, row1, col1, row2, col2);
     }
 
@@ -262,6 +278,10 @@ internal sealed partial class OoxmlSheet : ISheet
     {
         _workbook.ThrowIfDisposed();
         int next = MaxRowIndex() + 1;
+        int rowCap = EffectiveMaxRow;
+        if (next > rowCap)
+            throw new ArgumentOutOfRangeException(nameof(AppendRow),
+                $"appending would exceed the configured row limit of {rowCap}");
         GetOrCreateRow(next);
         return new OoxmlRow(this, next);
     }
@@ -269,8 +289,9 @@ internal sealed partial class OoxmlSheet : ISheet
     public IRow Row(int index)
     {
         _workbook.ThrowIfDisposed();
-        if (index < 1 || index > CellAddress.MaxRow)
-            throw new ArgumentOutOfRangeException(nameof(index), index, $"row index must be in [1, {CellAddress.MaxRow}]");
+        int rowCap = EffectiveMaxRow;
+        if (index < 1 || index > rowCap)
+            throw new ArgumentOutOfRangeException(nameof(index), index, $"row index must be in [1, {rowCap}]");
         GetOrCreateRow(index);
         return new OoxmlRow(this, index);
     }
@@ -278,8 +299,9 @@ internal sealed partial class OoxmlSheet : ISheet
     public IColumn Column(int index)
     {
         _workbook.ThrowIfDisposed();
-        if (index < 1 || index > CellAddress.MaxColumn)
-            throw new ArgumentOutOfRangeException(nameof(index), index, $"column index must be in [1, {CellAddress.MaxColumn}]");
+        int colCap = EffectiveMaxColumn;
+        if (index < 1 || index > colCap)
+            throw new ArgumentOutOfRangeException(nameof(index), index, $"column index must be in [1, {colCap}]");
         return new OoxmlColumn(this, index);
     }
 
