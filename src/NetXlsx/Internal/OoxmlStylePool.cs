@@ -355,7 +355,14 @@ internal sealed class OoxmlStylePool
         var cellXfs = _ss.GetFirstChild<S.CellFormats>();
         var xf = cellXfs?.Elements<S.CellFormat>().ElementAtOrDefault((int)xfIndex);
         if (xf is null) return CellStyle.Default;
+        return ReadXf(xf);
+    }
 
+    // Parses one CT_Xf back to a CellStyle. Shared by the cellXfs read path
+    // (ReadStyle) and the cellStyleXfs read path (ReadNamedStyles) — the two
+    // tables carry the same element type.
+    private CellStyle ReadXf(S.CellFormat xf)
+    {
         var fontStyle = ReadFont(xf.FontId?.Value ?? 0u);
         return new CellStyle
         {
@@ -639,6 +646,127 @@ internal sealed class OoxmlStylePool
         if (successor is null) _ss.AppendChild(dxfs);
         else _ss.InsertBefore(dxfs, successor);
         return dxfs;
+    }
+
+    // ---- Named styles (the NPOI engine's I-67 round-trip) --------------------
+    //
+    // RegisterStyle persists each name as a cellStyleXfs <xf> (mirroring the
+    // deduped cellXfs entry's component ids) plus a <cellStyle name=… xfId=…>
+    // entry, so registered names survive a save/open round-trip and appear in
+    // Excel's Cell Styles panel. Divergence from the NPOI witness (oracle-dumped
+    // 2026-06-03): NPOI stamps builtinId="0" on every user entry — but builtinId
+    // 0 *claims the Normal builtin* per ECMA-376; user styles carry no builtinId
+    // here (Excel's own files don't either). Re-registering a name repoints its
+    // xfId and leaves the superseded cellStyleXfs entry orphaned — harmless, and
+    // exactly what NPOI does.
+
+    /// <summary>Upserts the named-style OOXML entry for <paramref name="name"/>.</summary>
+    internal void WriteNamedStyle(string name, CellStyle style)
+    {
+        // The style's component ids come from the same dedup allocation the
+        // visual style uses (an empty style maps to the Normal components).
+        uint xfIndex = GetOrCreate(style);
+        var sourceXf = _ss.GetFirstChild<S.CellFormats>()!
+            .Elements<S.CellFormat>().ElementAt((int)xfIndex);
+
+        var namedXf = new S.CellFormat
+        {
+            NumberFormatId = sourceXf.NumberFormatId?.Value ?? 0u,
+            FontId = sourceXf.FontId?.Value ?? 0u,
+            FillId = sourceXf.FillId?.Value ?? 0u,
+            BorderId = sourceXf.BorderId?.Value ?? 0u,
+            ApplyNumberFormat = sourceXf.ApplyNumberFormat?.Value == true ? true : null,
+            ApplyFont = sourceXf.ApplyFont?.Value == true ? true : null,
+            ApplyFill = sourceXf.ApplyFill?.Value == true ? true : null,
+            ApplyBorder = sourceXf.ApplyBorder?.Value == true ? true : null,
+        };
+        if (sourceXf.Alignment is not null)
+        {
+            namedXf.ApplyAlignment = true;
+            namedXf.Alignment = (S.Alignment)sourceXf.Alignment.CloneNode(true);
+        }
+
+        var styleXfs = GetOrCreateCellStyleFormats();
+        styleXfs.AppendChild(namedXf);
+        uint xfId = (uint)styleXfs.Elements<S.CellFormat>().Count() - 1;
+        styleXfs.Count = xfId + 1;
+
+        var cellStyles = GetOrCreateCellStyles();
+        var existing = cellStyles.Elements<S.CellStyle>().FirstOrDefault(cs =>
+            string.Equals(cs.Name?.Value, name, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            existing.FormatId = xfId;
+        }
+        else
+        {
+            cellStyles.AppendChild(new S.CellStyle { Name = name, FormatId = xfId });
+        }
+        cellStyles.Count = (uint)cellStyles.Elements<S.CellStyle>().Count();
+    }
+
+    /// <summary>
+    /// Reads the persisted named-style entries back as (name, style) pairs —
+    /// the rehydration source for a freshly opened workbook's registry. The
+    /// built-in "Normal" entry and nameless entries are skipped (they are not
+    /// user-registered names; same contract as the NPOI engine).
+    /// </summary>
+    internal IEnumerable<KeyValuePair<string, CellStyle>> ReadNamedStyles()
+    {
+        var cellStyles = _ss.GetFirstChild<S.CellStyles>();
+        if (cellStyles is null) yield break;
+        var styleXfs = _ss.GetFirstChild<S.CellStyleFormats>();
+
+        foreach (var cs in cellStyles.Elements<S.CellStyle>())
+        {
+            var name = cs.Name?.Value;
+            if (string.IsNullOrEmpty(name)) continue;
+            if (string.Equals(name, "Normal", StringComparison.OrdinalIgnoreCase)) continue;
+
+            var xf = styleXfs?.Elements<S.CellFormat>()
+                .ElementAtOrDefault((int)(cs.FormatId?.Value ?? 0u));
+            if (xf is null) continue;
+
+            yield return new KeyValuePair<string, CellStyle>(name, ReadXf(xf));
+        }
+    }
+
+    private S.CellStyleFormats GetOrCreateCellStyleFormats()
+    {
+        var existing = _ss.GetFirstChild<S.CellStyleFormats>();
+        if (existing is not null) return existing;
+        // CT_Stylesheet order: … borders, cellStyleXfs, cellXfs, … — created
+        // stylesheets always carry the Normal master xf (I-78), but an opened
+        // file's stylesheet may omit the table entirely. Seed the fresh table
+        // with the Normal master at index 0: cellXfs entries reference their
+        // parent via xfId, and the universal convention (this engine's created
+        // files included) is xfId=0 = Normal — a named xf landing at index 0
+        // would silently re-parent every styled cell.
+        var styleXfs = new S.CellStyleFormats(
+            new S.CellFormat { NumberFormatId = 0u, FontId = 0u, FillId = 0u, BorderId = 0u }) { Count = 1u };
+        var successor = _ss.ChildElements.FirstOrDefault(e =>
+            e is S.CellFormats || e is S.CellStyles || e is S.DifferentialFormats
+            || e is S.TableStyles || e is S.Colors || e is S.StylesheetExtensionList);
+        if (successor is null) _ss.AppendChild(styleXfs);
+        else _ss.InsertBefore(styleXfs, successor);
+        return styleXfs;
+    }
+
+    private S.CellStyles GetOrCreateCellStyles()
+    {
+        var existing = _ss.GetFirstChild<S.CellStyles>();
+        if (existing is not null) return existing;
+        // CT_Stylesheet order: … cellXfs, cellStyles, dxfs, … (quirk #3). A
+        // fresh table is seeded with the builtin Normal entry (xfId 0) — the
+        // panel Excel expects, and CT_CellStyles requires ≥1 child (quirk #7).
+        var cellStyles = new S.CellStyles(
+            new S.CellStyle { Name = "Normal", FormatId = 0u, BuiltinId = 0u }) { Count = 1u };
+        var successor = _ss.ChildElements.FirstOrDefault(e =>
+            e is S.DifferentialFormats || e is S.TableStyles || e is S.Colors
+            || e is S.StylesheetExtensionList);
+        if (successor is null) _ss.AppendChild(cellStyles);
+        else _ss.InsertBefore(cellStyles, successor);
+        return cellStyles;
     }
 
     // ---- Helpers ------------------------------------------------------------

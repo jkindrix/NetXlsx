@@ -673,4 +673,43 @@ public class CrossEngineDifferentialTests
             DateCell("yyyy-mm-dd hh:mm:ss", new DateTime(2026, 6, 3, 13, 45, 30)),
             DateStr,
             options: new WorkbookOptions { DateSystem = DateSystem.Excel1904 }));
+
+    // ---- named-style OOXML persistence (closeout slice) --------------------
+    // Both engines persist RegisterStyle into cellStyleXfs/cellStyles (I-67 on
+    // NPOI; the closeout slice on the SDK engine) and rehydrate on open. The
+    // projection compares registered names and the explicitly-set axes (the
+    // engines legitimately differ on UNSET axes — the SDK-quirk #6 family —
+    // and on the builtinId artifact NPOI stamps, which has no public surface).
+
+    private sealed record NamedObs(string[] Names, bool? HeaderBold, double? HeaderSize, bool? BodyItalic);
+
+    [Fact]
+    public void Named_Style_Roundtrip_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                wb.RegisterStyle("Header", new CellStyle { Bold = true, FontSize = 14 });
+                wb.RegisterStyle("Body", new CellStyle { Italic = true });
+                wb.AddSheet("S");
+            },
+            wb => new NamedObs(
+                wb.RegisteredStyleNames.OrderBy(n => n, StringComparer.Ordinal).ToArray(),
+                wb.GetRegisteredStyle("Header")?.Bold,
+                wb.GetRegisteredStyle("Header")?.FontSize,
+                wb.GetRegisteredStyle("Body")?.Italic)));
+
+    [Fact]
+    public void Named_Style_Replacement_Roundtrip_Agrees()
+        => AssertAgree(Both(
+            wb =>
+            {
+                wb.RegisterStyle("X", new CellStyle { Bold = true });
+                wb.RegisterStyle("X", new CellStyle { Italic = true });
+                wb.AddSheet("S");
+            },
+            wb => new NamedObs(
+                wb.RegisteredStyleNames.ToArray(),
+                null,
+                null,
+                wb.GetRegisteredStyle("X")?.Italic)));
 }

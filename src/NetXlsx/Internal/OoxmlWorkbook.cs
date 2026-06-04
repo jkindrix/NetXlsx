@@ -449,17 +449,29 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         return -1;
     }
 
-    // ---- Style pool diagnostics + named-style registry (styles slice) ------
+    // ---- Style pool diagnostics + named-style registry (styles slice; OOXML
+    // persistence in the closeout slice) -------------------------------------
     //
-    // The named-style registry is in-memory: RegisterStyle records the name so
-    // ApplyNamedStyle can resolve it. Persisting named styles into OOXML's
-    // cellStyles panel so they survive a save/open round-trip is the NPOI
-    // engine's I-67 behavior; the SDK equivalent is deferred to a follow-up
-    // slice (tracked in docs/design.md I-82). Runtime resolution within a single
-    // workbook session works fully today.
+    // The in-process dictionary is the runtime source of truth (same model as
+    // the NPOI engine's I-67): RegisterStyle records the name for ApplyNamedStyle
+    // AND persists it into the stylesheet's cellStyleXfs/cellStyles tables (via
+    // OoxmlStylePool.WriteNamedStyle) so names survive a save/open round-trip
+    // and appear in Excel's Cell Styles panel. First access on an opened
+    // workbook rehydrates the registry from the persisted entries.
 
-    private Dictionary<string, CellStyle> NamedStyles =>
-        _namedStyles ??= new Dictionary<string, CellStyle>(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, CellStyle> NamedStyles
+    {
+        get
+        {
+            if (_namedStyles is null)
+            {
+                _namedStyles = new Dictionary<string, CellStyle>(StringComparer.OrdinalIgnoreCase);
+                foreach (var entry in StylePool.ReadNamedStyles())
+                    _namedStyles[entry.Key] = entry.Value;
+            }
+            return _namedStyles;
+        }
+    }
 
     public StylePoolDiagnostics GetStylePoolDiagnostics()
     {
@@ -482,6 +494,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         if (name.Length == 0)
             throw new ArgumentException("Style name cannot be empty.", nameof(name));
         NamedStyles[name] = style;
+        StylePool.WriteNamedStyle(name, style);
     }
 
     public CellStyle? GetRegisteredStyle(string name)
