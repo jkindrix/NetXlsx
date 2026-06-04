@@ -6,6 +6,14 @@
     <AssemblyName>NetXlsx</AssemblyName>
     <PackageId>NetXlsx</PackageId>
     <!-- Description + PackageTags inherited from Directory.Build.props -->
+
+    <!-- Declares the v2.0.0 AOT/trim posture so consumers' own publish
+         analyzers can see the claim (I-82; the engine passed the
+         PublishTrimmed + PublishAot audit at the cutover). Implies
+         IsTrimmable and enables the trim/AOT/single-file analyzers on
+         every build of this project — both TFMs are net8.0+, where the
+         property is fully supported. -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>

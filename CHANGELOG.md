@@ -71,7 +71,11 @@ NPOI as an oracle.
 **AOT/trim unlocked.** The engine passed the `PublishTrimmed` +
 `PublishAot` audit (zero IL/AOT warnings; representative workload
 verified under a native binary), so the consumer-side `NXLS0100` /
-`NXLS0101` build guards are removed.
+`NXLS0101` build guards are removed. The library now also declares
+`<IsAotCompatible>` (which implies `IsTrimmable`), so consumers' own
+publish analyzers can see the claim; the trim/AOT/single-file
+analyzers it enables run on every NetXlsx build and are clean on both
+TFMs.
 
 **Real-world gate.** The 5-file OPC stress sweep re-ran through the
 now-default `Open` → `Save` on the flipped engine: 26/26, 31/31,
