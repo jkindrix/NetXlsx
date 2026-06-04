@@ -86,6 +86,14 @@ longer describe the library as a facade over NPOI — the storefront now
 matches the v2.0.0 reality (Open XML SDK engine, AOT/trim-compatible,
 MIT all the way down).
 
+**`FilterCriteria.In` limitation re-grounded (doc-only).** The 3+-value
+`NotSupportedException` was documented as an NPOI 2.7.3 engine limit;
+re-derived on the SDK engine it is model-shape-only (the engine fully
+supports the `<filters>` value-list element — probe-verified under the
+schema validator). The XML doc and design.md I-68 now say so, and full
+value-list support is recorded as a queued post-v2.0.0 candidate. No
+behavior change.
+
 *(Cutover test migration: phase 1 moved the suite's NPOI reach-through
 assertions to persisted-OOXML / public-API observables; phase 2
 rewrote the deliberate residue against the SDK hatch and collapsed the

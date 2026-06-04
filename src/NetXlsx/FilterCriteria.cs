@@ -110,20 +110,22 @@ public sealed class FilterCriteria
     /// <summary>
     /// Matches cells whose value equals any of <paramref name="values"/>.
     /// <para>
-    /// <b>NPOI 2.7.3 limit:</b> Excel models this as the <c>&lt;filters&gt;</c>
-    /// element on <c>filterColumn</c>, but NPOI 2.7.3's
-    /// <c>CT_FilterColumn</c> proxy does not surface that element —
-    /// it only models <c>customFilters</c>. v1.3 implements the
-    /// 1–2-value case by falling back to <c>customFilters</c> with
-    /// OR-joined equality conditions (which is exactly what Excel
-    /// itself does for short lists). <b>For 3+ values, this method
-    /// throws <see cref="NotSupportedException"/></b> — full support
-    /// awaits an NPOI 3.x bump or a future XML-emission workaround.
+    /// <b>1–2 values only:</b> the criteria model encodes conditions as
+    /// the OOXML <c>&lt;customFilters&gt;</c> element, which caps at two
+    /// entries — one value reduces to <see cref="EqualTo"/>, two to
+    /// OR-joined equality conditions (exactly what Excel itself emits
+    /// for short lists). <b>For 3+ values, this method throws
+    /// <see cref="NotSupportedException"/></b>: Excel models long value
+    /// lists as the separate <c>&lt;filters&gt;</c> element, which the
+    /// criteria model does not yet represent. A value-list surface is a
+    /// queued post-v2.0.0 candidate (the engine already supports the
+    /// element); until then, reach through <see cref="ISheet.Underlying"/>
+    /// and author the <c>&lt;filters&gt;</c> element directly.
     /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="values"/> is null.</exception>
     /// <exception cref="ArgumentException"><paramref name="values"/> is empty, or contains a null entry.</exception>
-    /// <exception cref="NotSupportedException">More than two values supplied. Tracked as a v1.4 candidate; reach through <see cref="ISheet.Underlying"/> for now.</exception>
+    /// <exception cref="NotSupportedException">More than two values supplied — see the summary for the workaround.</exception>
     public static FilterCriteria In(params string[] values)
     {
         ArgumentNullException.ThrowIfNull(values);

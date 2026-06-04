@@ -1898,11 +1898,29 @@ public static FilterCriteria In(IEnumerable<string> values);
 | 0 (empty) | rejected | `ArgumentException` |
 | 1 | reduces to `EqualTo(v[0])` | single `customFilter` |
 | 2 | composes `EqualTo(a).Or(EqualTo(b))` | two OR-joined `customFilter` entries |
-| 3+ | rejected | `NotSupportedException` naming NPOI 2.7.3 + the `<filters>` element as the cause |
+| 3+ | rejected | `NotSupportedException` (message re-grounded at v2.0.0 — names the `<customFilters>` two-entry cap and the `<filters>` element candidate, not NPOI) |
 
-The two-value case is the most-common real-world use ("filter to two regions / quarters / statuses"). Adding the surface now means call sites are ready when an NPOI 3.x bump (or a future XML-emission workaround) lifts the 3+ value limit — no caller-code change required.
+The two-value case is the most-common real-world use ("filter to two regions / quarters / statuses"). Adding the surface now means call sites are ready when a later slice lifts the 3+ value limit — no caller-code change required.
 
-**Workaround for 3+ values until then:** reach through `ISheet.Underlying.GetCTWorksheet().autoFilter` and write the OOXML directly, or stage the data so the filter applies to fewer distinct values.
+**Re-derived on the SDK engine (2026-06-04, post-I-82 pre-final sweep):**
+the 3+-value limitation is **no longer engine-imposed**. The Open XML SDK
+models `<filters>`/`<filter>` completely — probe-verified: a three-value
+`<filters>` filterColumn authored through `ISheet.Underlying` validates
+clean under `OpenXmlValidator(Microsoft365)` and round-trips through the
+default factories with all values intact. The limit now lives only in the
+`FilterCriteria` model shape, which has no value-list representation.
+Lifting it is a **queued public-surface candidate** requiring its own
+I-NN decision (the obvious shape — `In(...)` stops throwing for 3+ and
+`SetAutoFilterColumn` emits `<filters>` — still needs deliberate calls on
+read-back/clear semantics and on whether `In(1)`/`In(2)` keep their
+`customFilters` encoding for Excel-emission parity). Deliberately NOT
+implemented silently at the doc sweep; the public XML doc on `In(...)`
+is re-grounded accordingly.
+
+**Workaround for 3+ values until then:** reach through `ISheet.Underlying`
+(the SDK `Worksheet`), find the `<autoFilter>` child, and append a
+`FilterColumn` carrying a `Filters` element with one `Filter` per value —
+or stage the data so the filter applies to fewer distinct values.
 
 ### 6.5 Cell (fluent)
 
