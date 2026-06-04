@@ -245,6 +245,59 @@ internal sealed class OoxmlCell : ICell
     // No error cells are producible on this engine yet; null is correct.
     public CellError? GetError() { Wb.ThrowIfDisposed(); return null; }
 
+    // ---- AutoSize measurement support (I-84) -------------------------------
+
+    // The cellXfs index this cell carries (0 = the workbook default xf).
+    internal uint XfIndex => Element?.StyleIndex?.Value ?? 0;
+
+    // The text IColumn.AutoSize measures for this cell, or null for cells
+    // AutoSize skips (blank, error, fresh formulas with no cached result).
+    // NPOI's AutoSizeColumn measures DataFormatter-rendered text; this
+    // engine's display rendering covers date formats (§7.10 / ExcelDateFormat),
+    // and other numerics measure as shortest round-trip invariant text
+    // (≈ Excel General — a documented I-84 approximation for non-date custom
+    // formats such as #,##0.00). A fresh formula with no cached result is
+    // skipped, where NPOI measures the literal "0" its empty cached <v/>
+    // reads back as — an NPOI artifact, not a contract (documented I-84
+    // divergence).
+    internal string? TextForMeasurement()
+    {
+        var c = Element;
+        switch (KindOf(c))
+        {
+            case CellKind.String:
+                return ReadString(c!);
+            case CellKind.Bool:
+                return ReadBool(c!) ? "TRUE" : "FALSE";
+            case CellKind.Number:
+                return FormatNumberForMeasurement(c!, ReadNumber(c!));
+            case CellKind.Formula:
+                var cached = c!.CellValue?.InnerText;
+                if (string.IsNullOrEmpty(cached)) return null;
+                var t = c.DataType?.Value;
+                if (t == S.CellValues.Error) return null;
+                if (t == S.CellValues.Boolean) return ReadBool(c) ? "TRUE" : "FALSE";
+                if (double.TryParse(cached, NumberStyles.Float, CultureInfo.InvariantCulture, out double num))
+                    return FormatNumberForMeasurement(c, num);
+                return cached;   // cached string result
+            default:
+                return null;     // Empty, Error
+        }
+    }
+
+    // Date-formatted serials render through the format code exactly as
+    // GetString does; everything else measures as the shortest round-trip
+    // invariant text (double.ToString) — what Excel's General shows for
+    // typical values — rather than GetString's diagnostic G17.
+    private string FormatNumberForMeasurement(S.Cell c, double value)
+    {
+        if (value >= 0 && IsDateFormatted(c)
+            && Wb.StylePool.NumberFormatOf(c.StyleIndex?.Value ?? 0) is { } code
+            && ExcelDateFormat.TryFormat(code, Wb.FromSerial(value), value) is { } rendered)
+            return rendered;
+        return value.ToString(CultureInfo.InvariantCulture);
+    }
+
     private string ReadString(S.Cell c)
     {
         var t = c.DataType?.Value;

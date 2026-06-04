@@ -390,6 +390,40 @@ internal sealed class OoxmlStylePool
         return xf is null ? null : ReadNumFmt(xf.NumberFormatId?.Value ?? 0u);
     }
 
+    /// <summary>
+    /// The effective font + layout axes IColumn.AutoSize measures with for a
+    /// cellXfs entry (I-84): font axes resolved through the xf's font element
+    /// with font-0 fallback, plus alignment indent and the raw OOXML text
+    /// rotation (0–180; NPOI feeds the raw value into its trig, so we do too).
+    /// </summary>
+    internal AutoSizeStyle AutoSizeStyleOf(uint xfIndex)
+    {
+        var xf = _ss.GetFirstChild<S.CellFormats>()?.Elements<S.CellFormat>().ElementAtOrDefault((int)xfIndex);
+        var (name, size, bold, italic) = EffectiveFontAxes(xf?.FontId?.Value ?? 0u);
+        int indent = (int)(xf?.Alignment?.Indent?.Value ?? 0u);
+        int rotation = (int)(xf?.Alignment?.TextRotation?.Value ?? 0u);
+        return new AutoSizeStyle(name, size, bold, italic, indent, rotation);
+    }
+
+    // A font element missing a name/size axis inherits font 0's (the workbook
+    // default); the literal Calibri/11 floor only matters for malformed files
+    // with no usable font 0.
+    private (string Name, double Size, bool Bold, bool Italic) EffectiveFontAxes(uint fontId)
+    {
+        var fonts = _ss.GetFirstChild<S.Fonts>();
+        var font = fonts?.Elements<S.Font>().ElementAtOrDefault((int)fontId);
+        var font0 = fontId == 0 ? font : fonts?.Elements<S.Font>().ElementAtOrDefault(0);
+        string name = font?.GetFirstChild<S.FontName>()?.Val?.Value
+            ?? font0?.GetFirstChild<S.FontName>()?.Val?.Value
+            ?? "Calibri";
+        double size = font?.GetFirstChild<S.FontSize>()?.Val?.Value
+            ?? font0?.GetFirstChild<S.FontSize>()?.Val?.Value
+            ?? 11.0;
+        bool bold = font?.GetFirstChild<S.Bold>() is { } b && (b.Val?.Value ?? true);
+        bool italic = font?.GetFirstChild<S.Italic>() is { } i && (i.Val?.Value ?? true);
+        return (name, size, bold, italic);
+    }
+
     private (bool? Bold, bool? Italic, UnderlineStyle? Underline, string? FontName, double? FontSize, Color? FontColor)
         ReadFont(uint fontId)
     {

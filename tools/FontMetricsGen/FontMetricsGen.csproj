@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- One-off generator for src/NetXlsx/Internal/FontMetricsTables.g.cs.
+       NOT part of NetXlsx.sln; run manually when the metric font set changes:
+         dotnet run (with the project switch) from tools/FontMetricsGen
+       See README.md in this directory for provenance requirements. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>
