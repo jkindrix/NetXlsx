@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- I-82 engine swap: isolated conformance suite for the Open XML SDK engine.
-       Under the parallel-engine / late-cutover strategy this project grows
-       alongside the swap while NetXlsx.Tests keeps exercising the NPOI engine, so
-       `main` stays fully green every session. At the v2.0.0 cutover these tests
-       fold into the main suite. References only NetXlsx's public API. -->
+  <!-- I-82: conformance suite for the Open XML SDK engine, grown additively
+       during the parallel-engine swap. The v2.0.0 cutover has happened (the
+       default factories route here); folding this project into the main
+       suite is its own post-cutover slice (decided 2026-06-04) — along with
+       removing the swap-era CreateOoxml/OpenOoxml/CreateStreamingOoxml
+       aliases these tests still call. References only NetXlsx's public API. -->
 
   <PropertyGroup>
     <IsPackable>false</IsPackable>

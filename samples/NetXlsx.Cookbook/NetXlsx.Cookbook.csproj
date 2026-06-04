@@ -17,6 +17,11 @@
     <ProjectReference Include="..\..\src\NetXlsx.SourceGen\NetXlsx.SourceGen.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
+    <!-- Sample-only since the v2.0.0 cutover (I-82): the OpenEditSave recipe
+         builds its input fixture via raw NPOI to demonstrate opening a file
+         NetXlsx did not create. Rewriting that fixture-builder is queued
+         post-cutover; the library itself is NPOI-free. -->
+    <PackageReference Include="NPOI" />
   </ItemGroup>
 
 </Project>

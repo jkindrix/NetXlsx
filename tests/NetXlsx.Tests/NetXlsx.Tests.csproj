@@ -19,6 +19,12 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- Test-only since the v2.0.0 cutover (I-82): NPOI serves as an
+         INDEPENDENT third-party reader oracle over the engine's output
+         (e.g. DefaultColumnWidthTests re-opens saved files with raw NPOI).
+         It no longer flows transitively from the library, which is
+         NPOI-free. Full test de-NPOI is queued as post-cutover cleanup. -->
+    <PackageReference Include="NPOI" />
   </ItemGroup>
 
   <ItemGroup>

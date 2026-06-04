@@ -6,24 +6,26 @@
   </PropertyGroup>
 
   <ItemGroup Label="Runtime">
-    <!-- NPOI is a public dependency (decision #24, I1). Pin exact; bump via PR with golden-file review.
-         Held at 2.7.3 (last Apache-2.0 release before OSMF) per decision I23.
-         Being retired by the I-82 engine swap; removed at the v2.0.0 cutover slice. -->
-    <PackageVersion Include="NPOI" Version="2.7.3" />
-
-    <!-- I-82 engine swap: Microsoft's Open XML SDK is the v2.0.0 engine.
-         Pinned exact (3.5.1, latest stable). MIT-licensed, schema-complete,
-         .NET-native, AOT/trim-friendly — it retires the NPOI/OSMF ceiling and
-         the lossy-read fidelity debt. During the swap it grows additively behind
-         the Workbook.CreateOoxml() / OpenOoxml() factories (see design I-82);
-         NPOI remains the default engine until the cutover slice. -->
+    <!-- The engine (v2.0.0, decision I-82): Microsoft's Open XML SDK is the
+         library's only runtime dependency. Pinned exact (3.5.1, latest
+         stable). MIT-licensed, schema-complete, .NET-native,
+         AOT/trim-friendly. -->
     <PackageVersion Include="DocumentFormat.OpenXml" Version="3.5.1" />
+
+    <!-- NPOI was the pre-v2.0.0 engine, retired at the I-82 cutover. It is
+         now a TEST-ONLY dependency: the test projects keep it as an
+         independent third-party reader/writer oracle over the engine's
+         output (oracle-over-opinion). It never ships in the NetXlsx
+         package. Held at 2.7.3 (last Apache-2.0 release before OSMF,
+         decision I23). -->
+    <PackageVersion Include="NPOI" Version="2.7.3" />
   </ItemGroup>
 
   <ItemGroup Label="TransitiveSecurityOverrides">
     <!-- NPOI 2.7.3's transitive closure pulls in known-vulnerable versions
-         of these packages. Since we can't bump NPOI past 2.7.3 (I23), we
-         override the transitive resolution via CentralPackageTransitivePinningEnabled.
+         of these packages. NPOI is test-only since the v2.0.0 cutover, so
+         these pins now protect only test/bench projects (nothing here ships);
+         they go when the last test-side NPOI reference goes.
          Both pins are servicing releases on the same version line NPOI
          expects — API surface is unchanged. -->
 

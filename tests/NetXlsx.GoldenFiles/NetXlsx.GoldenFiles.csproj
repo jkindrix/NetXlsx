@@ -15,6 +15,10 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="AwesomeAssertions" />
+    <!-- Test-only since the v2.0.0 cutover (I-82): NPOI authors the raw-OPC
+         orphan-part fixtures (RoundTripPreservationTests, the pinned #44
+         contract) and serves as an independent reader oracle
+         (HelloWorkbookTests). It never ships in the NetXlsx package. -->
     <PackageReference Include="NPOI" />
   </ItemGroup>
 

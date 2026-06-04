@@ -9,9 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NPOI" />
-    <!-- I-82 engine swap: Open XML SDK grows additively behind the
-         Workbook.CreateOoxml()/OpenOoxml() factories until the v2.0.0 cutover. -->
+    <!-- The engine (v2.0.0, decision I-82): Microsoft's Open XML SDK is the
+         library's ONLY runtime dependency. NPOI was retired at the cutover;
+         it survives solely as a test-side independent oracle (see the test
+         projects). -->
     <PackageReference Include="DocumentFormat.OpenXml" />
     <PackageReference Include="MinVer" PrivateAssets="all" />
   </ItemGroup>
