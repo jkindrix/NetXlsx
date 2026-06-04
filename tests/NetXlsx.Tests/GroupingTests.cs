@@ -1,5 +1,13 @@
+// Row/column grouping behavior. Outline levels and collapse-hidden state
+// have no public read-back, so tests assert on the persisted sheet XML
+// (row @outlineLevel / @hidden, <cols>) via SavedOoxml — engine-agnostic,
+// no .Underlying reach-through (I-82 cutover phase 1). Row numbers in the
+// XML are 1-based (@r), matching the public API.
+
 using System;
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -15,9 +23,10 @@ public class GroupingTests
         sheet.Row(1); sheet.Row(2); sheet.Row(3);
         sheet.GroupRows(1, 3);
 
-        sheet.Underlying.GetRow(0).OutlineLevel.Should().Be(1);
-        sheet.Underlying.GetRow(1).OutlineLevel.Should().Be(1);
-        sheet.Underlying.GetRow(2).OutlineLevel.Should().Be(1);
+        var sheetXml = SavedOoxml.SheetXml(wb);
+        OutlineLevel(sheetXml, 1).Should().Be(1);
+        OutlineLevel(sheetXml, 2).Should().Be(1);
+        OutlineLevel(sheetXml, 3).Should().Be(1);
     }
 
     [Fact]
@@ -29,11 +38,12 @@ public class GroupingTests
         sheet.GroupRows(1, 5);
         sheet.GroupRows(2, 4);
 
-        sheet.Underlying.GetRow(0).OutlineLevel.Should().Be(1);
-        sheet.Underlying.GetRow(1).OutlineLevel.Should().Be(2);
-        sheet.Underlying.GetRow(2).OutlineLevel.Should().Be(2);
-        sheet.Underlying.GetRow(3).OutlineLevel.Should().Be(2);
-        sheet.Underlying.GetRow(4).OutlineLevel.Should().Be(1);
+        var sheetXml = SavedOoxml.SheetXml(wb);
+        OutlineLevel(sheetXml, 1).Should().Be(1);
+        OutlineLevel(sheetXml, 2).Should().Be(2);
+        OutlineLevel(sheetXml, 3).Should().Be(2);
+        OutlineLevel(sheetXml, 4).Should().Be(2);
+        OutlineLevel(sheetXml, 5).Should().Be(1);
     }
 
     [Fact]
@@ -45,8 +55,7 @@ public class GroupingTests
         sheet.GroupRows(1, 3);
         sheet.UngroupRows(1, 3);
 
-        var row = sheet.Underlying.GetRow(0);
-        (row?.OutlineLevel ?? 0).Should().Be(0);
+        OutlineLevel(SavedOoxml.SheetXml(wb), 1).Should().Be(0);
     }
 
     [Fact]
@@ -56,8 +65,10 @@ public class GroupingTests
         var sheet = wb.AddSheet("S");
         sheet.GroupColumns(1, 3);
 
-        var ct = sheet.Underlying.GetCTWorksheet();
-        ct.cols.Should().NotBeNull();
+        var cols = SavedOoxml.SheetXml(wb).Root!.Element(SavedOoxml.Main + "cols");
+        cols.Should().NotBeNull();
+        cols!.Elements(SavedOoxml.Main + "col")
+            .Should().Contain(c => (int?)c.Attribute("outlineLevel") == 1);
     }
 
     [Fact]
@@ -79,9 +90,10 @@ public class GroupingTests
         sheet.GroupRows(2, 4);
         sheet.SetRowGroupCollapsed(2, true);
 
-        sheet.Underlying.GetRow(1).ZeroHeight.Should().BeTrue();
-        sheet.Underlying.GetRow(2).ZeroHeight.Should().BeTrue();
-        sheet.Underlying.GetRow(3).ZeroHeight.Should().BeTrue();
+        var sheetXml = SavedOoxml.SheetXml(wb);
+        RowHidden(sheetXml, 2).Should().BeTrue();
+        RowHidden(sheetXml, 3).Should().BeTrue();
+        RowHidden(sheetXml, 4).Should().BeTrue();
     }
 
     [Fact]
@@ -147,9 +159,22 @@ public class GroupingTests
 
         ms.Position = 0;
         using var opened = Workbook.Open(ms);
-        var s = opened["S"];
-        s.Underlying.GetRow(1).OutlineLevel.Should().Be(1);
-        s.Underlying.GetRow(2).OutlineLevel.Should().Be(1);
-        s.Underlying.GetRow(3).OutlineLevel.Should().Be(1);
+        var sheetXml = SavedOoxml.SheetXml(opened);
+        OutlineLevel(sheetXml, 2).Should().Be(1);
+        OutlineLevel(sheetXml, 3).Should().Be(1);
+        OutlineLevel(sheetXml, 4).Should().Be(1);
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    private static XElement? Row(XDocument sheetXml, int rowNumber)
+        => sheetXml.Root!.Element(SavedOoxml.Main + "sheetData")!
+            .Elements(SavedOoxml.Main + "row")
+            .FirstOrDefault(r => (int?)r.Attribute("r") == rowNumber);
+
+    private static int OutlineLevel(XDocument sheetXml, int rowNumber)
+        => (int?)Row(sheetXml, rowNumber)?.Attribute("outlineLevel") ?? 0;
+
+    private static bool RowHidden(XDocument sheetXml, int rowNumber)
+        => SavedOoxml.BoolAttr(Row(sheetXml, rowNumber), "hidden");
 }

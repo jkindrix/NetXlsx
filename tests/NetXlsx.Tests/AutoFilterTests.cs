@@ -1,8 +1,16 @@
 // Coverage for the v1.1 AutoFilter slice: ISheet.SetAutoFilter,
 // ClearAutoFilter, HasAutoFilter, AutoFilterRange.
+//
+// Per-column criteria have no public read-back, so those tests assert on
+// the persisted <autoFilter> element via SavedOoxml — engine-agnostic, no
+// .Underlying reach-through (I-82 cutover phase 1). OOXML defaults matter
+// here: an absent customFilter/@operator means "equal", an absent
+// customFilters/@and means false.
 
 using System;
 using System.IO;
+using System.Linq;
+using System.Xml.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -86,7 +94,7 @@ public class AutoFilterTests
         var sh = wb.AddSheet("S");
         sh.SetAutoFilter("A1");
         sh.HasAutoFilter.Should().BeTrue();
-        // NPOI's CellRangeAddress.FormatAsString collapses 1×1 to "A1".
+        // A 1×1 range collapses to its single-cell form.
         sh.AutoFilterRange.Should().Be("A1");
     }
 
@@ -139,14 +147,15 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:B5");
         sh.SetAutoFilterColumn(1, FilterCriteria.EqualTo("EU"));
 
-        var af = sh.Underlying.GetCTWorksheet().autoFilter;
-        af.filterColumn.Should().HaveCount(1);
-        af.filterColumn[0].colId.Should().Be(1u);
-        var cf = af.filterColumn[0].customFilters;
-        cf.customFilter.Should().HaveCount(1);
-        cf.customFilter[0].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.equal);
-        cf.customFilter[0].val.Should().Be("EU");
-        cf.and.Should().BeFalse("single condition — combinator is irrelevant but OOXML default is false");
+        var cols = FilterColumns(SavedOoxml.SheetXml(wb));
+        cols.Should().HaveCount(1);
+        ((uint?)cols[0].Attribute("colId")).Should().Be(1u);
+        var filters = CustomFilters(cols[0]);
+        filters.Should().HaveCount(1);
+        Operator(filters[0]).Should().Be("equal");
+        ((string?)filters[0].Attribute("val")).Should().Be("EU");
+        AndCombinator(cols[0]).Should().BeFalse(
+            "single condition — combinator is irrelevant but OOXML default is false");
     }
 
     [Fact]
@@ -157,13 +166,14 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:A5");
         sh.SetAutoFilterColumn(0, FilterCriteria.Between(10, 100));
 
-        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
-        cf.customFilter.Should().HaveCount(2);
-        cf.and.Should().BeTrue();
-        cf.customFilter[0].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.greaterThanOrEqual);
-        cf.customFilter[0].val.Should().Be("10");
-        cf.customFilter[1].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.lessThanOrEqual);
-        cf.customFilter[1].val.Should().Be("100");
+        var col = FilterColumns(SavedOoxml.SheetXml(wb)).Single();
+        var filters = CustomFilters(col);
+        filters.Should().HaveCount(2);
+        AndCombinator(col).Should().BeTrue();
+        Operator(filters[0]).Should().Be("greaterThanOrEqual");
+        ((string?)filters[0].Attribute("val")).Should().Be("10");
+        Operator(filters[1]).Should().Be("lessThanOrEqual");
+        ((string?)filters[1].Attribute("val")).Should().Be("100");
     }
 
     [Fact]
@@ -175,9 +185,9 @@ public class AutoFilterTests
         sh.SetAutoFilterColumn(0,
             FilterCriteria.EqualTo("EU").Or(FilterCriteria.EqualTo("US")));
 
-        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
-        cf.and.Should().BeFalse();
-        cf.customFilter.Should().HaveCount(2);
+        var col = FilterColumns(SavedOoxml.SheetXml(wb)).Single();
+        AndCombinator(col).Should().BeFalse();
+        CustomFilters(col).Should().HaveCount(2);
     }
 
     [Theory]
@@ -199,7 +209,8 @@ public class AutoFilterTests
         };
         sh.SetAutoFilterColumn(0, criteria);
 
-        var val = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters.customFilter[0].val;
+        var val = (string?)CustomFilters(FilterColumns(SavedOoxml.SheetXml(wb)).Single())[0]
+            .Attribute("val");
         // Wildcards encode at the appropriate edges.
         switch (kind)
         {
@@ -218,9 +229,9 @@ public class AutoFilterTests
         sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("first"));
         sh.SetAutoFilterColumn(0, FilterCriteria.EqualTo("second"));
 
-        var cols = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn;
+        var cols = FilterColumns(SavedOoxml.SheetXml(wb));
         cols.Should().HaveCount(1, "replace, not append, when same column re-targets");
-        cols[0].customFilters.customFilter[0].val.Should().Be("second");
+        ((string?)CustomFilters(cols[0])[0].Attribute("val")).Should().Be("second");
     }
 
     [Fact]
@@ -234,9 +245,9 @@ public class AutoFilterTests
 
         sh.ClearAutoFilterColumn(0);
 
-        var cols = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn;
+        var cols = FilterColumns(SavedOoxml.SheetXml(wb));
         cols.Should().HaveCount(1);
-        cols[0].colId.Should().Be(2u);
+        ((uint?)cols[0].Attribute("colId")).Should().Be(2u);
     }
 
     [Fact]
@@ -267,7 +278,8 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:A5");
         // Literal "*" and "?" in the search term must be escaped with "~".
         sh.SetAutoFilterColumn(0, FilterCriteria.Contains("a*b?c"));
-        var val = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters.customFilter[0].val;
+        var val = (string?)CustomFilters(FilterColumns(SavedOoxml.SheetXml(wb)).Single())[0]
+            .Attribute("val");
         val.Should().Be("*a~*b~?c*");
     }
 
@@ -281,10 +293,10 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:A5");
         sh.SetAutoFilterColumn(0, FilterCriteria.In("EU"));
 
-        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
-        cf.customFilter.Should().HaveCount(1);
-        cf.customFilter[0].@operator.Should().Be(NPOI.OpenXmlFormats.Spreadsheet.ST_FilterOperator.equal);
-        cf.customFilter[0].val.Should().Be("EU");
+        var filters = CustomFilters(FilterColumns(SavedOoxml.SheetXml(wb)).Single());
+        filters.Should().HaveCount(1);
+        Operator(filters[0]).Should().Be("equal");
+        ((string?)filters[0].Attribute("val")).Should().Be("EU");
     }
 
     [Fact]
@@ -295,11 +307,12 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:A5");
         sh.SetAutoFilterColumn(0, FilterCriteria.In("EU", "US"));
 
-        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
-        cf.customFilter.Should().HaveCount(2);
-        cf.and.Should().BeFalse("In() is an OR-of-equality");
-        cf.customFilter[0].val.Should().Be("EU");
-        cf.customFilter[1].val.Should().Be("US");
+        var col = FilterColumns(SavedOoxml.SheetXml(wb)).Single();
+        var filters = CustomFilters(col);
+        filters.Should().HaveCount(2);
+        AndCombinator(col).Should().BeFalse("In() is an OR-of-equality");
+        ((string?)filters[0].Attribute("val")).Should().Be("EU");
+        ((string?)filters[1].Attribute("val")).Should().Be("US");
     }
 
     [Fact]
@@ -349,8 +362,8 @@ public class AutoFilterTests
         sh.SetAutoFilter("A1:A5");
         sh.SetAutoFilterColumn(0, criteria);
 
-        var cf = sh.Underlying.GetCTWorksheet().autoFilter.filterColumn[0].customFilters;
-        cf.customFilter.Should().HaveCount(2);
+        CustomFilters(FilterColumns(SavedOoxml.SheetXml(wb)).Single())
+            .Should().HaveCount(2);
     }
 
     [Fact]
@@ -370,13 +383,22 @@ public class AutoFilterTests
                 sh.SetAutoFilterColumn(1, FilterCriteria.GreaterThanOrEqual(50));
                 wb.Save(path);
             }
+
+            // Assert on the persisted artifact itself.
+            var cols = FilterColumns(SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml"));
+            cols.Should().HaveCount(2);
+            CustomFilters(cols[0]).Should().HaveCount(2);
+            AndCombinator(cols[0]).Should().BeFalse();
+            ((string?)CustomFilters(cols[1])[0].Attribute("val")).Should().Be("50");
+
+            // And the reopened workbook re-persists the same criteria.
             using (var wb = Workbook.Open(path))
             {
-                var af = wb["S"].Underlying.GetCTWorksheet().autoFilter;
-                af.filterColumn.Should().HaveCount(2);
-                af.filterColumn[0].customFilters.customFilter.Should().HaveCount(2);
-                af.filterColumn[0].customFilters.and.Should().BeFalse();
-                af.filterColumn[1].customFilters.customFilter[0].val.Should().Be("50");
+                var reCols = FilterColumns(SavedOoxml.SheetXml(wb));
+                reCols.Should().HaveCount(2);
+                CustomFilters(reCols[0]).Should().HaveCount(2);
+                AndCombinator(reCols[0]).Should().BeFalse();
+                ((string?)CustomFilters(reCols[1])[0].Attribute("val")).Should().Be("50");
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
@@ -409,4 +431,23 @@ public class AutoFilterTests
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+
+    // ---- helpers ------------------------------------------------------
+
+    private static XElement[] FilterColumns(XDocument sheetXml)
+        => sheetXml.Root!.Element(SavedOoxml.Main + "autoFilter")!
+            .Elements(SavedOoxml.Main + "filterColumn").ToArray();
+
+    private static XElement[] CustomFilters(XElement filterColumn)
+        => filterColumn.Element(SavedOoxml.Main + "customFilters")!
+            .Elements(SavedOoxml.Main + "customFilter").ToArray();
+
+    /// <summary>customFilter/@operator; OOXML default is "equal".</summary>
+    private static string Operator(XElement customFilter)
+        => (string?)customFilter.Attribute("operator") ?? "equal";
+
+    /// <summary>customFilters/@and; OOXML default is false (OR).</summary>
+    private static bool AndCombinator(XElement filterColumn)
+        => SavedOoxml.BoolAttr(
+            filterColumn.Element(SavedOoxml.Main + "customFilters"), "and");
 }
