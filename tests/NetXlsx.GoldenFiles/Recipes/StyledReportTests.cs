@@ -63,10 +63,12 @@ public class StyledReportTests
             await StyledReport.Run(path);
             using var wb = Workbook.Open(path);
 
-            // Distinct ICellStyle indices used by the workbook's cells.
+            // Distinct persisted style indices used by the sheet's cells.
             var sheet = wb[StyledReport.SheetName];
-            var usedIndices = Enumerable.Range(1, sheet.Underlying.LastRowNum + 1)
-                .SelectMany(r => Enumerable.Range(1, 3).Select(c => sheet[r, c].Underlying.CellStyle.Index))
+            var sheetXml = NetXlsx.Tests.SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml");
+            var usedIndices = Enumerable.Range(1, sheet.LastRowNumber)
+                .SelectMany(r => Enumerable.Range(1, 3).Select(c =>
+                    NetXlsx.Tests.SavedOoxml.CellStyleIndex(sheetXml, $"{(char)('A' + c - 1)}{r}") ?? 0))
                 .Distinct()
                 .ToList();
 
@@ -78,7 +80,7 @@ public class StyledReportTests
             // 5) "no style" (index 0) for region/margin cells not highlighted
             // So roughly 4-6 distinct indices, not 5 rows × 3 cols + header = 18.
             usedIndices.Count.Should().BeLessThan(10,
-                "the style pool should dedupe — distinct ICellStyle indices should be few (saw {0})", usedIndices.Count);
+                "the style pool should dedupe — distinct style indices should be few (saw {0})", usedIndices.Count);
         }
         finally
         {

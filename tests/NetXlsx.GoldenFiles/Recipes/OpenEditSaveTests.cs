@@ -35,11 +35,13 @@ public class OpenEditSaveTests
                 sheet["B3"].GetNumber().Should().Be(1175.0);
 
                 // §7.5 — identical CellStyle applied to A1 and B1 yields
-                // the same NPOI ICellStyle index (pool dedup).
-                var idxA1 = sheet["A1"].Underlying.CellStyle.Index;
-                var idxB1 = sheet["B1"].Underlying.CellStyle.Index;
+                // the same persisted style index (pool dedup).
+                var sheetXml = NetXlsx.Tests.SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml");
+                var idxA1 = NetXlsx.Tests.SavedOoxml.CellStyleIndex(sheetXml, "A1");
+                var idxB1 = NetXlsx.Tests.SavedOoxml.CellStyleIndex(sheetXml, "B1");
+                idxA1.Should().NotBeNull("styled cells must carry an explicit style index");
                 idxA1.Should().Be(idxB1,
-                    "§7.5 — identical CellStyle records should share one ICellStyle via the pool");
+                    "§7.5 — identical CellStyle records should share one style via the pool");
 
                 sheet["A1"].GetStyle().Bold.Should().Be(true);
             }

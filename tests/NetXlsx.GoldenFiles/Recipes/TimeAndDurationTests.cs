@@ -75,14 +75,14 @@ public class TimeAndDurationTests
             var sheet = wb[TimeAndDuration.SheetName];
 
             // DateTime cell — yyyy-mm-dd hh:mm:ss.
-            sheet["B2"].Underlying.CellStyle.GetDataFormatString().Should().Be("yyyy-mm-dd hh:mm:ss");
+            sheet["B2"].GetStyle().NumberFormat.Should().Be("yyyy-mm-dd hh:mm:ss");
             // DateOnly cell — yyyy-mm-dd (I-19).
-            sheet["B3"].Underlying.CellStyle.GetDataFormatString().Should().Be("yyyy-mm-dd");
+            sheet["B3"].GetStyle().NumberFormat.Should().Be("yyyy-mm-dd");
             // TimeOnly cell — h:mm:ss.
-            sheet["B4"].Underlying.CellStyle.GetDataFormatString().Should().Be("h:mm:ss");
+            sheet["B4"].GetStyle().NumberFormat.Should().Be("h:mm:ss");
             // Duration cells — elapsed-time format [h]:mm:ss (§7.9).
-            sheet["B5"].Underlying.CellStyle.GetDataFormatString().Should().Be("[h]:mm:ss");
-            sheet["B6"].Underlying.CellStyle.GetDataFormatString().Should().Be("[h]:mm:ss");
+            sheet["B5"].GetStyle().NumberFormat.Should().Be("[h]:mm:ss");
+            sheet["B6"].GetStyle().NumberFormat.Should().Be("[h]:mm:ss");
         }
         finally
         {

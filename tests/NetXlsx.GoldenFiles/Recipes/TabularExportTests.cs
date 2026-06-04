@@ -88,9 +88,12 @@ public class TabularExportTests
             });
 
             using var wb = Workbook.Open(path);
-            var pane = wb[TabularExport.SheetName].Underlying.PaneInformation;
+            var pane = NetXlsx.Tests.SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml").Root!
+                .Element(NetXlsx.Tests.SavedOoxml.Main + "sheetViews")!
+                .Element(NetXlsx.Tests.SavedOoxml.Main + "sheetView")!
+                .Element(NetXlsx.Tests.SavedOoxml.Main + "pane");
             pane.Should().NotBeNull("FreezeRows(1) should produce a freeze pane");
-            pane.HorizontalSplitPosition.Should().Be(1,
+            ((double?)pane!.Attribute("ySplit") ?? 0).Should().Be(1,
                 "row 1 is frozen — header stays visible while scrolling data rows");
         }
         finally { if (File.Exists(path)) File.Delete(path); }

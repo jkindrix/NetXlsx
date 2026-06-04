@@ -46,11 +46,18 @@ public class FormulasTests
             sheet["A8"].GetString().Should().Be("Tax (7%)");
             sheet["D8"].GetFormula().Should().Be("=D6*0.07");
 
-            // Per decision #46 / §7.8 we never pre-compute. NPOI's
-            // CachedFormulaResultType is Numeric and the cached value
-            // is the default 0.0 — Excel recalculates on open.
-            sheet["D2"].Underlying.NumericCellValue.Should().Be(0.0);
-            sheet["D6"].Underlying.NumericCellValue.Should().Be(0.0);
+            // Per decision #46 / §7.8 we never pre-compute: the persisted
+            // formula cells carry no meaningful cached <v> (engines differ
+            // on the artifact shape — empty <v/> vs omitted). Excel
+            // recalculates on open.
+            var sheetXml = NetXlsx.Tests.SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml");
+            foreach (var address in new[] { "D2", "D6" })
+            {
+                var v = NetXlsx.Tests.SavedOoxml.Cell(sheetXml, address)!
+                    .Element(NetXlsx.Tests.SavedOoxml.Main + "v");
+                (v is null || v.Value is "" or "0").Should().BeTrue(
+                    $"{address} must carry no pre-computed value (#46)");
+            }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }

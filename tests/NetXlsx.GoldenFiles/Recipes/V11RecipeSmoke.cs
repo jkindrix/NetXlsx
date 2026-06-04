@@ -63,7 +63,7 @@ public class V11RecipeSmoke
         try
         {
             using var wb = Workbook.Open(path);
-            wb.Underlying.GetAllPictures().Count.Should().Be(2);
+            wb[EmbeddedImages.SheetName].Pictures.Should().HaveCount(2);
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
@@ -89,7 +89,10 @@ public class V11RecipeSmoke
         try
         {
             using var wb = Workbook.Open(path);
-            wb[ValidatedInputForm.SheetName].Underlying.GetDataValidations().Count.Should().Be(5);
+            NetXlsx.Tests.SavedOoxml.PartFromFile(path, "xl/worksheets/sheet1.xml").Root!
+                .Element(NetXlsx.Tests.SavedOoxml.Main + "dataValidations")!
+                .Elements(NetXlsx.Tests.SavedOoxml.Main + "dataValidation")
+                .Should().HaveCount(5);
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }

@@ -27,4 +27,11 @@
     <Content Include="Fixtures\**\*.*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Engine-agnostic OOXML part inspection shared with NetXlsx.Tests
+         (I-82 cutover phase 1: recipes assert persisted XML instead of
+         reaching through .Underlying into NPOI). -->
+    <Compile Include="..\NetXlsx.Tests\SavedOoxml.cs" Link="SavedOoxml.cs" />
+  </ItemGroup>
+
 </Project>
