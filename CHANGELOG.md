@@ -456,9 +456,37 @@ through the new additive factory:
   buffering breaks the test). Streamed output is schema-valid under
   `Microsoft365`.
 
-The SDK engine's remaining stub inventory is now exactly:
-`IColumn.AutoSize` (font metrics) plus the within-surface deferrals
-(date-cell `GetString` rendering; named-style OOXML persistence).
+**Closeout slice (date-cell `GetString` rendering + named-style
+persistence).** Empties the within-surface deferral list except
+`IColumn.AutoSize`:
+
+- A date-formatted numeric cell's `GetString` now renders through its
+  number format (design §7.10) instead of returning the raw serial — new
+  internal `ExcelDateFormat` renderer covering y/m/d/h/s fields with
+  Excel's month-vs-minute context rule, elapsed `[h]`/`[m]`/`[s]` tokens,
+  `AM/PM` + `A/P` meridiems, millisecond fractions, quoted/escaped
+  literals, sections, and color/locale prefixes. Oracle-pinned against
+  NPOI's `DataFormatter` over a 40+ format matrix; output is
+  culture-independent (matching NPOI, verified under de-DE). Negative
+  serials fall back to raw G17 on both engines. Where NPOI demonstrably
+  mangles (quoted literals, lowercase meridiems, `A/P`,
+  meridiem-before-hour), the SDK engine renders Excel-correct — each
+  divergence pinned with NPOI's actual output noted inline.
+- `RegisterStyle` on the SDK engine now persists named styles into the
+  stylesheet's `cellStyleXfs`/`cellStyles` tables (the NPOI engine's I-67
+  round-trip): names survive save/open, rehydrate on first access, and
+  appear in Excel's Cell Styles panel. User entries carry no `builtinId`
+  (NPOI stamps `builtinId="0"`, which claims the Normal builtin per
+  ECMA-376 — a witness artifact, not a contract); cross-engine
+  rehydration is pinned in both directions. A stylesheet missing the
+  style tables entirely gets them created in schema order with the
+  Normal master seeded at index 0, keeping existing `xfId="0"`
+  references Normal-shaped.
+
+The SDK engine's remaining stub inventory is now exactly one member:
+`IColumn.AutoSize` — direction decided (embedded font-metric tables from
+openly-licensed metric-compatible fonts; zero runtime dependency; its own
+slice with a fresh I-NN superseding I3's environment-dependence).
 
 No breaking change in these slices. The `.Underlying` return-type change,
 the NPOI removal, and the default-engine cutover land together in a later,
@@ -474,7 +502,8 @@ Coverage: `tests/NetXlsx.OoxmlEngine.Tests/` (`FoundationRoundTripTests`,
 `DataValidationTests`, `ConditionalFormatTests`, `TableApiTests`,
 `ChartTests`, `FormulaTests`, `CommentTests`, `HyperlinkTests`,
 `WorkbookProtectionTests`, `CrossEngineDifferentialTests`,
-`CrossEngineMalformedInputTests`, `StreamingEngineTests`).
+`CrossEngineMalformedInputTests`, `StreamingEngineTests`,
+`DateGetStringTests`, `NamedStylePersistenceTests`).
 
 ### Read-side introspection: themes + drawings (I-81)
 

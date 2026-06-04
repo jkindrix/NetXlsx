@@ -618,20 +618,26 @@ output, target `Microsoft365`; found the engine already schema-clean, including 
 ✅ merges + named ranges; ✅ panes / grouping / visibility / gridlines / default
 column width / sheet protection (TabColor is not on `ISheet`, so it is out of scope
 without a new I-NN) → ✅ drawings (split: ✅ pictures; ✅ connectors/shapes; ✅ theme
-round-trip — slice complete) →
-**CF/validation/tables/autofilter/sort ←NEXT** → charts → streaming (the `OpenXmlWriter`
-forward-only shape may need small public-API tweaks — surface those as their own
-decision rows) → source-gen runtime helpers.
+round-trip — slice complete) → ✅ CF/validation/tables/autofilter/sort → ✅ charts →
+✅ formulas/comments/hyperlinks + workbook protection → ✅ streaming (zero public-API
+change needed) → ✅ closeout (date `GetString` rendering + named-style persistence)
+→ **`IColumn.AutoSize` (embedded font metrics — its own slice, direction decided)
+←NEXT** → source-gen runtime helpers (verification only; sourcegen emits public-API
+calls) → cutover readiness.
 
 *Cell-styles slice — deferred within the surface* (tracked here so a later slice
-picks them up, not lost): (a) `GetString` on a date cell returns the raw serial,
-not a format-rendered string — the SDK engine has no number-format renderer yet
-(the NPOI engine uses `DataFormatter`); the cutover gate requires this. (b) Named
-styles resolve in-memory (`RegisterStyle`/`ApplyNamedStyle` work within a session)
-but do not persist into OOXML's `cellStyles` panel across save/open — the SDK
-equivalent of the NPOI engine's I-67 round-trip. (c) `IColumn.AutoSize` needs
-font-metric measurement, which the SDK engine does not carry; it lands with the
-font-metrics work, not the styles slice.
+picks them up, not lost): (a) ✅ LANDED (closeout sub-slice, 2026-06-03) — date-cell
+`GetString` renders through the cell's number format via `Internal/ExcelDateFormat.cs`.
+(b) ✅ LANDED (closeout sub-slice, 2026-06-03) — named styles persist into
+`cellStyleXfs`/`cellStyles` and rehydrate on open (the I-67 equivalent). (c)
+`IColumn.AutoSize` — STILL OPEN, the single remaining `NotYet()` stub; direction
+decided 2026-06-03 (operator): embedded font-metric tables generated from
+openly-licensed metric-compatible fonts (Carlito↔Calibri, Liberation↔Arial; numeric
+width tables only, no font-file embedding), zero runtime dependency — pillar #3
+("MIT all the way down") rules out a direct SixLabors.Fonts dependency surviving
+cutover. Unknown fonts keep the `MissingFontException` fail-loud contract; takes a
+fresh I-NN superseding I3's environment-dependence; cross-engine width parity is
+tolerance-based, not exact.
 
 *Schema-validation gate — I-82 sub-decision (added 2026-05-31).* The engine
 swap's founding premise is that the Open XML SDK is schema-complete, so engine
@@ -1174,6 +1180,68 @@ fakes random access. Implementation notes:
   (`Row_Evicted_From_The_Window_Rejects_Writes`). Schema gate: streamed
   output (incl. an empty sheet, sparse skipped rows, 1904 epoch, gzip temp
   files) validates under `Microsoft365`.
+
+*Closeout slice — date-cell GetString rendering + named-style persistence
+(I-82 sub-slice, added 2026-06-03).* Empties the cell-styles slice's deferral
+list except `IColumn.AutoSize` (see the deferral tracker above for its decided
+direction). Two halves, both oracle-dumped against the NPOI engine before
+implementation:
+
+- **Date-cell `GetString` number-format rendering (§7.10).** New
+  `Internal/ExcelDateFormat.cs` renders a date-formatted numeric cell's value
+  through its format code — fields y/m/d/h/s with Excel's month-vs-minute
+  context rule (minutes when the nearest preceding field is hours or the
+  nearest following field is seconds; runs of 3+ m are always months), elapsed
+  `[h]`/`[m]`/`[s]` off the RAW stored serial (hours/minutes floor; a lone
+  seconds total rounds half-away — the seconds product is denoised at
+  millisecond precision first, or a stored .5 s multiplies out to …4999995 and
+  rounds the wrong way), `AM/PM` + `A/P` meridiems, millisecond fractions
+  (`ss.0`, truncated), quoted/escaped literals, first-section selection,
+  `[Red]`/`[$-409]` prefix stripping. Output is culture-independent: NPOI's
+  `DataFormatter` emits invariant-English names regardless of
+  `DisplayCulture` (oracle-verified under de-DE), so the renderer uses
+  invariant names — `DisplayCulture` remains inert on both engines for date
+  rendering. Negative serials fall back to raw G17 on both engines (Excel
+  shows `######`; there is no date to render). **Documented Excel-correct
+  divergences from the NPOI witness** (quirk-#14 oracle hierarchy; all pinned
+  in `DateGetStringTests` with NPOI's actual output noted inline): quoted
+  literals render verbatim (NPOI keeps the quote characters and re-interprets
+  the quoted content: `yyyy"y"` → `2026"26"`); lowercase `am/pm` and `a/p`
+  render as lowercase meridiems (NPOI emits `a6/p6` mangles or falls back to
+  the raw serial depending on position); uppercase `A/P` renders `A`/`P` per
+  ECMA-376 (NPOI expands it to `AM`/`PM`); a meridiem before the hour field
+  still switches to 12-hour rendering (NPOI treats the whole format as
+  non-date). Serial 60 (Excel's fictitious 1900-02-29, unrepresentable in
+  `DateTime`) renders 1900-02-28 here vs NPOI's 1900-03-01 — both wrong vs
+  Excel, neither wronger; `FromSerial`'s mapping is load-bearing for
+  `GetDate` and is pinned, not changed. The agreement matrix (28 formats ×
+  afternoon/morning/duration values, defaults, epochs, edge serials) is
+  asserted cross-engine in `CrossEngineDifferentialTests`.
+- **Named-style OOXML persistence (the NPOI engine's I-67 equivalent).**
+  `RegisterStyle` persists each name as a `cellStyleXfs` `<xf>` (mirroring
+  the deduped cellXfs entry's component ids + apply flags) plus a
+  `<cellStyle name/xfId>` entry via `OoxmlStylePool.WriteNamedStyle`;
+  first registry access on an opened workbook rehydrates from the persisted
+  entries (`ReadNamedStyles`, skipping the built-in Normal). Re-registering
+  a name repoints its xfId and orphans the superseded xf — NPOI-identical.
+  **Divergence from the NPOI witness:** user entries carry NO `builtinId`
+  (NPOI stamps `builtinId="0"`, which *claims the Normal builtin* per
+  ECMA-376 §18.8.7; Excel's own files put no builtinId on custom styles).
+  Publicly invisible — cross-engine rehydration is pinned in both
+  directions. Opened-file blind spot closed: a stylesheet missing
+  `cellStyleXfs`/`cellStyles` entirely gets the tables created in
+  CT_Stylesheet order with the **Normal master seeded at index 0** — cellXfs
+  entries reference their parent style via `xfId`, and this engine writes
+  `xfId="0"` on every allocation, so a named xf landing at index 0 would
+  silently re-parent every styled cell (the stylesheet flavor of the
+  quirk-#8 open-mutate discipline; schema-gate validated).
+
+What this slice taught: when a display-formatting surface diverges between
+engines, run the oracle matrix under a NON-default culture too — the de-DE dump
+is what proved `DisplayCulture` inert and saved the renderer a culture axis; and
+when a table keyed by index gains its first entry on an OPENED file, ask what
+existing index references into that table mean (the xfId=0 re-parenting hazard
+was invisible in created-file fixtures).
 
 ### 6.2.13 Connectors — I-79, I-80
 
