@@ -4,6 +4,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Xunit;
 
@@ -142,19 +143,18 @@ public class WorkbookOptionsWritePathTests
             DefaultFontName = "Arial",
             DefaultFontSize = 14,
         });
-        var raw = wb.Underlying;
-        var font = raw.GetFontAt(0);
-        font.FontName.Should().Be("Arial");
-        font.FontHeightInPoints.Should().Be(14);
+        var (name, size) = Font0(wb);
+        name.Should().Be("Arial");
+        size.Should().Be(14);
     }
 
     [Fact]
     public void DefaultFontName_Default_Is_Calibri_11()
     {
         using var wb = Workbook.Create();
-        var font = wb.Underlying.GetFontAt(0);
-        font.FontName.Should().Be("Calibri");
-        font.FontHeightInPoints.Should().Be(11);
+        var (name, size) = Font0(wb);
+        name.Should().Be("Calibri");
+        size.Should().Be(11);
     }
 
     // ---- Round-trip: defaults are still applied after open ----------
@@ -179,18 +179,31 @@ public class WorkbookOptionsWritePathTests
             // not get clobbered with NetXlsx's Calibri/11 default.
             using (var wb = Workbook.Open(path))
             {
-                var font = wb.Underlying.GetFontAt(0);
-                font.FontName.Should().Be("Verdana");
-                font.FontHeightInPoints.Should().Be(12);
+                var (name, size) = Font0(wb);
+                name.Should().Be("Verdana");
+                size.Should().Be(12);
             }
             // Reopen with DIFFERENT options — the file still wins.
             using (var wb = Workbook.Open(path, new WorkbookOptions { DefaultFontName = "Arial", DefaultFontSize = 14 }))
             {
-                var font = wb.Underlying.GetFontAt(0);
-                font.FontName.Should().Be("Verdana");
-                font.FontHeightInPoints.Should().Be(12);
+                var (name, size) = Font0(wb);
+                name.Should().Be("Verdana");
+                size.Should().Be(12);
             }
         }
         finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    // ---- helpers ------------------------------------------------------
+
+    /// <summary>Font 0 (the workbook default) from the persisted stylesheet.</summary>
+    private static (string Name, double Size) Font0(IWorkbook wb)
+    {
+        var font = SavedOoxml.StylesXml(wb).Root!
+            .Element(SavedOoxml.Main + "fonts")!
+            .Elements(SavedOoxml.Main + "font").First();
+        return (
+            (string)font.Element(SavedOoxml.Main + "name")!.Attribute("val")!,
+            (double)font.Element(SavedOoxml.Main + "sz")!.Attribute("val")!);
     }
 }
