@@ -69,66 +69,6 @@ public static class Workbook
         return new OoxmlStreamingWorkbook(options ?? new StreamingOptions());
     }
 
-    // ---- I-82 swap-era factory aliases --------------------------------------
-    // CreateOoxml/OpenOoxml/CreateStreamingOoxml were the additive entry points
-    // to the SDK engine during the parallel-engine swap. At the v2.0.0 cutover
-    // the default factories route to the SDK engine, so these are now exact
-    // aliases. They were never shipped in a release and are REMOVED at the
-    // post-cutover OoxmlEngine.Tests fold slice, before v2.0.0 final (pinned
-    // in design.md I-82) — do not let them ship.
-
-    /// <summary>
-    /// Alias of <see cref="Create"/> (the swap-era SDK entry point; the
-    /// default factories route to the Open XML SDK engine since the v2.0.0
-    /// cutover, decision I-82).
-    /// </summary>
-    /// <param name="options">
-    /// Per-workbook configuration. When <c>null</c>, uses
-    /// <see cref="WorkbookOptions"/> defaults.
-    /// </param>
-    public static IWorkbook CreateOoxml(WorkbookOptions? options = null)
-    {
-        return Create(options);
-    }
-
-    /// <summary>
-    /// Alias of <see cref="Open(string, WorkbookOptions?)"/> (the swap-era SDK
-    /// entry point; see <see cref="CreateOoxml"/>).
-    /// </summary>
-    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
-    /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>
-    public static IWorkbook OpenOoxml(string path, WorkbookOptions? options = null)
-    {
-        return Open(path, options);
-    }
-
-    /// <summary>
-    /// Opens an existing <c>.xlsx</c> / <c>.xlsm</c> workbook on the Open XML
-    /// SDK engine from a stream (decision I-82). The stream's content is copied
-    /// into an owned in-memory buffer, so the stream need only be readable; it
-    /// is not mutated.
-    /// </summary>
-    /// <param name="stream">A readable stream positioned at the workbook's start.</param>
-    /// <param name="leaveOpen">If <c>false</c>, the stream is disposed after the workbook is read. Default <c>true</c>.</param>
-    /// <exception cref="ArgumentException">The stream is not readable.</exception>
-    /// <exception cref="MalformedFileException">The stream content is not a valid workbook.</exception>
-    public static IWorkbook OpenOoxml(Stream stream, bool leaveOpen = true, WorkbookOptions? options = null)
-    {
-        ArgumentNullException.ThrowIfNull(stream);
-        return OoxmlWorkbook.Open(stream, leaveOpen, options ?? new WorkbookOptions());
-    }
-
-    /// <summary>
-    /// Alias of <see cref="CreateStreaming"/> (the swap-era SDK entry point;
-    /// see <see cref="CreateOoxml"/>).
-    /// </summary>
-    /// <param name="options">Streaming-specific knobs (row-access window size,
-    /// temp-file compression).</param>
-    public static IStreamingWorkbook CreateStreamingOoxml(StreamingOptions? options = null)
-    {
-        return CreateStreaming(options);
-    }
-
     /// <summary>Opens an existing <c>.xlsx</c> or <c>.xlsm</c> workbook from a file path.</summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     /// <exception cref="MalformedFileException">The file is not a valid <c>.xlsx</c> / <c>.xlsm</c> workbook.</exception>

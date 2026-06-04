@@ -9,9 +9,9 @@
 //
 // Stylesheet structure maintained here (the order is the OOXML schema sequence):
 //   numFmts? -> fonts -> fills -> borders -> cellStyleXfs -> cellXfs -> cellStyles
-// On CreateOoxml the pool builds a minimal valid stylesheet with the Excel
+// On Create the pool builds a minimal valid stylesheet with the Excel
 // conventions baked in (fills[0]=none, fills[1]=gray125, the Normal cellStyleXfs
-// master per I-78, font[0] = the workbook's default font). On OpenOoxml it adopts
+// master per I-78, font[0] = the workbook's default font). On Open it adopts
 // the file's existing stylesheet untouched and appends after it — the file's
 // fonts/fills/styles and its default font (lesson #8) are preserved verbatim.
 //

@@ -128,11 +128,10 @@ public interface IStreamingRow
 
 /// <summary>
 /// A cell on an <see cref="IStreamingRow"/>. Provides value setters,
-/// styling, and the cell-kind getter — but not the
-/// <see cref="ICell.Underlying"/> escape hatch (the SXSSF cell type
-/// does not inherit from <c>XSSFCell</c>, so the return type cannot
-/// be honored). Reach the raw cell through
-/// <see cref="IStreamingSheet.Underlying"/>.
+/// styling, and the cell-kind getter — but no <c>Underlying</c> escape
+/// hatch: rows are serialized forward-only through <c>OpenXmlWriter</c>
+/// and the package is assembled only at <c>Save</c>, so there is no live
+/// document object to return at any earlier point (I-82).
 /// </summary>
 public interface IStreamingCell
 {

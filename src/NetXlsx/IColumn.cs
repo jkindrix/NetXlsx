@@ -42,17 +42,14 @@ public interface IColumn
     IColumn Width(double units);
 
     /// <summary>
-    /// Sizes this column to fit its populated contents. On the legacy NPOI
-    /// engine this delegates to NPOI's <c>AutoSizeColumn</c> and requires an
-    /// OS font stack — headless Linux without libgdiplus / fallback fonts
-    /// throws <see cref="MissingFontException"/> with installation guidance
-    /// (design decision I3). On the Open XML SDK engine
-    /// (<c>Workbook.CreateOoxml</c>/<c>OpenOoxml</c>) it measures with
-    /// embedded metric tables — deterministic on every machine, headless
-    /// included — and throws <see cref="MissingFontException"/> only for
-    /// fonts outside the embedded metric set (design decision I-84).
+    /// Sizes this column to fit its populated contents, measuring with
+    /// embedded font-metric tables — deterministic on every machine,
+    /// headless included (design decision I-84, which superseded the
+    /// environment-dependent OS-font-stack behavior of decision I3).
+    /// Throws <see cref="MissingFontException"/> only for fonts outside
+    /// the embedded metric set, naming the font.
     /// </summary>
-    /// <exception cref="MissingFontException">Font metrics unavailable (NPOI engine: no OS font stack; SDK engine: font not in the embedded metric set).</exception>
+    /// <exception cref="MissingFontException">The column's fonts are not in the embedded metric set.</exception>
     IColumn AutoSize();
 
     /// <summary>

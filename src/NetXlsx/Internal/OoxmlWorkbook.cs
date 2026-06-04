@@ -1,16 +1,9 @@
 // I-82 engine swap — Open XML SDK-backed IWorkbook.
 //
-// This is the v2.0.0 engine, grown additively alongside the NPOI-backed
-// XssfWorkbook under the parallel-engine / late-cutover strategy (see design
-// I-82 and the continuation plan's "Engine swap strategy"). It is reached only
-// through Workbook.CreateOoxml() / Workbook.OpenOoxml(...); the default
-// Workbook.Create() / Open() still return the NPOI engine until the cutover.
-//
-// Foundation slice scope (this commit): Create / Open / Save / Dispose,
-// AddSheet, sheet enumeration + indexers, and the .Underlying escape hatch.
-// Everything else throws NotYet(...) and lands slice by slice (cells & rows ->
-// styles -> rich text -> merges/panes/grouping -> drawings -> CF/validation/
-// tables/autofilter/sort -> charts -> streaming).
+// This is THE v2.0.0 engine. It was grown additively alongside the NPOI-backed
+// XssfWorkbook under the parallel-engine / late-cutover strategy (design I-82);
+// since the cutover the default Workbook.Create() / Open() / OpenAsync()
+// factories route here and the NPOI engine is deleted.
 //
 // Engine model: the workbook owns an in-memory MemoryStream and a
 // SpreadsheetDocument opened read/write over it. This mirrors the NPOI wrapper's
@@ -142,7 +135,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         _options = options;
     }
 
-    // ---- Factories (called by Workbook.CreateOoxml / OpenOoxml) -------------
+    // ---- Factories (called by Workbook.Create / Open) ------------------------
 
     internal static OoxmlWorkbook Create(
         WorkbookOptions options,

@@ -42,9 +42,13 @@ a member that could never return would be a standing lie.
 
 **Removed (never shipped).** `IWorkbook.OpenXmlDocument`, the swap-era
 SDK hatch, is subsumed by the retyped `.Underlying`. The swap-era
-factories `CreateOoxml` / `OpenOoxml` / `CreateStreamingOoxml` remain
-temporarily as exact aliases of the default factories and are removed
-at the post-cutover test-fold slice, before v2.0.0 final.
+factories `CreateOoxml` / `OpenOoxml` / `CreateStreamingOoxml` — exact
+aliases of the default factories since the cutover — are gone too,
+removed at the post-cutover fold slice (which also folded the
+parallel-engine conformance project, `NetXlsx.OoxmlEngine.Tests`, into
+`NetXlsx.Tests` under the `NetXlsx.Tests.Engine` namespace; no test was
+lost). Note for `v2.0.0-alpha.1` users: that tag still carried the
+aliases — replace them 1:1 with `Create` / `Open` / `CreateStreaming`.
 
 **Unchanged on purpose.** `Open(Stream)` keeps its CanSeek +
 Position==0 preconditions (relaxing to readable-only is additive and

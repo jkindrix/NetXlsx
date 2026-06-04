@@ -114,10 +114,6 @@ NetXlsx.IConnector
 NetXlsx.IConnector.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IConnector.Type.get -> NetXlsx.ConnectorType
 NetXlsx.IConnector.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape!
-static NetXlsx.Workbook.CreateOoxml(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
-static NetXlsx.Workbook.OpenOoxml(string! path, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
-static NetXlsx.Workbook.OpenOoxml(System.IO.Stream! stream, bool leaveOpen = true, NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
-static NetXlsx.Workbook.CreateStreamingOoxml(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!
 *REMOVED*NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
 *REMOVED*NetXlsx.IPicture.Underlying.get -> NPOI.XSSF.UserModel.XSSFPicture!
 *REMOVED*NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!

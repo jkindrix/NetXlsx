@@ -1,5 +1,5 @@
 // I-82 engine swap — Open XML SDK-backed streaming writer (slice 9, the SXSSF
-// replacement behind Workbook.CreateStreamingOoxml).
+// replacement behind Workbook.CreateStreaming).
 //
 // Architecture (probed in /tmp/reflcon before implementation):
 //   - Each sheet streams its worksheet XML into its OWN temp file through an
