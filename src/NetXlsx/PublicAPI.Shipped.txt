@@ -71,6 +71,8 @@ NetXlsx.CellKind.String = 1 -> NetXlsx.CellKind
 NetXlsx.CellStyle
 NetXlsx.CellStyle.Background.get -> NetXlsx.Color?
 NetXlsx.CellStyle.Background.init -> void
+NetXlsx.CellStyle.BackgroundTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellStyle.BackgroundTheme.init -> void
 NetXlsx.CellStyle.Bold.get -> bool?
 NetXlsx.CellStyle.Bold.init -> void
 NetXlsx.CellStyle.Borders.get -> NetXlsx.CellBorders?
@@ -93,6 +95,13 @@ NetXlsx.CellStyle.VerticalAlignment.get -> NetXlsx.VAlign?
 NetXlsx.CellStyle.VerticalAlignment.init -> void
 NetXlsx.CellStyle.WrapText.get -> bool?
 NetXlsx.CellStyle.WrapText.init -> void
+NetXlsx.ChartType
+NetXlsx.ChartType.Area = 5 -> NetXlsx.ChartType
+NetXlsx.ChartType.Bar = 1 -> NetXlsx.ChartType
+NetXlsx.ChartType.Column = 2 -> NetXlsx.ChartType
+NetXlsx.ChartType.Line = 0 -> NetXlsx.ChartType
+NetXlsx.ChartType.Pie = 3 -> NetXlsx.ChartType
+NetXlsx.ChartType.Scatter = 4 -> NetXlsx.ChartType
 NetXlsx.Color
 NetXlsx.Color.A.get -> byte
 NetXlsx.Color.A.init -> void
@@ -114,6 +123,18 @@ NetXlsx.ColumnAttribute.Format.init -> void
 NetXlsx.ColumnAttribute.Name.get -> string!
 NetXlsx.ColumnAttribute.Order.get -> int
 NetXlsx.ColumnAttribute.Order.init -> void
+NetXlsx.ConditionalFormat
+NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Arrow = 5 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Diamond = 3 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.None = 0 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Oval = 4 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Stealth = 2 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorEnd.Triangle = 1 -> NetXlsx.ConnectorEnd
+NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Bent = 98 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Curved = 102 -> NetXlsx.ConnectorType
+NetXlsx.ConnectorType.Straight = 96 -> NetXlsx.ConnectorType
 NetXlsx.DataValidation
 NetXlsx.DateSystem
 NetXlsx.DateSystem.Excel1900 = 0 -> NetXlsx.DateSystem
@@ -171,7 +192,12 @@ NetXlsx.ICell.SetRichText(NetXlsx.RichText! value) -> void
 NetXlsx.ICell.SetString(string! value) -> void
 NetXlsx.ICell.SetTime(System.TimeOnly value) -> void
 NetXlsx.ICell.Style(NetXlsx.CellStyle! style) -> NetXlsx.ICell!
-NetXlsx.ICell.Underlying.get -> NPOI.XSSF.UserModel.XSSFCell!
+NetXlsx.ICell.Underlying.get -> DocumentFormat.OpenXml.Spreadsheet.Cell!
+NetXlsx.IChart
+NetXlsx.IChart.SetTitle(string! title) -> void
+NetXlsx.IChart.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IChart.Type.get -> NetXlsx.ChartType
+NetXlsx.IChart.Underlying.get -> DocumentFormat.OpenXml.Packaging.ChartPart!
 NetXlsx.IColumn
 NetXlsx.IColumn.AutoSize() -> NetXlsx.IColumn!
 NetXlsx.IColumn.ForEachPopulated(System.Action<NetXlsx.ICell!>! apply) -> NetXlsx.IColumn!
@@ -184,6 +210,24 @@ NetXlsx.IColumn.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IColumn.Width(double units) -> NetXlsx.IColumn!
 NetXlsx.IColumn.WidthUnits.get -> double
 NetXlsx.IColumn.WidthUnits.set -> void
+NetXlsx.IConnector
+NetXlsx.IConnector.Dx1.get -> int
+NetXlsx.IConnector.Dx2.get -> int
+NetXlsx.IConnector.Dy1.get -> int
+NetXlsx.IConnector.Dy2.get -> int
+NetXlsx.IConnector.FlipH.get -> bool
+NetXlsx.IConnector.FlipV.get -> bool
+NetXlsx.IConnector.FromCell.get -> string!
+NetXlsx.IConnector.HeadEnd.get -> NetXlsx.ConnectorEnd
+NetXlsx.IConnector.LineColor.get -> NetXlsx.Color?
+NetXlsx.IConnector.LineSchemeColor.get -> string?
+NetXlsx.IConnector.LineStyleRefIndex.get -> int?
+NetXlsx.IConnector.LineWidthPoints.get -> double?
+NetXlsx.IConnector.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IConnector.TailEnd.get -> NetXlsx.ConnectorEnd
+NetXlsx.IConnector.ToCell.get -> string!
+NetXlsx.IConnector.Type.get -> NetXlsx.ConnectorType
+NetXlsx.IConnector.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.ConnectionShape!
 NetXlsx.IgnoreAttribute
 NetXlsx.IgnoreAttribute.IgnoreAttribute() -> void
 NetXlsx.ImageFormat
@@ -197,9 +241,16 @@ NetXlsx.InvalidCellAddressException
 NetXlsx.InvalidCellAddressException.Input.get -> string!
 NetXlsx.InvalidCellAddressException.InvalidCellAddressException(string! input, string! reason) -> void
 NetXlsx.IPicture
+NetXlsx.IPicture.Data.get -> byte[]!
+NetXlsx.IPicture.Dx1.get -> int
+NetXlsx.IPicture.Dx2.get -> int
+NetXlsx.IPicture.Dy1.get -> int
+NetXlsx.IPicture.Dy2.get -> int
 NetXlsx.IPicture.Format.get -> NetXlsx.ImageFormat
+NetXlsx.IPicture.FromCell.get -> string!
 NetXlsx.IPicture.Sheet.get -> NetXlsx.ISheet!
-NetXlsx.IPicture.Underlying.get -> NPOI.XSSF.UserModel.XSSFPicture!
+NetXlsx.IPicture.ToCell.get -> string!
+NetXlsx.IPicture.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.Picture!
 NetXlsx.IRange
 NetXlsx.IRange.Address.get -> string!
 NetXlsx.IRange.ApplyNamedStyle(string! name) -> NetXlsx.IRange!
@@ -216,6 +267,8 @@ NetXlsx.IRange.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IRange.Value(object? value) -> NetXlsx.IRange!
 NetXlsx.IRow
 NetXlsx.IRow.Cell(int column) -> NetXlsx.ICell!
+NetXlsx.IRow.HeightInPoints.get -> float
+NetXlsx.IRow.HeightInPoints.set -> void
 NetXlsx.IRow.Hidden.get -> bool
 NetXlsx.IRow.Hidden.set -> void
 NetXlsx.IRow.Index.get -> int
@@ -232,10 +285,21 @@ NetXlsx.IRow.Set(int column, System.TimeSpan value) -> NetXlsx.IRow!
 NetXlsx.IRow.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.IRow.this[int column].get -> NetXlsx.ICell!
 NetXlsx.IRow.this[string! columnLetter].get -> NetXlsx.ICell!
-NetXlsx.IRow.Underlying.get -> NPOI.XSSF.UserModel.XSSFRow!
+NetXlsx.IRow.Underlying.get -> DocumentFormat.OpenXml.Spreadsheet.Row!
+NetXlsx.IShape
+NetXlsx.IShape.Sheet.get -> NetXlsx.ISheet!
+NetXlsx.IShape.Type.get -> NetXlsx.ShapeType
+NetXlsx.IShape.Underlying.get -> DocumentFormat.OpenXml.Drawing.Spreadsheet.Shape!
 NetXlsx.ISheet
+NetXlsx.ISheet.AddChart(NetXlsx.ChartType type, string! startCell, string! endCell, string! categoryRange, string! valueRange, string? title = null) -> NetXlsx.IChart!
+NetXlsx.ISheet.AddConditionalFormatting(string! a1Range, params NetXlsx.ConditionalFormat![]! rules) -> void
+NetXlsx.ISheet.AddConnector(NetXlsx.ConnectorType type, string! startCell, string! endCell, NetXlsx.Color? lineColor = null, int dx1 = 0, int dy1 = 0, int dx2 = 0, int dy2 = 0, bool flipH = false, bool flipV = false, NetXlsx.ConnectorEnd headEnd = NetXlsx.ConnectorEnd.None, NetXlsx.ConnectorEnd tailEnd = NetXlsx.ConnectorEnd.None, double? lineWidthPoints = null) -> NetXlsx.IConnector!
 NetXlsx.ISheet.AddPicture(string! a1Cell, byte[]! data, NetXlsx.ImageFormat format) -> NetXlsx.IPicture!
 NetXlsx.ISheet.AddPicture(string! a1Cell, byte[]! data) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddPicture(string! startCell, string! endCell, byte[]! data, NetXlsx.ImageFormat format, int dx1, int dy1, int dx2, int dy2) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddPicture(string! startCell, string! endCell, byte[]! data, NetXlsx.ImageFormat format) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddPicture(string! startCell, string! endCell, byte[]! data) -> NetXlsx.IPicture!
+NetXlsx.ISheet.AddShape(NetXlsx.ShapeType type, string! startCell, string! endCell, NetXlsx.Color? fillColor = null, NetXlsx.Color? lineColor = null) -> NetXlsx.IShape!
 NetXlsx.ISheet.AddTable(string! a1Range, string! name, string? style = null) -> NetXlsx.ITable!
 NetXlsx.ISheet.AddValidation(string! a1Range, NetXlsx.DataValidation! validation) -> void
 NetXlsx.ISheet.AppendRow() -> NetXlsx.IRow!
@@ -244,30 +308,45 @@ NetXlsx.ISheet.ClearAutoFilterColumn(int columnOffset) -> void
 NetXlsx.ISheet.ClearAutoFilter() -> void
 NetXlsx.ISheet.Column(int index) -> NetXlsx.IColumn!
 NetXlsx.ISheet.Column(string! letter) -> NetXlsx.IColumn!
+NetXlsx.ISheet.ConditionalFormattingCount.get -> int
+NetXlsx.ISheet.Connectors.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.IConnector!>!
+NetXlsx.ISheet.CreateSplitPane(int xSplitTwips, int ySplitTwips) -> void
+NetXlsx.ISheet.DefaultColumnWidth.get -> double?
+NetXlsx.ISheet.DefaultColumnWidth.set -> void
 NetXlsx.ISheet.FreezeColumns(int cols) -> void
 NetXlsx.ISheet.FreezePane(int rows, int cols) -> void
 NetXlsx.ISheet.FreezeRows(int rows) -> void
+NetXlsx.ISheet.GroupColumns(int startCol, int endCol) -> void
+NetXlsx.ISheet.GroupRows(int startRow, int endRow) -> void
 NetXlsx.ISheet.HasAutoFilter.get -> bool
 NetXlsx.ISheet.Hidden.get -> bool
 NetXlsx.ISheet.Hidden.set -> void
 NetXlsx.ISheet.IsProtected.get -> bool
+NetXlsx.ISheet.LastRowNumber.get -> int
 NetXlsx.ISheet.MergeCells(string! a1Range) -> void
+NetXlsx.ISheet.MergeCellsStyled(string! a1Range, NetXlsx.CellStyle! style) -> void
 NetXlsx.ISheet.MergedRanges.get -> System.Collections.Generic.IReadOnlyList<string!>!
 NetXlsx.ISheet.Name.get -> string!
+NetXlsx.ISheet.Pictures.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.IPicture!>!
 NetXlsx.ISheet.Protect(string? password = null, NetXlsx.SheetProtection? options = null) -> void
 NetXlsx.ISheet.Range(int row1, int col1, int row2, int col2) -> NetXlsx.IRange!
 NetXlsx.ISheet.Range(string! a1Range) -> NetXlsx.IRange!
+NetXlsx.ISheet.RemoveConditionalFormatting(int index) -> void
 NetXlsx.ISheet.RemoveTable(NetXlsx.ITable! table) -> void
 NetXlsx.ISheet.Row(int index) -> NetXlsx.IRow!
 NetXlsx.ISheet.SetAutoFilterColumn(int columnOffset, NetXlsx.FilterCriteria! criteria) -> void
 NetXlsx.ISheet.SetAutoFilter(string! a1Range) -> void
+NetXlsx.ISheet.SetRowGroupCollapsed(int row, bool collapsed) -> void
 NetXlsx.ISheet.ShowGridlines.get -> bool
 NetXlsx.ISheet.ShowGridlines.set -> void
+NetXlsx.ISheet.SortRange(string! a1Range, params NetXlsx.SortKey![]! keys) -> void
 NetXlsx.ISheet.Tables.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.ITable!>!
 NetXlsx.ISheet.this[int row, int column].get -> NetXlsx.ICell!
 NetXlsx.ISheet.this[string! a1].get -> NetXlsx.ICell!
 NetXlsx.ISheet.TryGetTable(string! name, out NetXlsx.ITable! table) -> bool
-NetXlsx.ISheet.Underlying.get -> NPOI.XSSF.UserModel.XSSFSheet!
+NetXlsx.ISheet.Underlying.get -> DocumentFormat.OpenXml.Spreadsheet.Worksheet!
+NetXlsx.ISheet.UngroupColumns(int startCol, int endCol) -> void
+NetXlsx.ISheet.UngroupRows(int startRow, int endRow) -> void
 NetXlsx.ISheet.UnmergeCells(string! a1Range) -> void
 NetXlsx.ISheet.Unprotect() -> void
 NetXlsx.ISheet.Workbook.get -> NetXlsx.IWorkbook!
@@ -304,7 +383,6 @@ NetXlsx.IStreamingSheet
 NetXlsx.IStreamingSheet.AppendRow(int index) -> NetXlsx.IStreamingRow!
 NetXlsx.IStreamingSheet.AppendRow() -> NetXlsx.IStreamingRow!
 NetXlsx.IStreamingSheet.Name.get -> string!
-NetXlsx.IStreamingSheet.Underlying.get -> NPOI.XSSF.Streaming.SXSSFSheet!
 NetXlsx.IStreamingSheet.Workbook.get -> NetXlsx.IStreamingWorkbook!
 NetXlsx.IStreamingWorkbook
 NetXlsx.IStreamingWorkbook.AddSheet(string! name) -> NetXlsx.IStreamingSheet!
@@ -312,7 +390,6 @@ NetXlsx.IStreamingWorkbook.SaveAsync(string! path, System.Threading.Cancellation
 NetXlsx.IStreamingWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 NetXlsx.IStreamingWorkbook.Save(string! path) -> void
 NetXlsx.IStreamingWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
-NetXlsx.IStreamingWorkbook.Underlying.get -> NPOI.XSSF.Streaming.SXSSFWorkbook!
 NetXlsx.ITable
 NetXlsx.ITable.Address.get -> string!
 NetXlsx.ITable.AddTotalsRow() -> void
@@ -328,27 +405,34 @@ NetXlsx.ITable.SetColumnTotal(string! columnName, string! customFormula) -> void
 NetXlsx.ITable.Sheet.get -> NetXlsx.ISheet!
 NetXlsx.ITable.StyleName.get -> string?
 NetXlsx.ITable.StyleName.set -> void
-NetXlsx.ITable.Underlying.get -> NPOI.XSSF.UserModel.XSSFTable!
+NetXlsx.ITable.Underlying.get -> DocumentFormat.OpenXml.Packaging.TableDefinitionPart!
 NetXlsx.IWorkbook
 NetXlsx.IWorkbook.AddNamedRange(string! name, string! formula, string? sheetScope = null) -> NetXlsx.INamedRange!
 NetXlsx.IWorkbook.AddSheet(string! name) -> NetXlsx.ISheet!
 NetXlsx.IWorkbook.GetRegisteredStyle(string! name) -> NetXlsx.CellStyle?
 NetXlsx.IWorkbook.GetStylePoolDiagnostics() -> NetXlsx.StylePoolDiagnostics
+NetXlsx.IWorkbook.GetThemeLineWidthEmu(int oneBasedIdx) -> int?
+NetXlsx.IWorkbook.GetThemeXml() -> byte[]?
+NetXlsx.IWorkbook.IsMacroEnabled.get -> bool
 NetXlsx.IWorkbook.IsProtected.get -> bool
 NetXlsx.IWorkbook.NamedRanges.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.INamedRange!>!
 NetXlsx.IWorkbook.Protect(NetXlsx.WorkbookProtection? options = null) -> void
 NetXlsx.IWorkbook.ProtectWithPassword(string! password, NetXlsx.WorkbookProtection? options = null) -> void
 NetXlsx.IWorkbook.RegisteredStyleNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>!
 NetXlsx.IWorkbook.RegisterStyle(string! name, NetXlsx.CellStyle! style) -> void
+NetXlsx.IWorkbook.ResolveThemeColor(int index, double tint = 0) -> NetXlsx.Color?
+NetXlsx.IWorkbook.ResolveThemeColor(NetXlsx.ThemeColor! color) -> NetXlsx.Color?
+NetXlsx.IWorkbook.ResolveThemeColor(string! schemeName, double tint = 0) -> NetXlsx.Color?
 NetXlsx.IWorkbook.SaveAsync(string! path, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 NetXlsx.IWorkbook.SaveAsync(System.IO.Stream! stream, bool leaveOpen = true, System.Threading.CancellationToken ct = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 NetXlsx.IWorkbook.Save(string! path) -> void
 NetXlsx.IWorkbook.Save(System.IO.Stream! stream, bool leaveOpen = true) -> void
+NetXlsx.IWorkbook.SetThemeXml(byte[]! themeXml) -> void
 NetXlsx.IWorkbook.SheetCount.get -> int
 NetXlsx.IWorkbook.this[int index].get -> NetXlsx.ISheet!
 NetXlsx.IWorkbook.this[string! name].get -> NetXlsx.ISheet!
 NetXlsx.IWorkbook.TryGetSheet(string! name, out NetXlsx.ISheet! sheet) -> bool
-NetXlsx.IWorkbook.Underlying.get -> NPOI.XSSF.UserModel.XSSFWorkbook!
+NetXlsx.IWorkbook.Underlying.get -> DocumentFormat.OpenXml.Packaging.SpreadsheetDocument!
 NetXlsx.IWorkbook.Unprotect() -> void
 NetXlsx.MalformedFileException
 NetXlsx.MalformedFileException.MalformedFileException(string! message, System.Exception! innerException) -> void
@@ -390,6 +474,13 @@ NetXlsx.RichTextStyle.Italic.get -> bool?
 NetXlsx.RichTextStyle.Italic.init -> void
 NetXlsx.RichTextStyle.Underline.get -> NetXlsx.UnderlineStyle?
 NetXlsx.RichTextStyle.Underline.init -> void
+NetXlsx.ShapeType
+NetXlsx.ShapeType.Diamond = 6 -> NetXlsx.ShapeType
+NetXlsx.ShapeType.Ellipse = 35 -> NetXlsx.ShapeType
+NetXlsx.ShapeType.Line = 1 -> NetXlsx.ShapeType
+NetXlsx.ShapeType.Rectangle = 5 -> NetXlsx.ShapeType
+NetXlsx.ShapeType.RoundedRectangle = 26 -> NetXlsx.ShapeType
+NetXlsx.ShapeType.Triangle = 3 -> NetXlsx.ShapeType
 NetXlsx.SheetNameException
 NetXlsx.SheetNameException.Name.get -> string!
 NetXlsx.SheetNameException.SheetNameException(string! name, string! reason) -> void
@@ -424,6 +515,9 @@ NetXlsx.SheetProtection.LockSelectUnlockedCells.get -> bool
 NetXlsx.SheetProtection.LockSelectUnlockedCells.init -> void
 NetXlsx.SheetProtection.LockSort.get -> bool
 NetXlsx.SheetProtection.LockSort.init -> void
+NetXlsx.SortKey
+NetXlsx.SortKey.Ascending.get -> bool
+NetXlsx.SortKey.Column.get -> int
 NetXlsx.StreamingOptions
 NetXlsx.StreamingOptions.CompressTempFiles.get -> bool
 NetXlsx.StreamingOptions.CompressTempFiles.init -> void
@@ -442,6 +536,12 @@ NetXlsx.StylePoolDiagnostics.StylePoolDiagnostics() -> void
 NetXlsx.StylePoolDiagnostics.UniqueFonts.get -> int
 NetXlsx.StylePoolDiagnostics.UniqueStyles.get -> int
 NetXlsx.TableStyles
+NetXlsx.ThemeColor
+NetXlsx.ThemeColor.Index.get -> int
+NetXlsx.ThemeColor.Index.init -> void
+NetXlsx.ThemeColor.ThemeColor(int Index, double Tint = 0) -> void
+NetXlsx.ThemeColor.Tint.get -> double
+NetXlsx.ThemeColor.Tint.init -> void
 NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.Average = 4 -> NetXlsx.TotalsRowFunction
 NetXlsx.TotalsRowFunction.Count = 5 -> NetXlsx.TotalsRowFunction
@@ -531,6 +631,16 @@ static NetXlsx.Color.LightGray.get -> NetXlsx.Color
 static NetXlsx.Color.Red.get -> NetXlsx.Color
 static NetXlsx.Color.White.get -> NetXlsx.Color
 static NetXlsx.Color.Yellow.get -> NetXlsx.Color
+static NetXlsx.ConditionalFormat.CellValueBetween(string! min, string! max, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueGreaterThanOrEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueGreaterThan(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueLessThanOrEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueLessThan(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.CellValueNotEqual(string! value, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.ColorScale(NetXlsx.Color min, NetXlsx.Color max) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.ColorScale(NetXlsx.Color min, NetXlsx.Color mid, NetXlsx.Color max) -> NetXlsx.ConditionalFormat!
+static NetXlsx.ConditionalFormat.Formula(string! formula, NetXlsx.CellStyle! style) -> NetXlsx.ConditionalFormat!
 static NetXlsx.DataValidation.Custom(string! formula) -> NetXlsx.DataValidation!
 static NetXlsx.DataValidation.DateBetween(System.DateOnly start, System.DateOnly end) -> NetXlsx.DataValidation!
 static NetXlsx.DataValidation.DecimalBetween(double min, double max) -> NetXlsx.DataValidation!
@@ -558,6 +668,9 @@ static NetXlsx.FilterCriteria.StartsWith(string! prefix) -> NetXlsx.FilterCriter
 static NetXlsx.RichTextStyle.Default.get -> NetXlsx.RichTextStyle!
 static NetXlsx.SheetProtection.Default.get -> NetXlsx.SheetProtection!
 static NetXlsx.SheetProtection.LockAll.get -> NetXlsx.SheetProtection!
+static NetXlsx.SortKey.Asc(int column) -> NetXlsx.SortKey!
+static NetXlsx.SortKey.Desc(int column) -> NetXlsx.SortKey!
+static NetXlsx.Workbook.CreateMacroEnabled(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.Create(NetXlsx.WorkbookOptions? options = null) -> NetXlsx.IWorkbook!
 static NetXlsx.Workbook.CreateStreaming(NetXlsx.StreamingOptions? options = null) -> NetXlsx.IStreamingWorkbook!
 static NetXlsx.Workbook.IsValidSheetName(string! proposed) -> bool
