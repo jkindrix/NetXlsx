@@ -23,9 +23,11 @@
 
   <ItemGroup Label="TransitiveSecurityOverrides">
     <!-- NPOI 2.7.3's transitive closure pulls in known-vulnerable versions
-         of these packages. NPOI is test-only since the v2.0.0 cutover, so
-         these pins now protect only test/bench projects (nothing here ships);
-         they go when the last test-side NPOI reference goes.
+         of these packages. NPOI is test-only since the v2.0.0 cutover and
+         is kept DELIBERATELY as an independent reader oracle + historical
+         spike evidence (test de-NPOI executed 2026-06-04, design.md I-82
+         cutover note), so these pins protect only the non-shipping oracle
+         projects and stay for as long as the oracles do.
          Both pins are servicing releases on the same version line NPOI
          expects — API surface is unchanged. -->
 

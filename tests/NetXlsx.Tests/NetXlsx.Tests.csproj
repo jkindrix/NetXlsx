@@ -21,9 +21,11 @@
     </PackageReference>
     <!-- Test-only since the v2.0.0 cutover (I-82): NPOI serves as an
          INDEPENDENT third-party reader oracle over the engine's output
-         (e.g. DefaultColumnWidthTests re-opens saved files with raw NPOI).
-         It no longer flows transitively from the library, which is
-         NPOI-free. Full test de-NPOI is queued as post-cutover cleanup. -->
+         (DefaultColumnWidthTests and NpoiReaderOracleTests re-open saved
+         files with raw NPOI). It no longer flows transitively from the
+         library, which is NPOI-free. Kept deliberately — oracle-over-
+         opinion (test de-NPOI executed 2026-06-04; design.md I-82
+         cutover note records the settled posture). -->
     <PackageReference Include="NPOI" />
   </ItemGroup>
 

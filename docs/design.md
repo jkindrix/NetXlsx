@@ -1411,18 +1411,29 @@ decisions pinned at the flip:
   per-type coverage lives in the same file); LastRowNumber/Sort/
   NamedStyle/SchemaValidation fixtures made single-engine, synthesizing
   the NPOI-shaped artifact where the artifact itself was the contract
-  (builtinId="0", an injected `<pageMargins>`). **Queued post-cutover
-  (named item):** converting selected pins to NPOI-as-independent-reader
-  oracles (write via SDK, reopen via raw test-side NPOI) where that adds
-  third-party verification.
-- **NPOI is TEST-ONLY now** (oracle-over-opinion, advisor-confirmed): an
-  explicit reference in NetXlsx.Tests (independent reader oracle, e.g.
-  DefaultColumnWidthTests), GoldenFiles (raw-OPC orphan-part fixture
-  authoring — the pinned #44 contract), Benchmarks (cross-library spikes)
-  and Cookbook (OpenEditSave's fixture-builder). It never ships in the
-  package; the ImageSharp/Cryptography.Xml transitive pins protect only
-  these non-shipping projects and go when the last test-side NPOI
-  reference goes. Full test de-NPOI is queued post-cutover.
+  (builtinId="0", an injected `<pageMargins>`). **The queued A1 follow-up
+  EXECUTED 2026-06-04:** `NpoiReaderOracleTests` converts the selected
+  pins to NPOI-as-independent-reader oracles (write via SDK, reopen via
+  raw test-side NPOI) — scalars/formula/date, sort outcome, merges +
+  named ranges, the literal-pinned CF and DV projections (incl. the
+  bold-not-italic arg-swap class), autofilter + `_FilterDatabase`,
+  comments + hyperlinks, freeze panes, and the inheriting rich-text run;
+  every assertion falsification-probed.
+- **NPOI is TEST-ONLY, kept DELIBERATELY** (oracle-over-opinion,
+  advisor-confirmed; test de-NPOI executed 2026-06-04): an explicit
+  reference in NetXlsx.Tests (independent reader oracles —
+  DefaultColumnWidthTests, NpoiReaderOracleTests), GoldenFiles
+  (raw-OPC orphan-part fixture authoring — the pinned #44 contract —
+  plus the HelloWorkbook independent-reader guard) and Benchmarks
+  (the pre-v1 feasibility spikes, kept as measured historical
+  evidence with HISTORICAL banners). The Cookbook is NPOI-free
+  (OpenEditSave's fixture-builder was legacy plumbing — rewritten to
+  NetXlsx + System.IO.Packaging), as is the Fuzz harness (the dead
+  NPOI exception allowance removed). NPOI never ships in the package;
+  the ImageSharp/Cryptography.Xml transitive pins protect only the
+  non-shipping oracle projects and stay for as long as the oracles do
+  (no longer a queued removal — the oracle posture is the settled end
+  state).
 - **AOT/trim audited and unlocked:** `PublishTrimmed` + `PublishAot`
   produce zero IL/AOT warnings and a representative workload runs
   correctly as a native binary, so the I2/S27 consumer guards
