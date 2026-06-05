@@ -1,5 +1,11 @@
 // Spike 3 — Async wrapping cost
 //
+// HISTORICAL (2026-06-04): this spike measured *NPOI* (the pre-v2.0.0
+// engine) and resolved design decision #5's SaveAsync shape. The v2.0.0
+// engine swap (I-82) retired NPOI from the library; the NPOI reference
+// below is deliberate — it preserves the spike as measured evidence, not
+// part of any shipped closure.
+//
 // Question: is `Task.Run`-wrapped NPOI save measurably better than sync
 // save for representative workbook sizes? Specifically: does it improve
 // p95 latency under concurrent load without introducing non-trivial

@@ -1,5 +1,11 @@
 // Spike 1 — Style-dedup feasibility
 //
+// HISTORICAL (2026-06-04): this spike measured *NPOI* (the pre-v2.0.0
+// engine) and fed design decision #4's dedup targets. The v2.0.0 engine
+// swap (I-82) retired NPOI from the library; the NPOI reference below is
+// deliberate — it preserves the spike as measured evidence, not part of
+// any shipped closure.
+//
 // Question: what is the cost of *not* deduplicating cell styles versus
 // deduplicating via a per-workbook style pool? Specifically: file size,
 // write time, and the size of the in-memory style table for a workbook

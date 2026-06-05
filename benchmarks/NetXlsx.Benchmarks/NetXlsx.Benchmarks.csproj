@@ -12,6 +12,10 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" />
+    <!-- Bench-only since the v2.0.0 cutover (I-82): NPOI is referenced
+         solely by the pre-v1 feasibility spikes (Spike1-3), kept as
+         measured historical evidence for decisions #4/#5 and the
+         streaming threshold. It never ships in the NetXlsx package. -->
     <PackageReference Include="NPOI" />
   </ItemGroup>
 

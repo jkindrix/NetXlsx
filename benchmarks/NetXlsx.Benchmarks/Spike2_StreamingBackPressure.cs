@@ -1,5 +1,11 @@
 // Spike 2 — Streaming back-pressure
 //
+// HISTORICAL (2026-06-04): this spike measured *NPOI* (the pre-v2.0.0
+// engine) and set the streaming-threshold guidance in the roadmap. The
+// v2.0.0 engine swap (I-82) retired NPOI from the library; the NPOI
+// reference below is deliberate — it preserves the spike as measured
+// evidence, not part of any shipped closure.
+//
 // Question: at what row count does the in-memory XSSFWorkbook peak working
 // set exceed a threshold that would push streaming write (SXSSF) into v1
 // instead of v2? Specifically: peak working set for {10k, 50k, 100k, 250k,
