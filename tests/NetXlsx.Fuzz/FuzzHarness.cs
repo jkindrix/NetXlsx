@@ -37,9 +37,7 @@ public class FuzzHarness
         || ex is IOException                 // truncated streams, etc.
         || ex is FormatException             // XML parser fall-through
         || ex is ArgumentException           // null path, etc. (precondition)
-        || ex is NotSupportedException       // unsupported OOXML feature
-        // NPOI wraps many parsing errors in untyped exceptions.
-        || ex.GetType().FullName?.StartsWith("NPOI.", StringComparison.Ordinal) == true;
+        || ex is NotSupportedException;      // unsupported OOXML feature
 
     // ---- Pure-garbage inputs ------------------------------------------
 
@@ -119,8 +117,8 @@ public class FuzzHarness
     [Fact]
     public void Zip_With_XML_Expansion_Bomb_Throws_Documented_Exception()
     {
-        // Classic billion-laughs entity expansion. NetXlsx / NPOI must
-        // not blow up RAM trying to expand this.
+        // Classic billion-laughs entity expansion. The engine must not
+        // blow up RAM trying to expand this.
         const string bomb = """
             <?xml version="1.0"?>
             <!DOCTYPE lolz [
