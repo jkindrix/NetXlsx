@@ -6,28 +6,28 @@
 //
 // Realizes the two preservation promises in one runnable demo:
 //   §7.5 — Re-applying an identical style does not allocate a new
-//          NPOI ICellStyle (style pool dedup).
+//          style-table entry (style pool dedup).
 //   §7.7 — OPC parts NetXlsx does not model (custom XML, pivot
 //          caches, threaded comments, vendor <ext> elements) round-trip
 //          verbatim because the package layer is never touched.
 
 using System;
 using System.IO;
+using System.IO.Packaging;
 using System.Linq;
 using System.Threading.Tasks;
 using NetXlsx;
-using NPOI.OpenXml4Net.OPC;
-using NPOI.XSSF.UserModel;
 
 namespace NetXlsx.Cookbook.Recipes;
 
 /// <summary>
-/// The recipe builds an input file via raw NPOI carrying a custom OPC
-/// part (a synthetic stand-in for the "things NetXlsx does not
-/// model" category), then opens it through NetXlsx, mutates two
-/// cells, re-applies an identical style to a third, and saves. The
-/// golden-file test (and this recipe's own internal asserts) verify
-/// both preservation guarantees.
+/// The recipe builds an input file carrying a custom OPC part (a
+/// synthetic stand-in for the "things NetXlsx does not model"
+/// category — attached at the raw packaging layer, below NetXlsx's
+/// API, so NetXlsx never sees it being added), then opens it through
+/// NetXlsx, mutates two cells, re-applies an identical style to a
+/// third, and saves. The golden-file test (and this recipe's own
+/// internal asserts) verify both preservation guarantees.
 /// </summary>
 public static class OpenEditSave
 {
@@ -43,33 +43,35 @@ public static class OpenEditSave
     /// <summary>Runs the recipe.</summary>
     public static async Task Run(string outputPath)
     {
-        // ---- 1. Build the input file via raw NPOI -------------------
-        // Includes a custom OPC part so we can later assert it round-trips.
+        // ---- 1. Build the input file --------------------------------
+        // Base workbook via NetXlsx, then a custom OPC part attached at
+        // the raw packaging layer (System.IO.Packaging) with no
+        // relationship pointing at it — the "unmodeled part" category
+        // §7.7 promises to preserve.
         var inputPath = Path.Combine(
             Path.GetDirectoryName(outputPath) ?? Path.GetTempPath(),
             $"open-edit-save-input-{Guid.NewGuid():N}.xlsx");
 
-        using (var wb = new XSSFWorkbook())
+        using (var wb = Workbook.Create())
         {
-            var sheet = wb.CreateSheet(SheetName);
-            sheet.CreateRow(0).CreateCell(0).SetCellValue("Region");
-            sheet.GetRow(0).CreateCell(1).SetCellValue("Sales");
-            sheet.CreateRow(1).CreateCell(0).SetCellValue("North");
-            sheet.GetRow(1).CreateCell(1).SetCellValue(1200.0);
-            sheet.CreateRow(2).CreateCell(0).SetCellValue("South");
-            sheet.GetRow(2).CreateCell(1).SetCellValue(1100.0);
+            var sheet = wb.AddSheet(SheetName);
+            sheet["A1"].SetString("Region");
+            sheet["B1"].SetString("Sales");
+            sheet["A2"].SetString("North");
+            sheet["B2"].SetNumber(1200.0);
+            sheet["A3"].SetString("South");
+            sheet["B3"].SetNumber(1100.0);
+            await wb.SaveAsync(inputPath);
+        }
 
-            // Attach the custom OPC part to the package.
-            var pkg = wb.Package;
-            var partName = PackagingUriHelper.CreatePartName(CustomPartUri);
-            var part = pkg.CreatePart(partName, "application/xml");
-            using (var ps = part.GetOutputStream())
-            {
-                ps.Write(CustomPartBytes, 0, CustomPartBytes.Length);
-            }
-
-            using var fs = File.Create(inputPath);
-            wb.Write(fs, leaveOpen: false);
+        using (var pkg = Package.Open(inputPath, FileMode.Open, FileAccess.ReadWrite))
+        {
+            var partUri = PackUriHelper.CreatePartUri(
+                new Uri(CustomPartUri, UriKind.Relative));
+            var part = pkg.CreatePart(partUri, "application/xml",
+                                      CompressionOption.Normal);
+            using var ps = part.GetStream(FileMode.Create, FileAccess.Write);
+            ps.Write(CustomPartBytes, 0, CustomPartBytes.Length);
         }
 
         // ---- 2. Open via NetXlsx, mutate, save -------------------
@@ -86,8 +88,8 @@ public static class OpenEditSave
                 sheet["B3"].SetNumber(1175m);   // South: 1100 → 1175
 
                 // §7.5 demonstration — apply the same style to two
-                // different cells and observe they share one ICellStyle
-                // index. The pool deduplicates by value.
+                // different cells and observe they share one persisted
+                // style index. The pool deduplicates by value.
                 var headerStyle = new CellStyle { Bold = true };
                 sheet["A1"].Style(headerStyle);
                 sheet["B1"].Style(headerStyle);
@@ -109,21 +111,15 @@ public static class OpenEditSave
     /// </summary>
     public static byte[]? ReadCustomPartBytes(string xlsxPath)
     {
-        var pkg = OPCPackage.Open(xlsxPath, PackageAccess.READ);
-        try
-        {
-            var name = PackagingUriHelper.CreatePartName(CustomPartUri);
-            if (!pkg.ContainPart(name)) return null;
-            var part = pkg.GetPart(name);
-            using var s = part.GetInputStream();
-            using var ms = new MemoryStream();
-            s.CopyTo(ms);
-            return ms.ToArray();
-        }
-        finally
-        {
-            pkg.Close();
-        }
+        using var pkg = Package.Open(xlsxPath, FileMode.Open, FileAccess.Read);
+        var partUri = PackUriHelper.CreatePartUri(
+            new Uri(CustomPartUri, UriKind.Relative));
+        if (!pkg.PartExists(partUri)) return null;
+        var part = pkg.GetPart(partUri);
+        using var s = part.GetStream(FileMode.Open, FileAccess.Read);
+        using var ms = new MemoryStream();
+        s.CopyTo(ms);
+        return ms.ToArray();
     }
 
     /// <summary>The custom-part bytes the recipe writes — exposed for tests.</summary>

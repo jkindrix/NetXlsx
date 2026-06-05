@@ -2,7 +2,7 @@
 //
 // Asserts both preservation promises from design §7.5 and §7.7:
 //   §7.5 — re-applying an identical style doesn't allocate a new
-//          ICellStyle (style pool dedup).
+//          style-table entry (style pool dedup).
 //   §7.7 — OPC parts NetXlsx doesn't model round-trip verbatim.
 
 using System;
