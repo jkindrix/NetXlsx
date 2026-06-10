@@ -1,0 +1,156 @@
+# Remediation ledger — 2026-06-10 full-repo review
+
+**Status:** ACTIVE — this is the single authoritative tracking surface for the
+2026-06-10 review findings (4-agent audit + live repros + a 4-consumer interop
+gauntlet: LibreOffice 26.2.4, openpyxl 3.1.5, python-calamine, NetXlsx
+self-read, in both directions). Every finding lives here until it is **drained**
+into the structure that owns it — a design row (I-NN) for API changes, a
+roadmap row for features, a slice commit for fixes, or an explicit
+WON'T-FIX with rationale. When the ledger is empty, this file gets a
+HISTORICAL banner like the retired spike docs. It does not compete with
+`roadmap.md`/`design.md`; it feeds them.
+
+**Verification pass 2026-06-10 (independent, same day):** every item below was
+re-verified against HEAD 0999b1f with fresh repros (atomic-save destruction
+2183→0 bytes; control-char failure shape; positional-record CS7036/CS1061 from
+a clean project; crafted formula-cached cells injected into saved output;
+sheet-name probes), two documentation/CI audit sweeps, and primary-source
+ecosystem checks. The findings held, with four corrections edited in place
+below (R-3 SpreadCheetah claim, R-8 theme overstatement, R-9 colon gap, R-14
+spec-legal reframe), one item rewritten to its true scope (R-7 → design-I7
+conformance), two NEW items (R-35 dispose-poisoning — joins S1; R-36 issue/PR
+templates decision), and evidence upgrades where probes landed. Suite at
+0999b1f measures **1472**+35+18+1 per TFM (not 1471) — the docs truth pass
+(R-17) should re-measure rather than copy any count.
+
+**Process rules for draining this ledger** (mirrors the v1.1+ working
+agreement):
+
+1. One slice at a time, fully done — implemented, tested, CHANGELOG'd,
+   verified by a second pass — before the next starts (charter §1.1).
+2. Any item marked **[I-NN first]** requires a design-row proposal and
+   operator sign-off BEFORE code. Propose the shape; do not implement on
+   the same session as the proposal.
+3. Items marked **[golden-regen]** change emitted bytes — the slice must
+   regenerate golden fixtures deliberately and call that out in its commit.
+4. Status values: `OPEN` → `IN-SLICE-<n>` → `DONE @<commit>` /
+   `WONT-FIX (<rationale>)` / `GRADUATED → <I-NN | roadmap row>`.
+   Nothing is deleted; statuses are edited in place.
+5. Verification evidence for each DONE item: name the test(s) that pin it
+   and, where interop-relevant, the oracle (LO / openpyxl / calamine) that
+   confirms it.
+
+Verification tags below: **[verified]** = reproduced live during the review;
+**[confirmed]** = checked in source/output; **[reported]** = agent finding,
+plausible, needs in-slice verification before fixing.
+
+---
+
+## A. Product defects (fix first — data integrity, then correctness)
+
+| ID | Sev | Status | Finding | Evidence | Done when |
+|----|-----|--------|---------|----------|-----------|
+| R-1 | **Critical** | OPEN | `Save(path)` is non-atomic: `File.Create` truncates the destination before serialization; any failure destroys a pre-existing file (0-byte husk reproduced). | [verified] `OoxmlWorkbook.cs:539`; stream overload already memory-buffers (`:512-529`) | DOM path: serialize to buffer first, then create file (or temp + `File.Move`). Streaming path (R-2) same guarantee. Test: failing save leaves prior file intact. |
+| R-2 | **Critical** | OPEN | Streaming `Save(path)` has the same truncate-first exposure. NOTE (verification pass): the truncate-first there is DELIBERATE — the code comment says a bad path must fail before the one-shot finalize burns the workbook's only Save — so the fix must preserve that property. | [confirmed] `OoxmlStreamingWorkbook.cs:86` (comment at `:84-85`); `Save(Stream)` already assembles via a temp file | Temp file **in the destination directory, with the destination filename embedded in the temp name** (validates dir existence/perms AND filename legality before finalize), then `File.Move(overwrite)` — same-volume atomic rename. Residual (documented, acceptable): dest-is-a-directory / dest-locked surface at Move, after finalize. Test: bad-dir save throws BEFORE finalize and a subsequent good-path save still succeeds (single-shot not burned). Same destination-intact test shape as R-1. |
+| R-3 | **Major** | OPEN | Control chars (0x00–0x08, 0x0B-0x0C, 0x0E-0x1F) in `SetString`/`Comment` (and presumably rich text, sheet names via other paths) surface only at `Save` as a raw `ArgumentException` with no cell context, outside the `WorkbookException` family. Combined with R-1 = data loss. Also the SDK's #2-upvoted authoring pain (positioning gift). | [verified] live repro; tab/newline/emoji round-trip fine | **[I-NN first]** — two candidate shapes: (a) fail-fast at the setter naming the cell; (b) OOXML `_xHHHH_` escape convention per ECMA-376 ST_Xstring §22.9.2.19 (lossless, what Excel itself does). CORRECTED (verification pass): SpreadCheetah does NOT escape — it silently STRIPS 0x00–0x1F (lossy; verified in its `XmlUtility.cs` + tests), and the raw SDK throws — so a lossless (b) would exceed every library in the set, not merely match. Also temper the "SDK's #2-upvoted" framing: the rank is right (issue #1532) but absolute reactions are modest (5; the #1, #244/2GB, has 13). Recommendation: (b) for `SetString`/rich text, (a) for names/formulas. Tests: control chars, surrogate halves, U+FFFE/FFFF. |
+| R-4 | **Major** | OPEN | Source-gen `ReadRows` emits **non-compiling** code for positional records (CS7036 in the `.g.cs`, object-initializer vs required primary-ctor params) and **no diagnostic fires** (NXLS0002 deliberately exempts primary ctors). The README's flagship example (`README.md:164-175`) is exactly this shape. `AddRows` works; the asymmetry is silent. | [verified] live repro; cookbook works only because `SalesRecord` uses body init-props | Generator constructs via the primary ctor (or designated ctor) when properties are positional; emission test that **compiles and runs** a positional record through AddRows→ReadRows; new diagnostic for genuinely unconstructible shapes; AnalyzerReleases entry. |
+| R-5 | **Major** | OPEN | Emitted `ReadRows()` is non-generic; README documents `ReadRows<SalesRow>()`, which does not exist. | [verified] CS1061 repro + `TypedImport.cs:47` uses non-generic | Decide: fix README to non-generic (cheap) or also emit a generic alias. Fix README's typed-mapping section either way (with R-4). |
+| R-6 | **Major** | OPEN | `GetTime`/`GetDuration` truncate serial fractions instead of rounding — LO-authored `0.396006944444444` (= 9:30:15 at 15 digits) reads back 9:30:14.9999996. Internally inconsistent: `GetDate`→`FromSerial` rounds to ms (`OoxmlWorkbook.cs:119`), display path rounds (`ExcelDateFormat.cs:327`), so `GetString()` and `GetTime()` disagree on the same cell. Self-tests can't catch it (own writer emits 17 digits). | [verified] LO round-trip + arithmetic | Round serial→`TimeOnly`/`TimeSpan` to nearest millisecond (reuse `RoundToMillisecond`). Tests: 15-digit serial fixtures from LO/Excel-style writers, PLUS the post-rounding boundary (a serial like 0.99999999 rounds to 24:00:00, unrepresentable in `TimeOnly` — pin whether that returns null or 00:00). Re-verified 2026-06-10 by crafted-serial injection: `GetTime` → 09:30:14.9999999. |
+| R-7 | **Major** | OPEN | REWRITTEN (verification pass — the original bool finding is the tip): **formula-cached results are unreadable across the ENTIRE typed-getter surface, violating design decision I7 verbatim** (`design.md:88`: GetString returns "formula → cached result as string; error → error code"). `KindOf` short-circuits to `Formula` before checking `t` (`OoxmlCell.cs:67`), and the getter switches have no `Formula`/`Error` arms → `GetNumber` on `<f>1+1</f><v>2</v>` = null, `GetString` on a formula-string = `""`, `GetString` on an error cell = `""` (I7 says `"#DIV/0!"`), `GetBool` on LO's `t="b"`+`<f/>`+`<v>1</v>` = null. Only `GetError` reads cached results (#49); internal `TextForMeasurement` (`OoxmlCell.cs:298-306`) reads them fine, so AutoSize sees values users can't. Self-tests can't catch it — own writer never stores cached `<v>` (#46). Knock-on: generated `ReadRows` does `GetNumber() ?? throw`, so **typed import throws on any Excel-authored file with a formula column** — guts the R-34 migration story. | [verified] crafted-cell probes 2026-06-10 (`<f>1+1</f><v>2</v>`→null, formula-str→`""`, error→`""`, `t="b"` cached→null; `GetError`→DivByZero ✓) | **I7 conformance, not new design**: `GetString` returns cached result for formula cells and the error literal for error cells; `GetNumber`/`GetBool`/`GetDate`/`GetTime`/`GetDuration` honor cached `<v>` with `t`-appropriate typing. Fixtures: Excel/LO-authored formula cells (the crafted-cell zip-injection pattern works); a compile-and-run `ReadRows` test over a formula column. If any precedence question turns out genuinely ambiguous in-slice, surface it rather than improvise. |
+| R-8 | Medium | OPEN | CORRECTED (verification pass): the original "no theme part is ever written" overstated — **`SetThemeXml(byte[])` (I-79), `GetThemeXml()` and `ResolveThemeColor` (I-81) exist as shipped public API with a real write path** (`OoxmlWorkbook.Theme.cs:48` `AddNewPart<ThemePart>()`), and the XML docs already warn about consumer fallback. The true gap: **`Create()` embeds no DEFAULT theme while `ThemeColor` styling is accepted without one** → theme-indexed colors are a consumer lottery — proven: LO injected its own theme (theme-4 resolves `#FF18A303` green vs Office blue) and rewrote the theme-indexed picture border to literal white; `ResolveThemeColor(4)` = null on own fresh output (per the documented I-81 contract). | [verified] part listing + LO round-trip; API surface re-checked 2026-06-10 | **[I-NN first]** — options now include a third shape: (a) embed a default Office theme at `Create()` (values are facts; hand-author the XML), (b) fail loud on `ThemeColor` without a theme, (c) ship a `DefaultTheme` constant/helper for the existing `SetThemeXml` and document the footgun on `ThemeColor`. Converges with the `CellStyle.FontColorTheme` ask (XlsxCodeGen Appendix A #1) — design as ONE theme cluster. |
+| R-9 | Medium | OPEN | Sheet-name validation narrower than the ecosystem: leading/trailing apostrophe accepted (`'Leading`); LibreOffice **silently renames it to `Sheet1`** on resave; Excel forbids it at entry. Reserved name `History` also unchecked. EXPANDED (verification pass): **the invalid-char set is missing `:` (colon)** — `s_invalidSheetNameChars` (`Workbook.cs:20`) is `{ \ / ? * [ ] }` while Excel's documented forbidden set is `/ \ ? * : [ ]`; `AddSheet("a:b")` ACCEPTED (probe), and colon collides with 3D-reference syntax — arguably the worst of the four gaps. All probes 2026-06-10: `'Leading`, `Trailing'`, `History`, `a:b` all ACCEPTED. | [verified] repro + LO round-trip + MS rename-a-worksheet docs | Tighten `ValidateSheetName`/`IsValidSheetName`/`SanitizeSheetName` (one shared char array feeds all three): add `:`, apostrophe rule, decide on `History`; CHANGELOG behavioral note; tests for all rules. |
+| R-10 | Medium | OPEN | `SetString` after `Hyperlink` leaves the rel targeting the old URL under new text (openpyxl-confirmed), and there is **no API to remove a hyperlink**. (Excel also keeps links on text edit — the defect is the missing removal + missing docs, not the keep.) | [verified] | Graduates into R-11's removal-API design row; until then, document the semantics on `ICell.Hyperlink`/`SetString`. |
+| R-11 | Medium | OPEN | Removal asymmetry across the surface: `UnmergeCells`/`Unprotect`/`RemoveTable`/`RemoveConditionalFormatting`/`ClearAutoFilter` exist; nothing removes hyperlinks, comments, pictures, charts, shapes, named ranges, or validations. | [confirmed] PublicAPI surface dump | **[I-NN first]** — one batch design row covering the removal family (shapes, naming, part/rel cleanup semantics). Implement in 1–2 slices after sign-off. |
+| R-12 | **Major** (capability) | OPEN | No sheet rename / reorder / delete (`ISheet.Name` get-only; no `RemoveSheet`/`MoveSheet`) — basic capability every competitor has; roadmap matrix falsely marks it shipped v1.0. | [verified] | **[I-NN first]** — design must answer: rename = `Name` setter vs method; formula-reference rewrite on rename (or documented caveat); delete = part + rel + name cleanup; move = index semantics. Roadmap row corrected by R-17 regardless. |
+| R-13 | Minor | OPEN | Neither writer emits `<dimension>`; openpyxl read-only/streaming mode refuses the streaming output ("Worksheet is unsized"). Extent is knowable at save on both paths. | [verified] | **[golden-regen]** Emit `<dimension>` from both writers; regenerate goldens deliberately; pin with openpyxl-read-only-style expectation (dimension attribute present). |
+| R-14 | Medium | OPEN | REFRAMED (verification pass): rows lacking `@r` are silently invisible on open (`OoxmlSheet.cs:119` cache build) — cells in such rows unreachable. **`row/@r` is OPTIONAL per ECMA-376 (absent = previous+1), so this is spec-legal third-party input silently losing data, not "malformed input"** — which makes it a sharper I-83 tension, though real-world `@r`-omitting writers are rare (Excel/LO/openpyxl always emit it). The skip is also deliberate and documented in-code (`OoxmlSheet.cs:113-118`, pre-cache parity rationale). | [verified] 2026-06-10 — injected `@r`-less row invisible, `LastRowNumber` stops before it | **Infer previous+1 (Excel-compatible)** — throwing would reject files Excel opens fine, i.e. be wronger than today; pin with a fixture. Same decision should sweep `c/@r`-less cells (also optional per spec) — see R-16's `EnumeratePopulated` item. |
+| R-15 | Minor | OPEN | Default-mode concurrency: dispose-vs-mutate check-then-act window (`ThrowIfDisposed` before `EnterMutation`); strict mode's lock may not cover `Dispose` itself. Pre-verified (verification pass): the pattern is visible at `OoxmlWorkbook.cs:454-455`, and `Dispose()` (`:584-590`) takes no lock. | [reported] — verify in-slice | Cover `Dispose` under the strict lock; document the default mode's exact race scope in `WorkbookOptions.StrictConcurrencyDetection` docs. |
+| R-16 | Minor | OPEN | Agent-reported, unverified leftovers to falsify-or-fix in one sweep: named-range formula accepted unvalidated (pre-verified: only null/empty guards, body unvalidated — `OoxmlWorkbook.Names.cs:32-36,67`); `EnumeratePopulated` trusts DOM cell order on `@r`-less input (note: `c/@r` is optional per spec — pair with R-14's decision); number-format codes unvalidated (probably document-only). | [reported] | Each gets verified → fixed, documented, or WONT-FIX'd with rationale in this ledger. |
+| R-35 | **Critical** | OPEN | NEW (verification pass 2026-06-10): **a failed `Save` poisons the workbook so that `Dispose()` throws the same raw exception again, unhandled** — the SDK's autosave re-serializes inside `OpenXmlPackage.Dispose()` (stack via `OoxmlWorkbook.cs:588`). A `using` block around a failed save crashes at the closing brace and the Dispose exception MASKS the original. R-1's own acceptance test cannot be written until this is fixed (the verifying probe program crashed exactly this way). The 45-op disposal matrix covers ops-after-dispose, not dispose-after-poisoned-save — uncovered class. | [verified] live probe (`new.disposeAfterFailedSave=THROWS:ArgumentException`) | Open/create the `SpreadsheetDocument` with autosave OFF (the facade's `Save` is explicit; the backing is an internal stream, so autosave-on-dispose never had a user-visible effect to lose) — verify `Save(Stream)`'s explicit `_document.Save()` path is unaffected. Test: failed save → `Dispose()` clean → original exception observable → workbook still mutable+saveable after removing the offending content. Lands FIRST in S1. |
+
+## B. Documentation truth pass (cheap, protects the project's core asset)
+
+| ID | Sev | Status | Finding | Done when |
+|----|-----|--------|---------|-----------|
+| R-17 | **Major** (brand) | OPEN | README factual errors: Status line still "v2.0.0-alpha.1" (and README is the **packed NuGet readme**); comparison table claims ClosedXML uses "own OOXML impl" — false, ClosedXML sits on the Open XML SDK ≥3.1.1 (differentiation vs ClosedXML is thinness/AOT/streaming/source-gen, not engine); Layout omits `tests/NetXlsx.Fuzz`; "20 recipes covering every public-surface area" stale (nothing post-v1.1); decision counts stale (I-87 > "32"); typed-mapping example broken (R-4/R-5). EXPANDED (verification pass): **`CONTRIBUTING.md:7` carries a THIRD inconsistent decision count ("52 + 22")** — the truth pass must cover it too; and the live suite count is 1472/TFM at 0999b1f, so re-measure any count rather than copying one. | One README+CONTRIBUTING truth-pass slice; every claim re-verified against the repo at HEAD; typed-mapping example updated to a shape that compiles (after R-4/R-5 decide the shape). |
+| R-18 | **Major** (process) | OPEN | Roadmap needs the post-swap re-baseline its own `long-term.md` prescribes: false v1.0 "Yes" rows (sheet rename/reorder/delete — R-12; ILogger — zero references in src); v2.0 shipped with matrix-Yes items unimplemented (themes-as-styling, threaded comments, streaming read, Roslyn analyzers) vs a DoD requiring them; v1.0 progress checklist never checked; ≥6 deferment rationales cite "Blocked on NPOI 3.x" for an engine that no longer exists (themes, threaded comments, streaming read — SDK has `OpenXmlPartReader`, Top-N filters, `In(...)` 3+, encryption). | Matrix re-baselined row-by-row with verdicts (promote/demote/hold + rationale), per the long-term.md method; dead NPOI blockers rewritten to current truth; drift mechanism noted (matrix edits require the release-PR checklist's doc-count sweep). |
+| R-19 | Medium | OPEN | `scheduled-spikes.md`: both quarterly spikes are NPOI-era, still showing "Next due 2026-08-16 (pending)" while the README calls them historical; the re-check discipline died with the swap and nothing replaced it. | NPOI spikes get HISTORICAL banners; new SDK-era cadence defined: quarterly `DocumentFormat.OpenXml` bump + GHSA advisory check (System.IO.Packaging CVEs are floor-patched as of 3.5.1 — re-verify quarterly) + competitive scan (SpreadCheetah/ClosedXML/EPPlus). First due date set. |
+| R-20 | Medium | OPEN | Design §4 + roadmap claim a comparative benchmark suite ("vs NPOI direct, EPPlus, ClosedXML") that was never built — zero competitor references in `benchmarks/`. | Either build comparative benches (R-29) or amend design §4/roadmap to current truth. Decide here, then graduate. |
+| R-21 | Minor | OPEN | `AnalyzerReleases.Shipped.md` empty despite shipped releases carrying NXLS diagnostics; release checklist lacks the flip step. | Flip Unshipped→Shipped at next release; add the step to the release-PR checklist in `roadmap.md`. |
+| R-22 | Medium | OPEN | Missing interop/limits documentation (now evidence-backed): LO resave drops sheet `<autoFilter>`+criteria and workbook structure-lock (sheet password protection, merges, rich text, tables+totals, CF, comments, links, pictures, connectors all survive); hyperlink-on-edit semantics (R-10); System.IO.Packaging ~2GB single-part ceiling (top-voted SDK issue) as a streaming limit; formula-injection (DDE/CSV-style) guidance for untrusted data; `docProps/core+app` absent from packages ([verified] 2026-06-10 by part-list probe; legal, unconventional — decide emit-or-document); source-tree consumers must wire the SourceGen analyzer explicitly (bare `ProjectReference` doesn't flow it; NuGet consumers fine). | A `docs/interop.md` (or README section) carrying the verified matrix + limits; `docProps` decision recorded. |
+| R-23 | Medium | OPEN | Cookbook has zero recipes for anything post-v1.1: conditional formatting, charts, sorting, split panes, grouping, shapes/connectors, picture borders, totals rows, autofilter criteria, named-style OOXML integration, `.xlsm` passthrough. README claims full coverage (folded into R-17 claim fix; recipes themselves tracked here). | New recipes (each doubling as a golden test, per the established pattern) covering the v1.2–v2.0 surface; counts updated everywhere by the doc-count sweep. |
+
+## C. Engineering hardening (CI / packaging / test depth)
+
+| ID | Sev | Status | Finding | Done when |
+|----|-----|--------|---------|-----------|
+| R-24 | Medium | OPEN | `EnablePackageValidation` + `PackageValidationBaselineVersion=2.0.1` absent — the highest-value missing pack gate for a multi-TFM library (binary/cross-TFM drift that PublicApiAnalyzers can't see). | Enabled in `NetXlsx.csproj`/`Directory.Build.props`; pack passes; release checklist notes the baseline bump per release. |
+| R-25 | Medium | OPEN | Third-party-writer corpus is untested in CI — exactly the class that caught R-6/R-7/R-8. LibreOffice headless is scriptable (this review automated it; harness at `.tmp/repro`, LO at `~/opt/lo/.../soffice`). | Nightly (not per-PR) workflow: generate kitchen-sink → LO convert (pdf + xlsx resave) → NetXlsx re-reads resave → probe assertions; `apt-get libreoffice-calc` on the runner. Also satisfies the DoD's "LibreOffice smoke test" line with automation. |
+| R-26 | Medium | OPEN | Fuzz depth vs stated intent: 18 tests/~400 ms smoke vs roadmap's "long-running on a nightly cadence" (`roadmap.md:243`). | Scheduled nightly deep-fuzz workflow (high iteration count, committed corpus seed set); PR smoke unchanged. |
+| R-27 | Minor | OPEN | Coverage wiring inconsistent: coverlet only in `NetXlsx.Tests` (other three projects emit collector warnings every run); cobertura artifact uploaded but never reported or gated. | Either coverlet in all four + a CI report step (no hard gate required), or remove the dead collector flags; decision recorded. |
+| R-28 | Minor | OPEN | CI matrix has no macOS leg; release action `softprops/action-gh-release@v3` not SHA-pinned; stale "re-add Microsoft.SourceLink" comment in `Directory.Packages.props:46-49` (SourceLink ships in the .NET 8+ SDK — flags already set, just remove the TODO and verify pack output). | One small infra slice: mac leg added, action SHA-pinned, comment removed, sourcelink verified in the snupkg. |
+| R-29 | Medium | OPEN | No competitive performance data exists (R-20). SpreadCheetah is the 2026 bar (closest analog: streaming/source-gen/AOT/MIT; 100k×10 cells ≈ 33 ms README table); ClosedXML the breadth comparator. | Test-side-only deps; comparative bench suite + README-able results table; design §4 amended to match reality. |
+| R-30 | Minor | OPEN | Tests for encoding edges missing (control chars, lone surrogates) — emoji/tab/newline verified fine; tr-TR/locale matrix thin (de-DE + invariant only); no thread-safety stress beyond detection contract. | Folded into R-3's test work + one locale/concurrency test slice; scope deliberately bounded. |
+| R-36 | Minor | OPEN | NEW (verification pass): no issue templates / PR template under `.github/` — the one review finding (Tier-4 §16) this ledger had dropped. Recorded per the ledger's own rule (nothing from the review goes untracked). | Add minimal bug/feature issue templates + a PR-checklist template in the S7 infra slice, or WONT-FIX with the explicit rationale that a pre-publication solo repo doesn't take external contributions yet. |
+
+## D. Operator decisions (no code until decided — present as one memo)
+
+| ID | Status | Decision needed | Context |
+|----|--------|-----------------|---------|
+| R-31 | OPEN | **Claim the `NetXlsx` nuget.org ID?** It is unclaimed (404, verified 2026-06-10); the name has invested identity; squatting is unguarded until first push. Publication itself stays operator-gated (standing decision), but ID reservation (0.0.x placeholder or prefix reservation) is a separable, cheap act. | Review §Tier-4 |
+| R-32 | OPEN | **Release workflow modernization at publish time:** NuGet Trusted Publishing (OIDC, `NuGet/login@v1`) instead of long-lived `NUGET_API_KEY`; `actions/attest-build-provenance` on release artifacts (nuget.org re-signs nupkgs — attest the GH-release artifacts, document the caveat). | Only matters when publishing becomes real; decide alongside R-31. |
+| R-33 | OPEN | **Post-swap feature triage** (the dead-NPOI-blocker list from R-18): threaded comments, streaming read (`OpenXmlPartReader`), full theme-color styling (`CellStyle.FontColorTheme` — pairs with R-8 and XlsxCodeGen Appendix A #1), Top-N autofilter, `In(...)` 3+ values (probe-verified model-shape-only on the SDK engine). Which get scheduled, which get demoted? | Feeds the R-18 re-baseline verdicts. |
+| R-34 | OPEN | **Strategic feature bets** (demand-ranked from ecosystem research): pivot-table authoring (v3.0; competitors chronically broken here; preservation-first architecture is advantaged), agile encryption via MS-OFFCRYPTO (v3.0; NPOI blocker dead; plausible add-on package), template-based export (MiniExcel's moat), `IAsyncEnumerable` async streaming, AutoSize approximate-metrics fallback for non-embedded fonts. EPPlus-8 license keys + ClosedXML's 13-month stable gap = active migration window; "coming from EPPlus/ClosedXML" guide. | Roadmap material — decide at the R-18 re-baseline session. |
+
+---
+
+## Execution plan — slices in order
+
+Ordering principle: data-integrity defects first (charter §1.2/§1.4), then the
+truth pass (cheap, protects the brand), then correctness, then hardening,
+with design-gated items proposed early so operator sign-off never blocks the
+pipeline. One slice = one session = one coherent commit set, per the
+established working agreement.
+
+| Slice | Contents | Gate |
+|-------|----------|------|
+| **S0** | Commit this ledger. | — |
+| **S1** | **R-35 first** (autosave-off so a failed save no longer poisons Dispose — R-1's test depends on it), then R-1 + R-2 atomic save (both engines) + failure-mode tests. Smallest possible diff; no API change. | none |
+| **S2** | **Design-proposal batch** (no code): R-3 control-char policy, R-8 theme cluster, R-11 removal family, R-12 sheet lifecycle — four I-NN shape proposals in one memo + the R-31..R-34 operator decisions. | operator sign-off |
+| **S3** | R-4 + R-5 source-gen ReadRows fix (positional records, call shape, diagnostic, compile-and-run emission tests) + README typed-mapping example correction. | none (generator behavior, not surface) |
+| **S4** | R-6 + R-7 read-fidelity fixes (serial rounding; **R-7 is now the full design-I7 conformance fix** — cached formula results across all typed getters + error literals in GetString, with crafted/LO-authored fixtures and a compile-and-run ReadRows-over-formula-column test); R-13 `<dimension>` emission **[golden-regen]**. | none |
+| **S5** | R-17 + R-18 + R-19 + R-20-decision + R-21 docs truth pass (README, roadmap re-baseline, scheduled-spikes successor, analyzer-release checklist step). | R-18 verdicts benefit from S2's R-33 answers |
+| **S6** | R-9 sheet-name tightening + R-14/R-15/R-16 verify-and-fix sweep (each ends DONE or WONT-FIX with rationale). | none |
+| **S7** | R-24 + R-27 + R-28 + R-36 infra slice (PackageValidation, coverage wiring, mac leg, SHA-pin, SourceLink comment, templates-or-WONT-FIX). | none |
+| **S8** | R-25 LO interop nightly job + R-22 `docs/interop.md` (the job's probe set IS the doc's evidence). | none |
+| **S9** | R-26 nightly deep fuzz. | none |
+| **S10+** | Signed-off I-NNs from S2 land in order: R-3 control chars → R-8 theme part → R-12 sheet lifecycle → R-11 removal family (+ R-10 docs fold-in). Then R-29 comparative benches, R-23 cookbook recipes. | per-item I-NN sign-off |
+
+**Standing rules while draining:** every slice updates this ledger's Status
+column in the same commit; CHANGELOG entries reference R-IDs; the two-pass
+verification rule applies before any item flips to DONE; no new findings get
+fixed ad-hoc — they get an R-ID first, then a slice.
+
+---
+
+## Reusable verification assets (from the review session)
+
+- Kitchen-sink harness: `.tmp/repro` — `dotnet run -- gen /tmp/netxlsx-lo`
+  (writes kitchen/streaming/apos workbooks exercising the full surface),
+  `dotnet run -- verify <file>` (PROBE lines; diffable across round-trips).
+  Worth promoting into the repo as the R-25 job's generator.
+- LibreOffice 26.2.4 portable: `~/opt/lo/opt/libreoffice26.2/program/soffice
+  --headless -env:UserInstallation=file:///tmp/lo-profile --convert-to pdf|xlsx`.
+  (Mirror note: `download.libreoffice.org` is DNS-blocked in this dev env;
+  `ftp.osuosl.org/pub/tdf/` works.)
+- Python oracles: openpyxl 3.1.5 + python-calamine (user-site installed).
+- From the verification pass (patterns worth reusing; `/tmp` copies are
+  ephemeral): crafted-cell zip injection is the way to author third-party
+  shapes NetXlsx's own writer can't produce (formula-cached `<v>`, 15-digit
+  serials, `@r`-less rows) — NOTE NetXlsx serializes `x:`-PREFIXED
+  spreadsheetML, so injected elements must carry the `x:` prefix or the
+  edit no-ops silently; the positional-record repro is a 20-line project
+  with the README's exact `[Worksheet]` record + an
+  `OutputItemType="Analyzer"` ProjectReference (CS7036 in the `.g.cs`,
+  CS1061 on `ReadRows<T>()`). Both belong in the R-4/R-7 slices as real
+  fixtures.
