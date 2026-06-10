@@ -9,6 +9,27 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`Save(path)` is now atomic on both engines (R-1, R-2).** Serialization
+  targets a sibling temp file (its name embeds the destination filename) and
+  promotes it with a same-volume rename, so a failed save leaves a
+  pre-existing destination byte-intact instead of truncating it to a 0-byte
+  husk. The streaming engine keeps its fail-fast guarantee — a bad path
+  (missing directory, no permission, illegal filename) still fails before the
+  single-shot finalize burns the workbook's only `Save`. Residual, accepted:
+  destination-is-a-directory / destination-locked failures surface at the
+  final rename, after serialization.
+- **A failed `Save` no longer poisons `Dispose` (R-35).** The SDK package is
+  now created/opened with autosave off — `Save` has always been explicit on
+  this facade — so disposing a workbook whose save failed no longer
+  re-serializes the invalid DOM inside `Dispose()`, which threw the same
+  exception a second time at the `using`-brace and masked the original. A
+  failed save also leaves the workbook usable: fix the offending content and
+  re-save. The streaming assembly path gets the same treatment (explicit
+  `doc.Save()`), so a mid-assembly failure propagates the original exception
+  instead of the SDK's unwind-time one.
+
 ### Added
 
 - **Picture borders (I-86).** `IPicture.Border` — its first mutating member —

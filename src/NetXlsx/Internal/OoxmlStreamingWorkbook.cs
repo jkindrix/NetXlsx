@@ -81,11 +81,17 @@ internal sealed class OoxmlStreamingWorkbook : IStreamingWorkbook
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(path);
         ThrowIfSaved();
-        // Open the target before finalizing: a bad path must fail BEFORE the
-        // single-shot finalize burns the workbook's only Save.
-        using var fs = File.Create(path);
-        FinalizeSheets();
-        AssembleTo(fs);
+        // R-2: sibling-temp + rename — a failure must never leave the
+        // destination truncated. The temp opens before the callback runs and
+        // its name embeds the destination filename, preserving the original
+        // guarantee here: a bad path (missing dir, no permission, illegal
+        // filename) still fails BEFORE the single-shot finalize burns the
+        // workbook's only Save.
+        AtomicFileWriter.Write(path, fs =>
+        {
+            FinalizeSheets();
+            AssembleTo(fs);
+        });
     }
 
     public void Save(Stream stream, bool leaveOpen = true)
@@ -163,7 +169,11 @@ internal sealed class OoxmlStreamingWorkbook : IStreamingWorkbook
 
     private void AssembleTo(Stream target)
     {
-        using var doc = SpreadsheetDocument.Create(target, SpreadsheetDocumentType.Workbook);
+        // autoSave:false + the explicit Save() below (R-35, streaming flavor):
+        // with autosave on, a mid-assembly exception would re-serialize the
+        // half-built package inside the using-dispose during unwind and mask
+        // the original exception with the SDK's.
+        using var doc = SpreadsheetDocument.Create(target, SpreadsheetDocumentType.Workbook, autoSave: false);
         var wbPart = doc.AddWorkbookPart();
 
         var stylesPart = wbPart.AddNewPart<WorkbookStylesPart>();
@@ -191,6 +201,11 @@ internal sealed class OoxmlStreamingWorkbook : IStreamingWorkbook
             wb.AppendChild(new S.WorkbookProperties { Date1904 = true });
         wb.AppendChild(sheets);
         wbPart.Workbook = wb;
+
+        // Flush the DOM-rooted parts (workbook, stylesheet) explicitly — the
+        // FeedData'd worksheet parts are already raw bytes in the package.
+        // With autoSave:false this is the only serialization point.
+        doc.Save();
     }
 
     // ---- Guards ---------------------------------------------------------------

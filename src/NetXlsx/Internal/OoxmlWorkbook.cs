@@ -145,7 +145,12 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         var backing = new MemoryStream();
         try
         {
-            var document = SpreadsheetDocument.Create(backing, documentType);
+            // autoSave:false (R-35) — Save is explicit on this facade and the
+            // backing stream is internal, so SDK autosave has nothing visible
+            // to persist; left on, it re-serializes inside Dispose() and turns
+            // a failed Save's exception into a second, unhandled throw at the
+            // using-brace that masks the original.
+            var document = SpreadsheetDocument.Create(backing, documentType, autoSave: false);
             var wbPart = document.AddWorkbookPart();
             wbPart.Workbook = new S.Workbook();
             // workbookPr (date system, lesson #9) must precede <sheets> in schema
@@ -226,7 +231,8 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         SpreadsheetDocument document;
         try
         {
-            document = SpreadsheetDocument.Open(backing, isEditable: true);
+            // AutoSave=false (R-35): same rationale as Create — see the comment there.
+            document = SpreadsheetDocument.Open(backing, isEditable: true, new OpenSettings { AutoSave = false });
         }
         catch (Exception ex) when (IsKnownMalformedOpenException(ex))
         {
@@ -536,8 +542,9 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(path);
-        using var fs = File.Create(path);
-        Save(fs, leaveOpen: false);
+        // R-1: sibling-temp + rename — a failed serialization must never leave
+        // the destination truncated or destroyed.
+        AtomicFileWriter.Write(path, fs => Save(fs, leaveOpen: true));
     }
 
     public Task SaveAsync(Stream stream, bool leaveOpen = true, CancellationToken ct = default)
