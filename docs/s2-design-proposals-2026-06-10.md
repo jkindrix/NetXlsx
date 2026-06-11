@@ -11,11 +11,13 @@ recommendation was **policy-prohibited** (replaced), R-32's dependency on
 R-31 was wrong (struck), and I-89/I-90/I-91 gained implementation guardrails.
 Amendments are edited in place below, marked **[A-2026-06-11]**.
 
-**Status: AWAITING OPERATOR SIGN-OFF.** No code lands from this memo until each
-proposal is individually signed off (remediation-ledger rule 2: propose the
-shape, do not implement in the same session). On sign-off, each I-NN below is
-copied into `design.md` §6 in house style by the slice that implements it, and
-the corresponding R-row graduates.
+**Status: SIGNED OFF AS AMENDED — operator, 2026-06-11** (external-review
+amendments `[A-2026-06-11]` + the two reviewer nits all incorporated before
+sign-off; reviewer disposition was approve-as-amended). I-88..I-91 are now
+approved designs: each is copied into `design.md` §6 in house style by the
+slice that implements it, and the corresponding R-row graduates at that
+point. Landing order per the ledger's S10+ row; I-90 lands as TWO slices
+(rename+move, then delete).
 
 Contents:
 
@@ -582,11 +584,11 @@ incorporated above; the items below reflect the amended shapes. The
 external reviewer's disposition was approve-with-amendments across the
 board (reject only on R-31's original placeholder, now replaced).
 
-- [ ] I-88 control-character policy — amended: CR escaped (repro-proven loss today), hex-case rules, qualified-lossless docs, lone-surrogate caveat
-- [ ] I-89 theme cluster — amended: `EnsureThemePart()` single choke point, streaming assembly-time check, `SetThemeXml` drift docs, golden-regen corrected to verify-in-slice; eager-embed alternative explicitly rejected?
-- [ ] I-90 sheet lifecycle — amended + split into TWO slices (rename+move, then delete): hyperlink rewrite framed exceeds-Excel, `_xlnm.*` included, pivot-cache `@sheet` + sparkline + table-formula surfaces added, calcChain note
-- [ ] I-91 removal family — amended: VML non-comment-shape guard, x14 dual-stored validations, image-part refcount kept (no-dedup confirmed), `OoxmlTable` stale-flag retrofit
-- [ ] R-31 nuget.org ID — REPLACED recommendation: reservation email now + early real alpha as the durable claim (both operator actions)
-- [ ] R-32 trusted publishing + attestation — corrected: owner-scoped (no R-31 dependency), `.signature.p7s` caveat reworded; adopt-at-publish?
-- [ ] R-33 triage verdicts — confirm for the R-18 re-baseline
-- [ ] R-34 strategic defaults — confirm for the R-18 re-baseline
+- [x] I-88 control-character policy — amended: CR escaped (repro-proven loss today), hex-case rules, qualified-lossless docs, lone-surrogate caveat — **SIGNED OFF 2026-06-11**
+- [x] I-89 theme cluster — amended: `EnsureThemePart()` single choke point, streaming assembly-time check, `SetThemeXml` drift docs, golden-regen corrected to verify-in-slice; eager-embed alternative rejected — **SIGNED OFF 2026-06-11**
+- [x] I-90 sheet lifecycle — amended + split into TWO slices (rename+move, then delete): hyperlink rewrite framed exceeds-Excel, `_xlnm.*` included, pivot-cache `@sheet` + sparkline + table-formula surfaces added, calcChain note — **SIGNED OFF 2026-06-11**
+- [x] I-91 removal family — amended: VML non-comment-shape guard, x14 dual-stored validations, image-part refcount kept (no-dedup confirmed), `OoxmlTable` stale-flag retrofit, RemoveValidation precedent corrected — **SIGNED OFF 2026-06-11**
+- [x] R-31 nuget.org ID — decision ACCEPTED 2026-06-11: reservation email now + early real alpha as the durable claim (execution = operator actions, still pending)
+- [x] R-32 trusted publishing + attestation — DECIDED 2026-06-11: adopt at publish; owner-scoped (no R-31 dependency), `.signature.p7s` caveat as reworded
+- [x] R-33 triage verdicts — CONFIRMED 2026-06-11 for the R-18 re-baseline (S5)
+- [x] R-34 strategic defaults — CONFIRMED 2026-06-11 for the R-18 re-baseline (S5)
