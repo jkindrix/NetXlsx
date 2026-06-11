@@ -1,5 +1,16 @@
 # S2 design-proposal memo — 2026-06-10
 
+**Amendment pass 2026-06-11:** an independent external review checked every
+proposal against the codebase and primary sources; its findings were
+re-verified here before incorporation (live CR repro against both engines;
+codebase greps for the image-part-dedup / stale-handle / golden / x14 claims;
+nuget.org deletion-policy and Trusted Publishing docs fetched and quoted).
+Material outcomes: I-88's whitespace-passthrough claim was **false** (CR is
+silently destroyed today — now a mandatory escape), R-31's placeholder
+recommendation was **policy-prohibited** (replaced), R-32's dependency on
+R-31 was wrong (struck), and I-89/I-90/I-91 gained implementation guardrails.
+Amendments are edited in place below, marked **[A-2026-06-11]**.
+
 **Status: AWAITING OPERATOR SIGN-OFF.** No code lands from this memo until each
 proposal is individually signed off (remediation-ledger rule 2: propose the
 shape, do not implement in the same session). On sign-off, each I-NN below is
@@ -44,12 +55,30 @@ convention before handing text to the SDK:
 
 - Each XML-invalid char → `_xHHHH_` (four uppercase hex digits of the UTF-16
   code unit; lone surrogate halves escape as their own code unit, e.g.
-  `_xD800_`).
+  `_xD800_` — **[A-2026-06-11]** spec-legal per MS-OI29500, but Excel's own
+  emission for lone surrogates is unverified, so don't claim Excel parity for
+  that specific case).
 - Any *literal* substring in user text that matches the escape pattern
   (`_xHHHH_`) gets its leading underscore escaped: `_x005F_xHHHH_` — required
   by the convention for round-trip fidelity.
-- Valid-XML whitespace (tab 0x09, LF 0x0A, CR 0x0D) passes through untouched
-  (already round-trips fine — pinned by existing tests).
+- **[A-2026-06-11] CR (0x0D) MUST be escaped as `_x000D_`.** The original
+  memo claimed tab/LF/CR all pass through; that was **false** for CR —
+  repro 2026-06-11 against BOTH engines: `"C\rD"` reads back `C<LF>D` and
+  `"C\r\nD"` collapses to `C<LF>D` (the SDK's XmlWriter normalizes CR at
+  write time, and XML 1.0 §2.11 line-end normalization would eat even a raw
+  0x0D on read). No existing test pins a `\r` round-trip. This is exactly why
+  MS-OI29500 says CR "shall be escaped" despite being XML-valid, and why
+  Excel-authored files carry `_x000D_`. So today CR is *silently mutated* —
+  this proposal turns that into lossless round-trip.
+- Only tab (0x09) and LF (0x0A) pass through untouched (those two genuinely
+  round-trip — re-verified in the same repro; MS-OI29500 notes Office does
+  not accept them escaped in element content).
+- **[A-2026-06-11] Hex-case rules:** emit UPPERCASE hex (matches Excel);
+  decode hex case-insensitively (matches POI/ClosedXML/openpyxl decoders);
+  the leading `x` must be lowercase for the pattern to count as an escape
+  (`_X0041_` is not one — ClosedXML pins this). Rationale: EPPlus's decoder
+  is reported uppercase-only, one more reason to emit uppercase; verify that
+  in-slice before citing it in docs.
 
 **Read-side decode (the other half of lossless).** `GetString`, `GetComment`,
 rich-text read, and therefore generated `ReadRows`, decode well-formed
@@ -92,7 +121,9 @@ emission path.
 
 ### Tests / verification
 
-- Round-trip every char in 0x00–0x1F (escaped vs passthrough partition),
+- Round-trip every char in 0x00–0x1F (escaped vs passthrough partition —
+  **[A-2026-06-11]** with CR on the *escaped* side, plus dedicated `\r` and
+  `\r\n` round-trip tests, both of which silently mutate today),
   U+FFFE/FFFF, lone surrogate halves, and literal `_x0008_` input
   (`_x005F_`-protected) — through `SetString`, rich text, comments, both
   engines, plus a `ReadRows` compile-and-run path.
@@ -101,6 +132,11 @@ emission path.
   `_xHHHH_` escapes → `GetString` decodes.
 - Oracles: LO opens the output and displays/preserves the text; pin
   openpyxl/calamine actual behavior in-slice (do not assume they decode).
+- **[A-2026-06-11]** Qualify "lossless" in the public docs: the escapes are
+  decoded by Excel, POI, ClosedXML, exceljs, and calamine ≥ 0.31.0, but
+  surface as literal `_x0008_` text in openpyxl (and therefore pandas'
+  default engine), older calamine, and historically LibreOffice. The docs
+  carry the same honesty the test plan already has.
 - Fail-fast probes for names/formulas (exception type + message names the
   offender).
 - Golden impact: **none** — no existing golden can contain these chars (the
@@ -166,6 +202,24 @@ Behavior:
   `DefaultThemeXml` first. Explicit `SetThemeXml` before or after still wins
   (replaces, invalidates the I-81 cache as today). Opened third-party files
   without a theme get the embed only if *new* theme styling is written.
+- **[A-2026-06-11] Single choke point, structurally enforced.** There is no
+  natural "first theme write" site — theme colors are already written from
+  scattered places (style-pool fills, picture borders at
+  `OoxmlPicture.cs:139-144`) and I-89 adds more. Every theme-color write
+  MUST route through one internal helper (`EnsureThemePart()` on the
+  workbook), and a test enumerates `ThemeColor`-consuming write sites to
+  catch a future path that forgets the guard — the discipline is structural,
+  not conventional.
+- **[A-2026-06-11] Streaming engine needs an explicit assembly-time check.**
+  Its stylesheet is assembled at Save (`OoxmlStreamingWorkbook.cs:170-209`),
+  detached from any workbook during row writes — the lazy embed there is
+  "did the style pool ever register a theme color?" answered at assembly,
+  not a write-time hook. Named here so "both engines" doesn't gloss over it.
+- **[A-2026-06-11] Document the re-resolution drift on `SetThemeXml`.**
+  Styles authored against the default theme's indices silently re-resolve
+  against a later custom theme. That is inherent to OOXML theme indices
+  (Excel behaves the same), so it is documented on `SetThemeXml`'s XML docs,
+  not engineered around.
 - **Precedence rule** (per slot, both CellStyle and borders): theme variant
   wins over the literal-color property when both are set — the rule
   `BackgroundTheme` already established; restate it on every new property's
@@ -188,9 +242,12 @@ Behavior:
   colors (the lottery probe inverted).
 - Plain workbook (no theme styling) → byte-identical to today (no theme part).
 - Read-back fixtures (Excel/LO-authored) for font/run/border theme+tint.
-- Golden impact: **[golden-regen]** for goldens already using `ThemeColor`
-  (the I-86 picture-border goldens at minimum) — deliberate, called out in
-  the slice commit. Plain goldens untouched.
+- Golden impact: **[A-2026-06-11] corrected** — a grep of
+  `tests/NetXlsx.GoldenFiles/` finds no golden exercising
+  `PictureBorder`/`ThemeColor` (the I-86 theme coverage is byte-assert unit
+  tests, not golden recipes), so the original `[golden-regen]` flag was
+  speculative. The slice verifies rather than assumes; plain goldens are
+  untouched either way.
 
 Converges with R-33's "full theme-color styling" triage row — signing this
 off answers that row's *shape*; R-18's re-baseline schedules it.
@@ -233,10 +290,23 @@ lexes quoted-sheet-name and string literals. The lexer rewrites the old name
 (case-insensitive, per sheet-name semantics) in:
 
 - cell formulas (`<f>`, including shared-formula masters) on **all** sheets,
-- defined-name bodies,
-- internal hyperlink locations (`#Sheet!A1`),
+- defined-name bodies — **[A-2026-06-11] including `_xlnm.*` built-ins**
+  (print areas/titles are just defined names like `_xlnm.Print_Area`; a
+  correct name rewriter covers them for free, but only if the implementation
+  does not filter reserved names out),
+- internal hyperlink locations (`#Sheet!A1`) — **[A-2026-06-11] reframed:
+  this EXCEEDS Excel**, which does not rewrite hyperlink location strings on
+  rename (they break with "Reference isn't valid"; the folk workaround is
+  linking to defined names). Kept because it is strictly helpful and cheap
+  once the lexer exists — but the design row says "exceeds Excel" so a
+  future parity audit doesn't flag it as a bug,
 - conditional-formatting and data-validation formulas,
-- chart series references (`c:f`).
+- chart series references (`c:f`),
+- **[A-2026-06-11]** pivot-cache `worksheetSource/@sheet` (a literal sheet
+  name; NetXlsx doesn't author pivots but opened files carry them — a missed
+  rename dangles the cache),
+- **[A-2026-06-11]** sparkline `xm:f` references and table
+  `calculatedColumnFormula` (formula-typed surfaces the library round-trips).
 
 Quoting is normalized on output (quote the new name iff it needs quoting;
 double embedded apostrophes). Documented residual, which is **Excel parity**:
@@ -250,8 +320,13 @@ doesn't rewrite those either.
   valid workbook needs at least one).
 - Part cleanup: the `WorksheetPart` and its owned descendants (drawings,
   comments, tables) via `DeletePart`; the `<sheet>` entry and its
-  relationship; the calcChain part if present (we never write one, but opened
-  files may carry one — Excel rebuilds it).
+  relationship; the calcChain part if present, deleted **wholesale** (we
+  never write one; opened files may carry one; Excel rebuilds it —
+  **[A-2026-06-11]** note in-code that calcChain's `c/@i` is a *sheetId*,
+  not a position, so nobody later "fixes" a re-index that wholesale deletion
+  makes unnecessary).
+- **[A-2026-06-11]** Pivot caches sourced from the deleted sheet are removed
+  (`worksheetSource/@sheet` match — same surface the rename rewrite touches).
 - Defined names scoped to the deleted sheet are removed; `localSheetId` on
   every later-sheet-scoped name is re-indexed (it is a zero-based sheet
   *position*).
@@ -274,9 +349,11 @@ these members are simply not added there.
 
 ### Slicing note
 
-This is the largest of the four. If the operator prefers, it splits cleanly:
-rename+move (lexer, re-indexing) in one slice, delete (part cleanup, `#REF!`)
-in the next — the lexer is shared and lands with the first.
+This is the largest of the four. **[A-2026-06-11] The split is now the
+proposal, not an option:** rename+move (lexer, re-indexing) in one slice,
+delete (part cleanup, `#REF!`) in the next — the lexer is shared and lands
+with the first, and delete's part-cleanup surface (orphaned rels are a
+proven Excel-repair trigger) deserves its own verification pass.
 
 ### Tests / verification
 
@@ -341,19 +418,37 @@ no-empty-artifact comment rules already establish):
   targets, the reference relationship (the code path `SetHyperlink`'s replace
   logic already has); drops the `<hyperlinks>` container when empty.
 - `RemoveComment`: removes the comment + author bookkeeping from the comments
-  part and the VML popup shape; deletes the comments part and VML part
-  entirely when the last comment goes (no empty zero-index artifact —
-  existing discipline).
+  part and the VML popup shape; deletes the comments part entirely when the
+  last comment goes (no empty zero-index artifact — existing discipline).
+  **[A-2026-06-11] VML safety guard:** on opened third-party files the
+  legacy VML drawing part can also hold form controls and other non-comment
+  shapes — deleting it wholesale destroys them (documented corruption bugs:
+  PhpSpreadsheet #4105, ClosedXML #1285). The VML part is deleted only when
+  it contains no non-comment shapes; otherwise only the comment's `v:shape`
+  is removed.
 - Drawing-layer removals: delete the anchor from the drawing part; delete the
-  image/chart part **only when no other anchor references it** (the slice
-  verifies whether `AddPicture` dedups image parts and guards accordingly);
-  drop the drawing part + worksheet rel when the last anchor goes.
+  image/chart part **only when no other anchor references it**
+  (**[A-2026-06-11]** resolved: `AddPicture` does NOT dedup image parts
+  today — `OoxmlSheet.Pictures.cs` `EmbedImage` calls `AddImagePart` fresh
+  every call — but the refcount guard stays anyway: it is cheap, it protects
+  opened third-party files that DO share media parts, and no surveyed
+  library refcounts media parts, so this exceeds the ecosystem); drop the
+  drawing part + worksheet rel when the last anchor goes.
 - `RemoveNamedRange`: deletes the `<definedName>`; drops `<definedNames>`
   when empty.
 - `RemoveValidation`: deletes the `<dataValidation>`; drops the container +
-  `@count` bookkeeping when empty.
+  `@count` bookkeeping when empty. **[A-2026-06-11] Dual storage:**
+  validations with cross-sheet list sources live in `x14:dataValidations`
+  inside `<extLst>`, not the plain container. NetXlsx authors only the plain
+  form, but opened files carry both — `RemoveValidation` checks both, and
+  removes an emptied x14 container *with* its ext element (an
+  emptied-but-present ext also triggers Excel repair — ClosedXML #2594).
 - After a handle-based removal, the handle's members throw
-  `InvalidOperationException` (stale-handle pattern, as `RemoveTable`).
+  `InvalidOperationException` (stale-handle pattern). **[A-2026-06-11]**
+  Note: the cited `RemoveTable` precedent is aspirational — `OoxmlTable`
+  members today only check workbook *disposal*, not removal. The slice
+  retrofits the stale flag onto `OoxmlTable` too, so the pattern it claims
+  to follow actually exists.
 
 **R-10 fold-in:** `ICell.Hyperlink`/`SetString` XML docs state the
 keep-link-on-text-edit semantics (Excel parity) and point at
@@ -391,26 +486,49 @@ the first push; the name has invested identity (repo, docs, generated code,
 diagnostics prefix). Publication proper stays operator-gated — this is only
 about reserving the name.
 
+**[A-2026-06-11] The original recommendation (unlisted `0.0.1` placeholder)
+is WITHDRAWN — it is policy-prohibited as written.** nuget.org's
+deletion-policy "Prohibited use" list (re-verified verbatim 2026-06-11)
+includes, among content "immediately removed without discussion": *"Are
+being used to squat on package identifiers, including packages that have
+zero productive content. Packages must contain code or the owners must
+concede the identifier to someone who actually has a product to ship."*
+Unlisting is purely a search-visibility mechanism — no policy carve-out. A
+content-free placeholder buys nothing durable: under policy the ID would
+have to be conceded to anyone with a shipping product anyway.
+
 | Option | Notes |
 |--------|-------|
-| **Push a `0.0.1` placeholder (RECOMMENDED)** | Cheap, immediate, fully under our control. Package description says "placeholder — first real release pending"; can be unlisted immediately after push so it never surfaces in search, while still owning the ID. |
-| Apply for `NetXlsx.*` prefix reservation | Stronger (covers satellite packages) but requires a Microsoft review process and is *in addition to*, not instead of, owning the bare ID. Can follow later. |
-| Do nothing until first real publish | Free, but leaves the name exposed for however long S2→S10+ takes. The risk is small in absolute terms but the mitigation costs minutes. |
+| **Reservation email (RECOMMENDED, do now)** | Email support@nuget.org from the nuget.org account's address requesting the exact ID `NetXlsx` AND the prefix `NetXlsx.*` (ask for both forms explicitly). This is the official FAQ answer to "reserve a name for a future package"; published packages are not a prerequisite. Free; turnaround days-to-weeks, no SLA — don't block on it. |
+| **Early real alpha publish (the durable claim)** | A genuine NetXlsx package trivially satisfies "must contain code"; it claims the ID permanently and fixes the display casing (set by the first upload, no self-service fix). v2.0.1 is the first publishable version per the standing decision, so a real artifact exists. This IS publication — operator-gated as ever; the recommendation is to treat it as the durable claim *when* the operator pulls that trigger, possibly earlier than otherwise planned. |
+| Do nothing until first real publish | Free; leaves the name exposed for however long S2→S10+ takes. Fallback. |
 
-**Recommendation:** reserve now via unlisted `0.0.1` placeholder; consider
-prefix reservation at first real publish. Needs only: a nuget.org account
-decision and one manual push (operator action — not a CI change).
+**Recommendation:** send the reservation email now (free, policy-blessed),
+and treat an early real alpha publish as the durable claim. Both are
+operator actions, not CI changes.
 
 ### R-32 — Release workflow modernization at publish time
 
-**Recommendation: adopt both, but only when R-31/publication becomes real**
-(no code now): NuGet Trusted Publishing (OIDC via `NuGet/login@v1`) instead
-of a long-lived `NUGET_API_KEY` secret, and
-`actions/attest-build-provenance` on the GH-release artifacts — with the
-documented caveat that nuget.org re-signs nupkgs, so attestation covers the
-GH artifacts, not the gallery copy. Folds into the S7 infra slice **only if**
-R-31 lands a placeholder (Trusted Publishing is configured per-package on
-nuget.org, so it needs the ID to exist); otherwise it waits with publication.
+**Recommendation: adopt both at publish time** (no code now): NuGet Trusted
+Publishing (OIDC via `NuGet/login@v1`) instead of a long-lived
+`NUGET_API_KEY` secret, and `actions/attest-build-provenance` on the
+GH-release artifacts.
+
+**[A-2026-06-11] Two corrections to the original text:**
+
+- The dependency on R-31 was WRONG and is struck. Trusted-publishing
+  policies are **owner-scoped, not per-package** — the docs state verbatim
+  "The policy will apply to all packages owned by the selected owner" — and
+  the feature explicitly supports first-ever publishes of brand-new IDs. So
+  `NuGet/login@v1` can perform NetXlsx's first publish with no pre-existing
+  ID; R-32 stands alone. Residual check: rollout is gradual — confirm the
+  Trusted Publishing option appears in the account UI (the docs carry that
+  exact caveat) before committing the workflow.
+- The attestation caveat, reworded precisely: nuget.org doesn't re-sign or
+  repack — it **injects a `.signature.p7s` repository-signature file into
+  the nupkg zip**, changing its digest (NuGetGallery#10026, open). Pattern:
+  attest post-pack/pre-push, attach the canonical nupkg to the GitHub
+  Release, document the strip-`.signature.p7s` verification recipe.
 
 ### R-33 — Post-swap feature triage (the dead-NPOI-blocker list)
 
@@ -423,7 +541,7 @@ longer exists. Verdicts feed R-18's matrix re-baseline:
 | Streaming read (`OpenXmlPartReader`) | **Promote (v2.x)** | SDK has the primitive; completes the streaming story the README sells; pairs with R-34's `IAsyncEnumerable` ask. |
 | `In(...)` 3+ values | **Promote (small)** | Probe-verified the gap is model-shape-only on the SDK engine — the `NotSupportedException` guards a limitation that died with NPOI. Cheap, removes a documented wart. |
 | AutoFilter Top-N | **Schedule (v2.x, behind the two above)** | SDK can author `<top10>` directly; demand is thinner than streaming read. |
-| Threaded comments | **Demote (hold for demand)** | Legacy comments round-trip fine; threaded adds parts + person registry for a niche ask. Revisit if a user asks. |
+| Threaded comments | **Demote (hold for demand)** | Legacy comments round-trip fine; threaded adds parts + person registry for a niche ask — **[A-2026-06-11]** plus tandem legacy-placeholder bookkeeping (each top-level threaded comment carries a `tc={uid}` legacy twin), so even more entangled than first framed. Revisit if a user asks. |
 
 ### R-34 — Strategic feature bets (roadmap material)
 
@@ -447,11 +565,16 @@ following defaults**, demand-ranked from the ecosystem research:
 
 ## Sign-off checklist
 
-- [ ] I-88 control-character policy (escape content / fail-fast names) — approve / amend
-- [ ] I-89 theme cluster (lazy default embed + styling symmetry) — approve / amend; eager-embed alternative explicitly rejected?
-- [ ] I-90 sheet lifecycle (method rename + lexer rewrite; delete; move) — approve / amend; one slice or split?
-- [ ] I-91 removal family (naming rule + surface + 2-slice plan) — approve / amend
-- [ ] R-31 nuget.org ID — reserve via placeholder? (operator action)
-- [ ] R-32 trusted publishing + attestation — adopt-at-publish?
+**[A-2026-06-11]** All amendments from the external review pass are
+incorporated above; the items below reflect the amended shapes. The
+external reviewer's disposition was approve-with-amendments across the
+board (reject only on R-31's original placeholder, now replaced).
+
+- [ ] I-88 control-character policy — amended: CR escaped (repro-proven loss today), hex-case rules, qualified-lossless docs, lone-surrogate caveat
+- [ ] I-89 theme cluster — amended: `EnsureThemePart()` single choke point, streaming assembly-time check, `SetThemeXml` drift docs, golden-regen corrected to verify-in-slice; eager-embed alternative explicitly rejected?
+- [ ] I-90 sheet lifecycle — amended + split into TWO slices (rename+move, then delete): hyperlink rewrite framed exceeds-Excel, `_xlnm.*` included, pivot-cache `@sheet` + sparkline + table-formula surfaces added, calcChain note
+- [ ] I-91 removal family — amended: VML non-comment-shape guard, x14 dual-stored validations, image-part refcount kept (no-dedup confirmed), `OoxmlTable` stale-flag retrofit
+- [ ] R-31 nuget.org ID — REPLACED recommendation: reservation email now + early real alpha as the durable claim (both operator actions)
+- [ ] R-32 trusted publishing + attestation — corrected: owner-scoped (no R-31 dependency), `.signature.p7s` caveat reworded; adopt-at-publish?
 - [ ] R-33 triage verdicts — confirm for the R-18 re-baseline
 - [ ] R-34 strategic defaults — confirm for the R-18 re-baseline
