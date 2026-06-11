@@ -357,12 +357,18 @@ proven Excel-repair trigger) deserves its own verification pass.
 
 ### Tests / verification
 
-- Rename: collision/invalid-name throws; formulas, defined names, hyperlinks,
+- Rename: collision/invalid-name throws; formulas, defined names
+  (**[A-2026-06-11]** including an `_xlnm.Print_Area` fixture), hyperlinks,
   CF/DV, chart refs rewritten across sheets (quoted and unquoted, names
-  needing quoting after rename); `INDIRECT` string untouched; LO + openpyxl
-  oracles confirm references still resolve.
+  needing quoting after rename); **[A-2026-06-11]** opened-file fixtures for
+  the amended surfaces: pivot-cache `worksheetSource/@sheet` follows the
+  rename (crafted/Excel-authored — NetXlsx can't author pivots), sparkline
+  `xm:f` and table `calculatedColumnFormula` rewritten; `INDIRECT` string
+  untouched; LO + openpyxl oracles confirm references still resolve.
 - Delete: last-sheet guard; part listing shows no orphaned parts or rels
-  (zip-level assert); `#REF!` rewrite; `localSheetId` re-index; stale-handle
+  (zip-level assert); `#REF!` rewrite; `localSheetId` re-index;
+  **[A-2026-06-11]** pivot caches sourced from the deleted sheet removed
+  (opened-file fixture) and calcChain dropped wholesale; stale-handle
   throws; openpyxl opens the result cleanly.
 - Move: index semantics pinned at both ends and middle; `localSheetId` +
   `activeTab` follow; round-trip order preserved in LO.
@@ -402,8 +408,14 @@ void RemoveChart(IChart chart);
 void RemoveShape(IShape shape);
 void RemoveConnector(IConnector connector);
 
-// ISheet — key-based, UnmergeCells semantics (exact-range match required;
-// InvalidOperationException when no validation has that exact range):
+// ISheet — key-based: exact-range match required; ArgumentException when no
+// validation has that exact range (new key-based semantics matching
+// RemoveNamedRange — [A-2026-06-11] the originally cited "UnmergeCells
+// semantics" was a mischaracterization: UnmergeCells silently no-ops on a
+// non-matching range (OoxmlSheet.Merges.cs:74-98, verified — design.md's
+// "throws InvalidOperationException" claim is doc drift for the R-17 truth
+// pass). UnmergeCells's silent no-op is itself grandfathered Un*-family
+// behavior; do not later "harmonize" RemoveValidation toward it):
 void RemoveValidation(string a1Range);
 
 // IWorkbook — key-based (names are unique, case-insensitive per I-9);
