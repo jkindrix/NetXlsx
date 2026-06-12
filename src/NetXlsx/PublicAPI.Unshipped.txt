@@ -1,4 +1,14 @@
 #nullable enable
+NetXlsx.CellBorders.BottomColorTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellBorders.BottomColorTheme.init -> void
+NetXlsx.CellBorders.LeftColorTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellBorders.LeftColorTheme.init -> void
+NetXlsx.CellBorders.RightColorTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellBorders.RightColorTheme.init -> void
+NetXlsx.CellBorders.TopColorTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellBorders.TopColorTheme.init -> void
+NetXlsx.CellStyle.FontColorTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.CellStyle.FontColorTheme.init -> void
 NetXlsx.IPicture.Border.get -> NetXlsx.PictureBorder?
 NetXlsx.IPicture.Border.set -> void
 NetXlsx.PictureBorder
@@ -8,3 +18,6 @@ NetXlsx.PictureBorder.ThemeColor.get -> NetXlsx.ThemeColor?
 NetXlsx.PictureBorder.ThemeColor.init -> void
 NetXlsx.PictureBorder.WidthPoints.get -> double?
 NetXlsx.PictureBorder.WidthPoints.init -> void
+NetXlsx.RichTextStyle.ColorTheme.get -> NetXlsx.ThemeColor?
+NetXlsx.RichTextStyle.ColorTheme.init -> void
+static NetXlsx.Workbook.DefaultThemeXml.get -> byte[]!

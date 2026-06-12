@@ -179,6 +179,18 @@ internal sealed class OoxmlStreamingWorkbook : IStreamingWorkbook
         var stylesPart = wbPart.AddNewPart<WorkbookStylesPart>();
         stylesPart.Stylesheet = _stylePool.Stylesheet;
 
+        // I-89 lazy default-theme, streaming flavor (S2 memo amendment): the
+        // stylesheet is detached from any package while rows stream, so the
+        // DOM engine's write-time EnsureThemePart hook has nothing to hang on
+        // — instead, "did the style pool ever register a theme color?" is
+        // answered here at assembly. Plain streaming workbooks gain no part.
+        if (_stylePool.UsesThemeColors)
+        {
+            var themePart = wbPart.AddNewPart<ThemePart>();
+            using var theme = new MemoryStream(DefaultTheme.Raw, writable: false);
+            themePart.FeedData(theme);
+        }
+
         var sheets = new S.Sheets();
         uint sheetId = 1;
         foreach (var sheet in _sheets)

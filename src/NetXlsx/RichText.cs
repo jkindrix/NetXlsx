@@ -34,6 +34,16 @@ public sealed record RichTextStyle
     public double? FontSize { get; init; }
     /// <summary>Font color. ARGB equality (decision I-23).</summary>
     public Color? Color { get; init; }
+
+    /// <summary>
+    /// Theme-based run color (decision I-89, mirroring
+    /// <see cref="CellStyle.BackgroundTheme"/>). When set, takes
+    /// precedence over <see cref="Color"/> and is written as the OOXML
+    /// theme-index + tint color. The first theme-indexed write into a
+    /// workbook without a theme part embeds
+    /// <see cref="Workbook.DefaultThemeXml"/>.
+    /// </summary>
+    public ThemeColor? ColorTheme { get; init; }
 }
 
 /// <summary>

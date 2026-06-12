@@ -133,6 +133,13 @@ internal sealed partial class OoxmlSheet
             spPr.Append(ln);
         }
 
+        // I-89 lazy default-theme: the NPOI-parity <xdr:style> block below
+        // always carries scheme colors (lnRef/fillRef/effectRef accent1,
+        // fontRef tx1) — theme-indexed writes, engine-chosen or not, so a
+        // connector-bearing workbook embeds the default theme to keep their
+        // resolution consumer-independent.
+        _workbook.EnsureThemePart();
+
         var cxnSp = new XDR.ConnectionShape(
             new XDR.NonVisualConnectionShapeProperties(
                 new XDR.NonVisualDrawingProperties { Id = id, Name = $"Connector {id}" },

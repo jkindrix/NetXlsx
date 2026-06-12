@@ -55,6 +55,46 @@ internal sealed partial class OoxmlWorkbook
         _themeInfo = null;
     }
 
+    /// <summary>
+    /// The I-89 lazy default-theme choke point. Ensures the workbook has a
+    /// usable theme part, embedding <see cref="DefaultTheme"/> (the standard
+    /// Office theme) when none exists — so a theme-indexed color written into
+    /// a fresh workbook resolves identically in every consumer instead of
+    /// against whatever theme the consumer substitutes (the R-8 lottery).
+    /// <para>
+    /// Discipline (S2 memo, amended 2026-06-11): EVERY theme-color write site
+    /// must call this — style-pool allocations route here via the pool's
+    /// OnThemeColorWrite hook; the drawing-layer sites (picture borders,
+    /// connector style blocks, pie-chart accent fills) and the rich-text run
+    /// path call it directly. ThemeColorWriteSiteTests enumerates the sites
+    /// so a future theme-color write that forgets the guard fails loud. The
+    /// one deliberate exemption: the created-stylesheet scaffolding's font 0
+    /// (<c>&lt;color theme="1"/&gt;</c>) — it exists in every workbook, and
+    /// triggering on it would make the lazy embed eager, breaking the
+    /// byte-identity guarantee for theme-free workbooks.
+    /// </para>
+    /// An explicit <see cref="SetThemeXml"/> wins before or after: before,
+    /// the part exists so this is a no-op; after, it replaces the embedded
+    /// default like any other theme.
+    /// </summary>
+    internal void EnsureThemePart()
+    {
+        var themePart = _document.WorkbookPart?.ThemePart;
+        if (themePart is not null)
+        {
+            // A part with bytes is a real theme — never clobber it. A
+            // zero-length part (malformed input) matches GetThemeXml()'s
+            // null contract, so the embed below repairs it in place. The
+            // read stream must close BEFORE SetThemeXml re-feeds the same
+            // part (packaging rejects overlapping part streams).
+            bool empty;
+            using (var stream = themePart.GetStream(FileMode.Open, FileAccess.Read))
+                empty = stream.Length == 0;
+            if (!empty) return;
+        }
+        SetThemeXml(DefaultTheme.Raw);
+    }
+
     public byte[]? GetThemeXml()
     {
         ThrowIfDisposed();

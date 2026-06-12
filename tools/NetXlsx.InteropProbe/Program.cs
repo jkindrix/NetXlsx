@@ -93,6 +93,16 @@ static void BuildKitchen(string path)
     };
     st["B2"].SetString("branded"); st["B2"].Style(brand);
     st["C3"].SetString("theme bg"); st["C3"].Style(new CellStyle { BackgroundTheme = new ThemeColor(4) });
+    // I-89 styling symmetry — the kitchen output now embeds the default
+    // Office theme (the first theme-indexed write above triggers it), so
+    // theme-4 must resolve to Office blue #FF4472C4 on our own output.
+    st["F2"].SetString("theme font"); st["F2"].Style(new CellStyle { FontColorTheme = new ThemeColor(4) });
+    st["G5"].SetString("theme border"); st["G5"].Style(new CellStyle
+    {
+        Borders = new CellBorders(Top: BorderStyle.Thick) { TopColorTheme = new ThemeColor(5, 0.2) },
+    });
+    st["F10"].SetRichText(new RichText(
+        new RichTextRun("accent run", new RichTextStyle { ColorTheme = new ThemeColor(6) })));
     st["D4"].SetString("mixed borders"); st["D4"].Style(new CellStyle
     {
         Borders = new CellBorders(
@@ -265,6 +275,9 @@ static void Verify(string path)
         var b2 = st["B2"].GetStyle();
         P("st.B2", $"bold={b2.Bold} bg={b2.Background?.ToHex()} font={b2.FontName}/{b2.FontSize} u={b2.Underline}");
         P("st.C3themeBg", st["C3"].GetStyle().BackgroundTheme?.Index.ToString() ?? "null");
+        P("st.F2themeFont", st["F2"].GetStyle().FontColorTheme?.Index.ToString() ?? "null");
+        P("st.G5themeBorder", st["G5"].GetStyle().Borders?.TopColorTheme?.ToString() ?? "null");
+        P("st.F10runTheme", st["F10"].GetRichText()?.Runs[0].Style.ColorTheme?.Index.ToString() ?? "null");
         P("st.merges", string.Join("|", st.MergedRanges));
         var rt = st["A10"].GetRichText();
         P("st.A10runs", rt is null ? "null" : string.Join("+", rt.Runs.Select(r => r.Text)));
@@ -350,6 +363,18 @@ static void AssertKitchen(string path, bool loResave)
     Check.Eq("sc.row8hidden", sc.Row(8).Hidden, true);
     Check.Eq("sc.colFhidden", sc.Column("F").Hidden, true);
 
+    // I-89: the kitchen carries theme-indexed styling, so its output embeds
+    // the default Office theme — theme-4 resolves to Office blue on our own
+    // round-trip (the documented I-81 contract holding on fresh output).
+    if (!loResave)
+    {
+        Check.Eq("theme4", wb.ResolveThemeColor(4)?.ToHex(), "#FF4472C4");
+        Check.Eq("st.F2themeFont", wb["Styles"]["F2"].GetStyle().FontColorTheme?.Index, 4);
+        Check.Eq("st.G5themeBorder", wb["Styles"]["G5"].GetStyle().Borders?.TopColorTheme,
+            new ThemeColor(5, 0.2));
+        Check.Eq("st.F10runTheme", wb["Styles"]["F10"].GetRichText()?.Runs[0].Style.ColorTheme?.Index, 6);
+    }
+
     var st = wb["Styles"];
     var b2 = st["B2"].GetStyle();
     Check.Eq("st.B2.bold", b2.Bold, true);
@@ -386,13 +411,33 @@ static void AssertKitchen(string path, bool loResave)
     var dr = wb["Drawing"];
     Check.Eq("dr.pictures", dr.Pictures.Count, 3);
     Check.Eq("dr.connectors", dr.Connectors.Count, 1);
-    // LO rewrites the theme-indexed picture border to a literal (R-8
-    // evidence) and substitutes its own theme — soft-report both.
+    // I-89 inverted the theme lottery: the kitchen output embeds the default
+    // Office theme, and LO PRESERVES an existing theme part on resave (it
+    // only substituted its own when none existed — the pre-I-89 R-8
+    // evidence). Verified locally against LO 26.2, 2026-06-12.
     if (loResave)
     {
-        Check.Soft("dr.borders(LO rewrites theme-indexed)", string.Join("|", dr.Pictures.Select(pic =>
-            pic.Border is null ? "none" : pic.Border.ThemeColor is not null ? $"theme{pic.Border.ThemeColor.Index}" : pic.Border.Color?.ToHex() ?? "?")));
-        Check.Soft("theme4(LO substitutes its own theme)", wb.ResolveThemeColor(4)?.ToHex() ?? "null");
+        Check.Eq("theme4(LO preserves the embedded theme)", wb.ResolveThemeColor(4)?.ToHex(), "#FF4472C4");
+        Check.Eq("st.C3themeBg(LO)", wb["Styles"]["C3"].GetStyle().BackgroundTheme?.Index, 4);
+        Check.Eq("st.F2themeFont(LO)", wb["Styles"]["F2"].GetStyle().FontColorTheme?.Index, 4);
+        Check.Eq("st.G5themeBorder(LO)", wb["Styles"]["G5"].GetStyle().Borders?.TopColorTheme,
+            new ThemeColor(5, 0.2));
+        // LO restructures a single-run rich string: the formatting hoists to
+        // the CELL font (theme index intact) and the runs collapse — the
+        // color survives, the rich-text shape does not. Soft-report the
+        // shape; hard-assert the surviving theme index on the cell.
+        Check.Soft("st.F10runs(LO collapses single-run rich text)",
+            wb["Styles"]["F10"].GetRichText()?.Runs.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "null");
+        Check.Eq("st.F10cellTheme(LO hoists run formatting)",
+            wb["Styles"]["F10"].GetStyle().FontColorTheme?.Index, 6);
+        // LO still flattens the theme-indexed PICTURE border to a literal,
+        // but now resolves it against our embedded theme — ThemeColor(5) =
+        // accent2 = #FFED7D31 (was rewritten to white pre-I-89). Accept
+        // either shape so a future LO that preserves the schemeClr passes.
+        var p3border = dr.Pictures.Select(pic => pic.Border).FirstOrDefault(b => b is not null
+            && (b.ThemeColor?.Index == 5 || b.Color?.ToHex() == "#FFED7D31"));
+        Check.True("dr.themeBorder(Office color survives LO)", p3border is not null,
+            $"borders: {string.Join("|", dr.Pictures.Select(pic => pic.Border is null ? "none" : pic.Border.ThemeColor is not null ? $"theme{pic.Border.ThemeColor.Index}" : pic.Border.Color?.ToHex() ?? "?"))}");
     }
 
     Check.True("pr.protected", wb["Protected"].IsProtected, "sheet protection lost");

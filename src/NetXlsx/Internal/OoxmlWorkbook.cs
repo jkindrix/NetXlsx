@@ -51,12 +51,20 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     /// The workbook's style pool (xl/styles.xml), materialized on first use.
     /// On a created workbook this writes the Excel default scaffolding and the
     /// option-supplied default font; on an opened workbook it adopts the file's
-    /// existing stylesheet (preserving its default font, lesson #8).
+    /// existing stylesheet (preserving its default font, lesson #8). The pool's
+    /// theme-color hook routes every theme-carrying style allocation through
+    /// <see cref="EnsureThemePart"/> — the I-89 lazy default-theme choke point.
     /// </summary>
-    internal OoxmlStylePool StylePool =>
-        _stylePool ??= OoxmlStylePool.Attach(
+    internal OoxmlStylePool StylePool => _stylePool ??= AttachStylePool();
+
+    private OoxmlStylePool AttachStylePool()
+    {
+        var pool = OoxmlStylePool.Attach(
             _document.WorkbookPart ?? throw new InvalidOperationException("Workbook has no workbook part."),
             _options);
+        pool.OnThemeColorWrite = EnsureThemePart;
+        return pool;
+    }
 
     // Default number-format styles for date/time/duration cells (mirrors the
     // NPOI engine's DateStyle/DateTimeStyle/TimeStyle/DurationStyle, decisions

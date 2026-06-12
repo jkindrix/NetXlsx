@@ -27,7 +27,10 @@ the current `libreoffice-calc` package):
 | Charts | renders | re-emitted in LO's own chart XML |
 | Sheet `<autoFilter>` + criteria | **DROPPED** | LO keeps the filtered *values*, discards the filter model |
 | Workbook structure lock (`Protect`) | **DROPPED** | sheet-level protection is kept; the workbook-level lock is not |
-| Theme part | **REPLACED** | LO substitutes its own theme: theme-indexed colors resolve differently (theme-4: Office blue → LO green `#FF18A303`), and theme-indexed picture borders are rewritten to literal colors (observed: white). Until I-89 lands (default theme at `Create()`), theme-indexed styling is consumer-dependent — prefer literal colors when LO is in the consumer set |
+| Theme part | **PRESERVED** (since I-89) | LO keeps an existing theme part on resave; it only substituted its own (theme-4: Office blue → LO green `#FF18A303`, picture borders rewritten to white) when the file had NO theme — the pre-I-89 state. NetXlsx now embeds the default Office theme on the first theme-indexed write (`Workbook.DefaultThemeXml`), so theme-4 resolves `#FF4472C4` before AND after an LO resave — verified vs LO 26.2, 2026-06-12 |
+| Theme-indexed cell styling (fill/font/border `theme`+`tint`) | **survives** | indices and tints round-trip intact in cellXfs (probed: bg theme-4, font theme-4, border theme-5 tint 0.2) |
+| Theme-indexed rich-text run color | restructured | LO collapses a single-run rich string to a plain string and hoists the formatting to the cell font — the theme index survives at cell level, the run shape does not |
+| Theme-indexed picture border | flattened to literal | LO still rewrites the `schemeClr` to a literal color, but now resolves it against the embedded theme — `ThemeColor(5)` (accent2) comes back `#FFED7D31`, the correct Office value, instead of white |
 
 ## Hyperlink-on-edit semantics
 

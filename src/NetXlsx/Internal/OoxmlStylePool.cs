@@ -59,6 +59,29 @@ internal sealed class OoxmlStylePool
     internal int UniqueStyles => _xfPool.Count;
     internal int UniqueFonts => _fontPool.Count;
 
+    // ---- I-89 lazy default-theme participation -------------------------------
+    // Every theme-color ALLOCATION in this pool (a fill/font/border element
+    // that carries a theme index) routes through NoteThemeColorWrite. The DOM
+    // engine wires OnThemeColorWrite to OoxmlWorkbook.EnsureThemePart (the
+    // single choke point); the streaming engine leaves the hook null and reads
+    // UsesThemeColors at Save-time assembly instead (its stylesheet is detached
+    // from any package while rows stream). Hits need no note: this pool dedups
+    // only what it allocated, so every theme-carrying entry passed through the
+    // miss path — and the hook — at least once.
+    //
+    // The one deliberate non-site: BuildDefaultStylesheet's font 0 carries
+    // <color theme="1"/> as Excel-conventional scaffolding in EVERY created
+    // workbook; treating it as a theme write would make the lazy embed eager
+    // and break the byte-identity guarantee for theme-free workbooks.
+    internal Action? OnThemeColorWrite { get; set; }
+    internal bool UsesThemeColors { get; private set; }
+
+    private void NoteThemeColorWrite()
+    {
+        UsesThemeColors = true;
+        OnThemeColorWrite?.Invoke();
+    }
+
     private const uint FirstCustomNumFmtId = 164;
 
     private OoxmlStylePool(S.Stylesheet ss, WorkbookOptions options)
@@ -270,12 +293,17 @@ internal sealed class OoxmlStylePool
         }
         FontMissCount++;
 
+        // Theme font color takes precedence over explicit RGB (the I-79 rule,
+        // verbatim from the fill path) and participates in the I-89 lazy embed.
+        if (key.ColorTheme is not null) NoteThemeColorWrite();
+
         var font = new S.Font();
         if (key.Bold) font.AppendChild(new S.Bold());
         if (key.Italic) font.AppendChild(new S.Italic());
         if (key.Underline != UnderlineStyle.None) font.AppendChild(new S.Underline { Val = MapUnderline(key.Underline) });
         font.AppendChild(new S.FontSize { Val = key.Size ?? _options.DefaultFontSize });
-        if (key.Color is { } c) font.AppendChild(ToColor<S.Color>(c));
+        if (key.ColorTheme is { } theme) font.AppendChild(ThemeToColor<S.Color>(theme));
+        else if (key.Color is { } c) font.AppendChild(ToColor<S.Color>(c));
         font.AppendChild(new S.FontName { Val = key.Name ?? _options.DefaultFontName });
 
         var fonts = _ss.GetFirstChild<S.Fonts>()!;
@@ -297,6 +325,8 @@ internal sealed class OoxmlStylePool
         else return 0u; // no fill -> default (none)
 
         if (_fillPool.TryGetValue(key, out var existing)) return existing;
+
+        if (key.Theme is not null) NoteThemeColorWrite(); // I-89 lazy embed
 
         var fg = new S.ForegroundColor();
         if (key.Theme is { } t)
@@ -327,11 +357,23 @@ internal sealed class OoxmlStylePool
     {
         if (_borderPool.TryGetValue(b, out var existing)) return existing;
 
+        // I-89 lazy embed — fire once when any edge carries a theme color.
+        // Theme colors on style-less edges are inert (BuildEdge writes a color
+        // only when the edge has a BorderStyle, the literal-color contract),
+        // so only edges that will actually emit count.
+        if ((b.Left is not null and not BorderStyle.None && b.LeftColorTheme is not null)
+            || (b.Right is not null and not BorderStyle.None && b.RightColorTheme is not null)
+            || (b.Top is not null and not BorderStyle.None && b.TopColorTheme is not null)
+            || (b.Bottom is not null and not BorderStyle.None && b.BottomColorTheme is not null))
+        {
+            NoteThemeColorWrite();
+        }
+
         var border = new S.Border(
-            BuildEdge<S.LeftBorder>(b.Left, b.LeftColor),
-            BuildEdge<S.RightBorder>(b.Right, b.RightColor),
-            BuildEdge<S.TopBorder>(b.Top, b.TopColor),
-            BuildEdge<S.BottomBorder>(b.Bottom, b.BottomColor),
+            BuildEdge<S.LeftBorder>(b.Left, b.LeftColor, b.LeftColorTheme),
+            BuildEdge<S.RightBorder>(b.Right, b.RightColor, b.RightColorTheme),
+            BuildEdge<S.TopBorder>(b.Top, b.TopColor, b.TopColorTheme),
+            BuildEdge<S.BottomBorder>(b.Bottom, b.BottomColor, b.BottomColorTheme),
             new S.DiagonalBorder());
 
         var borders = _ss.GetFirstChild<S.Borders>()!;
@@ -343,14 +385,17 @@ internal sealed class OoxmlStylePool
         return index;
     }
 
-    private static TEdge BuildEdge<TEdge>(BorderStyle? style, Color? color)
+    private static TEdge BuildEdge<TEdge>(BorderStyle? style, Color? color, ThemeColor? colorTheme)
         where TEdge : S.BorderPropertiesType, new()
     {
         var edge = new TEdge();
         if (style is { } s && s != BorderStyle.None)
         {
             edge.Style = MapBorder(s);
-            if (color is { } c) edge.AppendChild(ToColor<S.Color>(c));
+            // Theme wins over the literal color when both are set (the I-79
+            // precedence rule, per edge — decision I-89).
+            if (colorTheme is { } t) edge.AppendChild(ThemeToColor<S.Color>(t));
+            else if (color is { } c) edge.AppendChild(ToColor<S.Color>(c));
         }
         return edge;
     }
@@ -409,6 +454,7 @@ internal sealed class OoxmlStylePool
             FontName = fontStyle.FontName,
             FontSize = fontStyle.FontSize,
             FontColor = fontStyle.FontColor,
+            FontColorTheme = fontStyle.FontColorTheme,
             Background = ReadFillRgb(xf.FillId?.Value ?? 0u),
             BackgroundTheme = ReadFillTheme(xf.FillId?.Value ?? 0u),
             NumberFormat = ReadNumFmt(xf.NumberFormatId?.Value ?? 0u),
@@ -461,11 +507,11 @@ internal sealed class OoxmlStylePool
         return (name, size, bold, italic);
     }
 
-    private (bool? Bold, bool? Italic, UnderlineStyle? Underline, string? FontName, double? FontSize, Color? FontColor)
+    private (bool? Bold, bool? Italic, UnderlineStyle? Underline, string? FontName, double? FontSize, Color? FontColor, ThemeColor? FontColorTheme)
         ReadFont(uint fontId)
     {
         var font = _ss.GetFirstChild<S.Fonts>()?.Elements<S.Font>().ElementAtOrDefault((int)fontId);
-        if (font is null) return (null, null, null, null, null, null);
+        if (font is null) return (null, null, null, null, null, null, null);
 
         bool? bold = font.GetFirstChild<S.Bold>() is { } bx ? (bx.Val?.Value ?? true) ? true : (bool?)null : null;
         bool? italic = font.GetFirstChild<S.Italic>() is { } ix ? (ix.Val?.Value ?? true) ? true : (bool?)null : null;
@@ -474,8 +520,13 @@ internal sealed class OoxmlStylePool
             : null;
         string? name = font.GetFirstChild<S.FontName>()?.Val?.Value;
         double? size = font.GetFirstChild<S.FontSize>()?.Val?.Value;
-        Color? color = FromColor(font.GetFirstChild<S.Color>());
-        return (bold, italic, underline, name, size, color);
+        // A theme-indexed color reads via FontColorTheme with the literal axis
+        // null, and vice versa (decision I-89 — same exclusivity as the fill
+        // path's ReadFillRgb/ReadFillTheme pair).
+        var colorEl = font.GetFirstChild<S.Color>();
+        ThemeColor? colorTheme = FromColorTheme(colorEl);
+        Color? color = colorTheme is null ? FromColor(colorEl) : null;
+        return (bold, italic, underline, name, size, color, colorTheme);
     }
 
     private S.PatternFill? PatternFillAt(uint fillId)
@@ -512,11 +563,23 @@ internal sealed class OoxmlStylePool
         var left = MapBorderBack(border.LeftBorder);
         if (top is null && right is null && bottom is null && left is null) return null;
 
+        // Per edge: a theme-indexed color reads via the theme property with
+        // the literal axis null, and vice versa (decision I-89).
+        var topTheme = FromColorTheme(border.TopBorder?.Color);
+        var rightTheme = FromColorTheme(border.RightBorder?.Color);
+        var bottomTheme = FromColorTheme(border.BottomBorder?.Color);
+        var leftTheme = FromColorTheme(border.LeftBorder?.Color);
         return new CellBorders(
-            top, FromColor(border.TopBorder?.Color),
-            right, FromColor(border.RightBorder?.Color),
-            bottom, FromColor(border.BottomBorder?.Color),
-            left, FromColor(border.LeftBorder?.Color));
+            top, topTheme is null ? FromColor(border.TopBorder?.Color) : null,
+            right, rightTheme is null ? FromColor(border.RightBorder?.Color) : null,
+            bottom, bottomTheme is null ? FromColor(border.BottomBorder?.Color) : null,
+            left, leftTheme is null ? FromColor(border.LeftBorder?.Color) : null)
+        {
+            TopColorTheme = topTheme,
+            RightColorTheme = rightTheme,
+            BottomColorTheme = bottomTheme,
+            LeftColorTheme = leftTheme,
+        };
     }
 
     private string? ReadNumFmt(uint numFmtId)
@@ -621,7 +684,13 @@ internal sealed class OoxmlStylePool
         if (style.Underline is { } u && u != UnderlineStyle.None)
             rpr.AppendChild(new S.Underline { Val = MapUnderline(u) });
         if (style.FontSize is { } sz) rpr.AppendChild(new S.FontSize { Val = sz });
-        if (style.Color is { } c) rpr.AppendChild(ToColor<S.Color>(c));
+        // Theme wins over the literal color when both are set (the I-79
+        // precedence rule — decision I-89). The I-89 lazy embed for this path
+        // is OoxmlCell.SetRichText's EnsureThemePart call: this builder is
+        // static (no pool instance) and the run lives in cell XML, not the
+        // stylesheet, so the pool hook cannot cover it.
+        if (style.ColorTheme is { } ct) rpr.AppendChild(ThemeToColor<S.Color>(ct));
+        else if (style.Color is { } c) rpr.AppendChild(ToColor<S.Color>(c));
         if (!string.IsNullOrEmpty(style.FontName)) rpr.AppendChild(new S.RunFont { Val = style.FontName });
         return rpr;
     }
@@ -631,8 +700,9 @@ internal sealed class OoxmlStylePool
     /// <see cref="RichTextStyle"/>. A <c>null</c> <paramref name="rpr"/> (no run
     /// properties) reads as <see cref="RichTextStyle.Default"/> — the inherited
     /// cell font. Lossy for axes the run model does not cover, exactly like
-    /// <see cref="ReadFont"/>; theme/indexed run colors read as <c>null</c> until
-    /// the theme slice, matching the NPOI engine's RGB-only run-color read.
+    /// <see cref="ReadFont"/>; a theme-indexed run color reads via
+    /// <see cref="RichTextStyle.ColorTheme"/> with the literal axis null, and
+    /// vice versa (decision I-89; indexed-palette colors still read null).
     /// </summary>
     internal static RichTextStyle ReadRunStyle(S.RunProperties? rpr)
     {
@@ -645,7 +715,9 @@ internal sealed class OoxmlStylePool
             : null;
         string? name = rpr.GetFirstChild<S.RunFont>()?.Val?.Value;
         double? size = rpr.GetFirstChild<S.FontSize>()?.Val?.Value;
-        Color? color = FromColor(rpr.GetFirstChild<S.Color>());
+        var colorEl = rpr.GetFirstChild<S.Color>();
+        ThemeColor? colorTheme = FromColorTheme(colorEl);
+        Color? color = colorTheme is null ? FromColor(colorEl) : null;
 
         return new RichTextStyle
         {
@@ -655,12 +727,14 @@ internal sealed class OoxmlStylePool
             FontName = name,
             FontSize = size,
             Color = color,
+            ColorTheme = colorTheme,
         };
     }
 
     private static bool IsEmptyRunStyle(RichTextStyle s) =>
         s.Bold is null && s.Italic is null && s.Underline is null
-        && s.FontName is null && s.FontSize is null && s.Color is null;
+        && s.FontName is null && s.FontSize is null && s.Color is null
+        && s.ColorTheme is null;
 
     // ---- Differential formats (<dxfs>, for conditional formatting) ----------
     //
@@ -845,6 +919,7 @@ internal sealed class OoxmlStylePool
     private static bool IsEmpty(CellStyle s) =>
         s.Bold is null && s.Italic is null && s.Underline is null
         && s.FontName is null && s.FontSize is null && s.FontColor is null
+        && s.FontColorTheme is null
         && s.Background is null && s.BackgroundTheme is null
         && s.NumberFormat is null
         && s.HorizontalAlignment is null && s.VerticalAlignment is null
@@ -852,10 +927,21 @@ internal sealed class OoxmlStylePool
 
     private static bool NeedsFont(CellStyle s) =>
         s.Bold is not null || s.Italic is not null || s.Underline is not null
-        || s.FontName is not null || s.FontSize is not null || s.FontColor is not null;
+        || s.FontName is not null || s.FontSize is not null || s.FontColor is not null
+        || s.FontColorTheme is not null;
 
     private static TColor ToColor<TColor>(Color c) where TColor : S.ColorType, new()
         => new() { Rgb = ArgbHex(c) };
+
+    // Theme-indexed CT_Color emission (decision I-89): theme index + tint,
+    // tint omitted when zero — the same convention the fill path established
+    // with I-79.
+    private static TColor ThemeToColor<TColor>(ThemeColor t) where TColor : S.ColorType, new()
+    {
+        var color = new TColor { Theme = (uint)t.Index };
+        if (t.Tint != 0) color.Tint = t.Tint;
+        return color;
+    }
 
     private static Color? FromColor(S.ColorType? c)
     {
@@ -869,6 +955,11 @@ internal sealed class OoxmlStylePool
             return null;
         return Color.FromRgb(r, g, b);
     }
+
+    // Theme-indexed CT_Color read-back (decision I-89): theme index + tint,
+    // matching ReadFillTheme's shape. Null for literal/indexed colors.
+    private static ThemeColor? FromColorTheme(S.ColorType? c)
+        => c?.Theme?.Value is { } theme ? new ThemeColor((int)theme, c.Tint?.Value ?? 0) : null;
 
     private static string ArgbHex(Color c)
         => $"FF{c.R:X2}{c.G:X2}{c.B:X2}";
@@ -1013,11 +1104,11 @@ internal sealed class OoxmlStylePool
 
     // ---- Dedup keys ---------------------------------------------------------
 
-    private readonly record struct FontKey(string? Name, double? Size, bool Bold, bool Italic, UnderlineStyle Underline, Color? Color)
+    private readonly record struct FontKey(string? Name, double? Size, bool Bold, bool Italic, UnderlineStyle Underline, Color? Color, ThemeColor? ColorTheme)
     {
         internal static FontKey From(CellStyle s) => new(
             s.FontName, s.FontSize, s.Bold ?? false, s.Italic ?? false,
-            s.Underline ?? UnderlineStyle.None, s.FontColor);
+            s.Underline ?? UnderlineStyle.None, s.FontColor, s.FontColorTheme);
     }
 
     private readonly record struct FillKey(Color? Rgb, ThemeColor? Theme)

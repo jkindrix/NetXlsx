@@ -31,6 +31,16 @@ public sealed record CellStyle
     /// <summary>Font color. ARGB equality (decision I-23).</summary>
     public Color? FontColor { get; init; }
 
+    /// <summary>
+    /// Theme-based font color (decision I-89, mirroring
+    /// <see cref="BackgroundTheme"/>). When set, takes precedence over
+    /// <see cref="FontColor"/> and is written as the OOXML theme-index +
+    /// tint color, preserving Excel's exact rendering when a theme is
+    /// present. The first theme-indexed write into a workbook without a
+    /// theme part embeds <see cref="Workbook.DefaultThemeXml"/>.
+    /// </summary>
+    public ThemeColor? FontColorTheme { get; init; }
+
     /// <summary>Solid-fill background color. ARGB equality.</summary>
     public Color? Background { get; init; }
 
@@ -39,7 +49,9 @@ public sealed record CellStyle
     /// precedence over <see cref="Background"/> and is written as the
     /// OOXML theme-index + tint color. This preserves Excel's exact
     /// color rendering when a theme is present, since explicit RGB
-    /// doesn't always match Excel's tint calculation.
+    /// doesn't always match Excel's tint calculation. The first
+    /// theme-indexed write into a workbook without a theme part embeds
+    /// <see cref="Workbook.DefaultThemeXml"/> (decision I-89).
     /// </summary>
     public ThemeColor? BackgroundTheme { get; init; }
 
@@ -58,13 +70,31 @@ public sealed record CellStyle
     public CellBorders? Borders { get; init; }
 }
 
-/// <summary>Cell border styles per edge.</summary>
+/// <summary>
+/// Cell border styles per edge. The theme-color properties (decision I-89,
+/// mirroring <see cref="CellStyle.BackgroundTheme"/>) are init-only — set
+/// them via an object initializer or <c>with</c> expression. Per edge, the
+/// theme variant takes precedence over the literal color when both are
+/// set; either is written only when that edge also has a
+/// <see cref="BorderStyle"/>. The first theme-indexed write into a
+/// workbook without a theme part embeds
+/// <see cref="Workbook.DefaultThemeXml"/>.
+/// </summary>
 public sealed record CellBorders(
     BorderStyle? Top = null,    Color? TopColor = null,
     BorderStyle? Right = null,  Color? RightColor = null,
     BorderStyle? Bottom = null, Color? BottomColor = null,
     BorderStyle? Left = null,   Color? LeftColor = null)
 {
+    /// <summary>Theme-based color for the top edge; wins over <see cref="TopColor"/>.</summary>
+    public ThemeColor? TopColorTheme { get; init; }
+    /// <summary>Theme-based color for the right edge; wins over <see cref="RightColor"/>.</summary>
+    public ThemeColor? RightColorTheme { get; init; }
+    /// <summary>Theme-based color for the bottom edge; wins over <see cref="BottomColor"/>.</summary>
+    public ThemeColor? BottomColorTheme { get; init; }
+    /// <summary>Theme-based color for the left edge; wins over <see cref="LeftColor"/>.</summary>
+    public ThemeColor? LeftColorTheme { get; init; }
+
     /// <summary>Build a uniform border on all four edges.</summary>
     public static CellBorders All(BorderStyle style, Color? color = null) =>
         new(style, color, style, color, style, color, style, color);
@@ -144,6 +174,10 @@ public enum UnderlineStyle
 /// Use this when reproducing files that use Excel's theme colors —
 /// explicit RGB doesn't always match Excel's tint calculation, so theme
 /// references preserve exact rendering when the workbook has a theme.
+/// A workbook that has no theme part receives the standard Office theme
+/// (<see cref="Workbook.DefaultThemeXml"/>) automatically on the first
+/// theme-indexed styling write (decision I-89), so theme references
+/// resolve consistently across consumers.
 /// </para>
 /// </summary>
 public sealed record ThemeColor(int Index, double Tint = 0);

@@ -492,6 +492,18 @@ internal sealed class OoxmlCell : ICell
         if (plain.Length > limit)
             throw new ResourceLimitExceededException("cell text length", limit, plain.Length);
 
+        // I-89 lazy default-theme: run colors live in cell XML, not the
+        // stylesheet, so the style pool's hook cannot see them — guard here.
+        // Empty runs are skipped below and emit nothing, so they don't count.
+        foreach (var run in value.Runs)
+        {
+            if (run.Text.Length > 0 && run.Style.ColorTheme is not null)
+            {
+                Wb.EnsureThemePart();
+                break;
+            }
+        }
+
         var c = _sheet.GetOrCreateCell(_row, _col);
         c.RemoveAllChildren();
         c.CellFormula = null;
@@ -611,6 +623,7 @@ internal sealed class OoxmlCell : ICell
         FontName = overlay.FontName ?? existing.FontName,
         FontSize = overlay.FontSize ?? existing.FontSize,
         FontColor = overlay.FontColor ?? existing.FontColor,
+        FontColorTheme = overlay.FontColorTheme ?? existing.FontColorTheme,
         Background = overlay.Background ?? existing.Background,
         BackgroundTheme = overlay.BackgroundTheme ?? existing.BackgroundTheme,
         NumberFormat = overlay.NumberFormat ?? existing.NumberFormat,

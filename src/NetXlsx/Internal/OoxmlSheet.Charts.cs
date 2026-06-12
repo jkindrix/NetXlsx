@@ -179,6 +179,12 @@ internal sealed partial class OoxmlSheet
 
             case ChartType.Pie:
             {
+                // I-89 lazy default-theme: the accent-cycled slice fills below
+                // are theme-indexed (schemeClr accent1..6) — embed the default
+                // theme so they resolve consumer-independently. The other chart
+                // types emit no scheme colors and trigger nothing.
+                _workbook.EnsureThemePart();
+
                 var ser = new C.PieChartSeries(
                     new C.Index { Val = 0U },
                     new C.Order { Val = 0U });

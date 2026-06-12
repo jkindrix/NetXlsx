@@ -73,6 +73,37 @@ changes (decision I19).
 
 ### Added
 
+- **Theme cluster: lazy default-theme embed + theme-color styling symmetry
+  (I-89, R-8).** Theme-indexed styling is no longer a consumer lottery.
+  The first time a theme-indexed color is written into a workbook that has
+  no theme part — a `ThemeColor`-typed style axis, a theme picture border,
+  or an engine-emitted scheme color (connector style blocks, pie-chart
+  accent fills) — NetXlsx embeds the standard Office theme
+  (`xl/theme/theme1.xml`, byte-transcribed from an Excel-authored
+  workbook: accent1 `#4472C4`, Calibri Light / Calibri, line widths
+  6350/12700/19050 EMU). Workbooks that never touch a theme color get no
+  theme part and stay byte-identical to previous releases; an explicit
+  `SetThemeXml` wins before or after the embed, and its docs now state the
+  inherent index re-resolution drift. The new static
+  `Workbook.DefaultThemeXml` returns a fresh copy of those bytes for eager
+  or custom use. `IWorkbook.ResolveThemeColor(4)` on fresh themed output
+  now resolves Office blue `#FF4472C4` — previously `null` per the I-81
+  no-theme contract, with LibreOffice substituting its own green
+  (`#FF18A303`) and rewriting theme picture borders to white. Verified vs
+  LO 26.2: an embedded theme is **preserved** through resave, cellXfs
+  theme+tint indices round-trip intact, and the flattened picture border
+  now carries the correct Office literal (see `docs/interop.md`).
+  Styling symmetry (the XlsxCodeGen scout's largest read-back gap):
+  `CellStyle.FontColorTheme`, `RichTextStyle.ColorTheme`, and
+  `CellBorders.{Top,Right,Bottom,Left}ColorTheme` mirror the shipped
+  `BackgroundTheme` exactly — theme wins over the literal color per slot,
+  both engines (the streaming engine embeds at Save-time assembly), and
+  the style read path now populates theme+tint instead of `null`
+  (literal axes read `null` for theme-indexed XML, and vice versa).
+  Structurally enforced: every theme-color write site routes through one
+  internal choke point (`EnsureThemePart`), and a source-scan test fails
+  any future site that forgets the guard.
+
 - **Lossless control-character handling (I-88, R-3).** XML-invalid
   characters (0x00–0x08, 0x0B, 0x0C, 0x0E–0x1F, U+FFFE/U+FFFF, lone
   surrogate halves) in `SetString`, rich-text runs, and `Comment` — both

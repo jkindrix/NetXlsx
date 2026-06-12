@@ -147,6 +147,7 @@ internal sealed class OoxmlStreamingCell : IStreamingCell
             FontName = style.FontName,
             FontSize = style.FontSize,
             FontColor = style.FontColor,
+            FontColorTheme = style.FontColorTheme,
             Background = style.Background,
             BackgroundTheme = style.BackgroundTheme,
             HorizontalAlignment = style.HorizontalAlignment,

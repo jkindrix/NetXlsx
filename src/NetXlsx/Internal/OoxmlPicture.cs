@@ -135,13 +135,23 @@ internal sealed class OoxmlPicture : IPicture
     private void WriteBorder(PictureBorder border)
     {
         // Theme wins over explicit RGB when both are set (the I-79 precedence
-        // rule, verbatim from CellStyle.BackgroundTheme).
-        A.SolidFill fill = border.ThemeColor is { } theme
-            ? new A.SolidFill(new A.SchemeColor { Val = SchemeValueForIndex(theme.Index) })
-            : new A.SolidFill(new A.RgbColorModelHex
+        // rule, verbatim from CellStyle.BackgroundTheme). A theme-indexed
+        // border participates in the I-89 lazy default-theme embed — without
+        // a theme part the schemeClr below is a consumer lottery (LO rewrote
+        // exactly this border to literal white in the R-8 evidence).
+        A.SolidFill fill;
+        if (border.ThemeColor is { } theme)
+        {
+            _workbook.EnsureThemePart();
+            fill = new A.SolidFill(new A.SchemeColor { Val = SchemeValueForIndex(theme.Index) });
+        }
+        else
+        {
+            fill = new A.SolidFill(new A.RgbColorModelHex
             {
                 Val = $"{border.Color!.Value.R:X2}{border.Color!.Value.G:X2}{border.Color!.Value.B:X2}",
             });
+        }
 
         var ln = new A.Outline(fill);
         if (border.WidthPoints is { } w)

@@ -31,6 +31,30 @@ public static class Workbook
     private const string ReservedSheetName = "History";
 
     /// <summary>
+    /// A fresh copy of the standard Office theme — the
+    /// <c>xl/theme/theme1.xml</c> bytes modern Excel embeds in every new
+    /// workbook (accent1 <c>#4472C4</c>, major font Calibri Light, minor
+    /// font Calibri). NetXlsx embeds exactly these bytes automatically the
+    /// first time a theme-indexed color (a <see cref="ThemeColor"/>-typed
+    /// style axis, a theme picture border, or an engine-emitted scheme
+    /// color on connectors and pie charts) is written into a workbook that
+    /// has no theme part (decision I-89), so theme references resolve
+    /// identically across consumers instead of falling back to whatever
+    /// theme each consumer substitutes. Workbooks that never write
+    /// theme-indexed styling get no theme part and stay byte-identical to
+    /// earlier releases.
+    /// <para>
+    /// Each call returns a new array; mutating a returned copy has no
+    /// effect on NetXlsx. Pass it to <see cref="IWorkbook.SetThemeXml"/>
+    /// to embed the default theme eagerly, or call <c>SetThemeXml</c>
+    /// with your own theme XML to override the lazy default — an explicit
+    /// <c>SetThemeXml</c> always wins, whether it runs before or after
+    /// the first theme-styling write.
+    /// </para>
+    /// </summary>
+    public static byte[] DefaultThemeXml => DefaultTheme.CreateBytes();
+
+    /// <summary>
     /// Creates a new, empty workbook with no sheets.
     /// </summary>
     /// <param name="options">

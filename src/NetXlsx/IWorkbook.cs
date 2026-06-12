@@ -150,6 +150,23 @@ public interface IWorkbook : IDisposable
     /// The byte content should be a complete theme1.xml document. NetXlsx
     /// creates the OPC part and the workbook→theme relationship.
     /// </para>
+    /// <para>
+    /// An explicit theme always wins over the lazy default (decision I-89):
+    /// a workbook with no theme part receives
+    /// <see cref="Workbook.DefaultThemeXml"/> automatically on its first
+    /// theme-indexed styling write, and <c>SetThemeXml</c> replaces that —
+    /// or pre-empts it — whether it runs before or after the write.
+    /// </para>
+    /// <para>
+    /// <b>Re-resolution drift:</b> theme-indexed styling stores only the
+    /// index + tint, never the resolved RGB, so styles authored against one
+    /// theme's slot values silently re-resolve against a later theme — e.g.
+    /// a <c>ThemeColor(4)</c> written as Office accent1 renders in whatever
+    /// color a subsequently-set custom theme assigns to accent1. That is
+    /// inherent to OOXML theme indices (Excel behaves the same way); pick
+    /// the final theme before authoring theme-indexed styles, or use
+    /// literal colors where drift is unacceptable.
+    /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="themeXml"/> is null.</exception>
     void SetThemeXml(byte[] themeXml);
@@ -171,6 +188,9 @@ public interface IWorkbook : IDisposable
     /// <paramref name="tint"/> is applied with Excel's tint algorithm
     /// (negative darkens, positive lightens). Returns <c>null</c> when the
     /// workbook has no theme or the index isn't defined in the scheme.
+    /// (A workbook acquires <see cref="Workbook.DefaultThemeXml"/> on its
+    /// first theme-indexed styling write — decision I-89 — after which
+    /// resolution succeeds against the embedded default.)
     /// </summary>
     Color? ResolveThemeColor(int index, double tint = 0);
 
