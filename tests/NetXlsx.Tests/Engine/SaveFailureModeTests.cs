@@ -25,7 +25,19 @@ namespace NetXlsx.Tests.Engine;
 
 public class SaveFailureModeTests
 {
-    private static string ControlCharPayload => "poison" + (char)0x01;
+    // Pre-I-88 these tests poisoned the save with a control char through
+    // SetString; I-88 made that LOSSLESSLY ESCAPED rather than a save-time
+    // failure, so the poison now goes through the escape hatch — the one
+    // remaining way to get an XML-invalid char into the DOM (and a realistic
+    // one: hatch users bypass the facade's encoding). The SDK still throws
+    // at serialization, which is exactly the failure these tests pin.
+    private static void PoisonCell(ICell cell)
+    {
+        cell.SetString("poison");
+        var text = cell.Underlying.InlineString!
+            .GetFirstChild<DocumentFormat.OpenXml.Spreadsheet.Text>()!;
+        text.Text = "poison" + (char)0x01;
+    }
 
     private static string TempDir()
     {
@@ -44,7 +56,7 @@ public class SaveFailureModeTests
     public void FailedSave_DisposeIsClean()
     {
         var wb = Workbook.Create();
-        wb.AddSheet("S")["A1"].SetString(ControlCharPayload);
+        PoisonCell(wb.AddSheet("S")["A1"]);
 
         using var ms = new MemoryStream();
         Record.Exception(() => wb.Save(ms))
@@ -59,7 +71,7 @@ public class SaveFailureModeTests
     {
         using var wb = Workbook.Create();
         var sheet = wb.AddSheet("S");
-        sheet["A1"].SetString(ControlCharPayload);
+        PoisonCell(sheet["A1"]);
 
         using (var failed = new MemoryStream())
             Record.Exception(() => wb.Save(failed)).Should().NotBeNull();
@@ -87,7 +99,7 @@ public class SaveFailureModeTests
             }
 
             var opened = Workbook.Open(path);
-            opened[0]["A1"].SetString(ControlCharPayload);
+            PoisonCell(opened[0]["A1"]);
             using var ms = new MemoryStream();
             Record.Exception(() => opened.Save(ms)).Should().NotBeNull();
             Record.Exception(opened.Dispose).Should().BeNull();
@@ -113,7 +125,7 @@ public class SaveFailureModeTests
             before.Should().NotBeEmpty();
 
             var bad = Workbook.Create();
-            bad.AddSheet("Bad")["A1"].SetString(ControlCharPayload);
+            PoisonCell(bad.AddSheet("Bad")["A1"]);
             Record.Exception(() => bad.Save(path)).Should().NotBeNull();
             Record.Exception(bad.Dispose).Should().BeNull();
 

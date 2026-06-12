@@ -116,7 +116,10 @@ internal sealed class OoxmlCell : ICell
         c.CellFormula = null;
         c.DataType = S.CellValues.InlineString;
         // Space="preserve" keeps leading/trailing/standalone whitespace intact.
-        c.AppendChild(new S.InlineString(new S.Text(value) { Space = SpaceProcessingModeValues.Preserve }));
+        // ST_Xstring escaping (I-88): XML-invalid chars + CR become _xHHHH_
+        // at the setter — lossless, Excel-native — instead of exploding at
+        // Save (or, for CR, being silently destroyed by the XmlWriter).
+        c.AppendChild(new S.InlineString(new S.Text(XStringCodec.Encode(value)) { Space = SpaceProcessingModeValues.Preserve }));
     }
 
     public void SetNumber(double value)
@@ -350,7 +353,7 @@ internal sealed class OoxmlCell : ICell
                 if (t == S.CellValues.Boolean) return ReadBool(c) ? "TRUE" : "FALSE";
                 if (double.TryParse(cached, NumberStyles.Float, CultureInfo.InvariantCulture, out double num))
                     return FormatNumberForMeasurement(c, num);
-                return cached;   // cached string result
+                return XStringCodec.Decode(cached);   // cached string result — measure the DECODED form (I-88)
             default:
                 return null;     // Empty, Error
         }
@@ -371,13 +374,16 @@ internal sealed class OoxmlCell : ICell
 
     private string ReadString(S.Cell c)
     {
+        // ST_Xstring decode (I-88) on every string read path — also a
+        // read-fidelity fix for Excel-authored files, whose _xHHHH_ escapes
+        // previously read back as seven-character literals.
         var t = c.DataType?.Value;
         if (t == S.CellValues.SharedString)
-            return ResolveSharedStringItem(c).InnerText;
+            return XStringCodec.Decode(ResolveSharedStringItem(c).InnerText);
         if (t == S.CellValues.InlineString)
-            return c.InlineString?.InnerText ?? string.Empty;
+            return XStringCodec.Decode(c.InlineString?.InnerText ?? string.Empty);
         // t == String (formula-string cached) or anything else: raw value text.
-        return c.CellValue?.InnerText ?? string.Empty;
+        return XStringCodec.Decode(c.CellValue?.InnerText ?? string.Empty);
     }
 
     // Resolves a shared-string cell's <v> index to its <si> element, failing loud
@@ -499,7 +505,8 @@ internal sealed class OoxmlCell : ICell
             var r = new S.Run();
             // <rPr> must precede <t> in an <r>; a null <rPr> means "inherit".
             if (OoxmlStylePool.BuildRunProperties(run.Style) is { } rpr) r.AppendChild(rpr);
-            r.AppendChild(new S.Text(run.Text) { Space = SpaceProcessingModeValues.Preserve });
+            // Per-run ST_Xstring escaping (I-88), same as SetString.
+            r.AppendChild(new S.Text(XStringCodec.Encode(run.Text)) { Space = SpaceProcessingModeValues.Preserve });
             inline.AppendChild(r);
         }
         c.AppendChild(inline);
@@ -539,7 +546,7 @@ internal sealed class OoxmlCell : ICell
         var runs = new List<RichTextRun>();
         foreach (var r in rawRuns)
         {
-            var text = r.Text?.InnerText ?? string.Empty;
+            var text = XStringCodec.Decode(r.Text?.InnerText ?? string.Empty);
             runs.Add(new RichTextRun(text, OoxmlStylePool.ReadRunStyle(r.RunProperties)));
         }
         return runs;
@@ -646,6 +653,14 @@ internal sealed class OoxmlCell : ICell
     // Internal: shared with the streaming engine's SetFormula (slice 9).
     internal static void ValidateFormulaStructure(string original, string body)
     {
+        // I-88 fail-fast: a formula is a name/reference surface — escaping
+        // would change semantics, so XML-invalid characters reject at the
+        // setter instead of exploding at Save.
+        int bad = XStringCodec.IndexOfXmlInvalid(body);
+        if (bad >= 0)
+            throw FormulaParseError(original,
+                $"contains XML-invalid character U+{(int)body[bad]:X4} at position {bad}");
+
         int depth = 0;
         char literal = '\0'; // '"' inside a string, '\'' inside a quoted sheet name
         for (int i = 0; i < body.Length; i++)

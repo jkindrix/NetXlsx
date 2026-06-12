@@ -75,7 +75,21 @@ public interface ICell
     /// <summary>Classification of the cell's stored value.</summary>
     CellKind Kind { get; }
 
-    /// <summary>Writes a string value to the cell.</summary>
+    /// <summary>Writes a string value to the cell.
+    /// <para>
+    /// Characters XML 1.0 cannot carry (0x00–0x08, 0x0B, 0x0C, 0x0E–0x1F,
+    /// U+FFFE/U+FFFF, lone surrogate halves) plus CR (0x0D, which XML
+    /// writers and readers silently normalize away) are stored using
+    /// Excel's own <c>_xHHHH_</c> escape convention (ECMA-376 ST_Xstring,
+    /// decision I-88) and decoded transparently by the typed getters —
+    /// the round-trip is lossless through NetXlsx itself, Excel, POI,
+    /// ClosedXML, exceljs, calamine ≥ 0.31.0, and LibreOffice ≥ 26.x
+    /// (oracle-verified). Consumers that do not implement the convention
+    /// (openpyxl — and therefore pandas' default engine — and older
+    /// calamine) surface the literal escape text such as <c>_x0007_</c>
+    /// instead.
+    /// </para>
+    /// </summary>
     void SetString(string value);
 
     /// <summary>

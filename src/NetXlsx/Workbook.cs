@@ -146,6 +146,8 @@ public static class Workbook
         if (string.IsNullOrEmpty(proposed)) return false;
         if (proposed.Length > MaxSheetNameLength) return false;
         if (proposed.IndexOfAny(s_invalidSheetNameChars) >= 0) return false;
+        foreach (char ch in proposed)
+            if (ch < 0x20 || ch is '\uFFFE' or '\uFFFF') return false;
         if (proposed[0] == '\'' || proposed[^1] == '\'') return false;
         if (string.Equals(proposed, ReservedSheetName, StringComparison.OrdinalIgnoreCase)) return false;
         return true;
@@ -172,7 +174,8 @@ public static class Workbook
         var chars = proposed.ToCharArray();
         for (int i = 0; i < chars.Length; i++)
         {
-            if (Array.IndexOf(s_invalidSheetNameChars, chars[i]) >= 0)
+            if (Array.IndexOf(s_invalidSheetNameChars, chars[i]) >= 0
+                || chars[i] < 0x20 || chars[i] is '\uFFFE' or '\uFFFF')
                 chars[i] = '_';
         }
         if (chars[0] == '\'') chars[0] = '_';
@@ -248,6 +251,15 @@ public static class Workbook
         int invalidIdx = name.IndexOfAny(s_invalidSheetNameChars);
         if (invalidIdx >= 0)
             throw new SheetNameException(name, $"sheet name contains invalid character '{name[invalidIdx]}' at position {invalidIdx}");
+        // I-88 fail-fast: control characters are never legal in a sheet name
+        // (and sheet/@name is an XML ATTRIBUTE, where even the XML-legal
+        // tab/LF/CR are silently normalized to spaces — a mutation, so all
+        // of 0x00-0x1F reject here, not just the XML-invalid subset).
+        for (int i = 0; i < name.Length; i++)
+        {
+            if (name[i] < 0x20 || name[i] is '\uFFFE' or '\uFFFF')
+                throw new SheetNameException(name, $"sheet name contains control character U+{(int)name[i]:X4} at position {i}");
+        }
         if (name[0] == '\'' || name[^1] == '\'')
             throw new SheetNameException(name, "sheet name cannot begin or end with an apostrophe (Excel rule; LibreOffice silently renames such sheets)");
         if (string.Equals(name, ReservedSheetName, StringComparison.OrdinalIgnoreCase))

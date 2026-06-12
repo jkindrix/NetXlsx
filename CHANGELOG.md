@@ -71,6 +71,29 @@ changes (decision I19).
   which can expose a new last character) and appends `_` to `History`.
   One shared character array still feeds all three surfaces.
 
+### Added
+
+- **Lossless control-character handling (I-88, R-3).** XML-invalid
+  characters (0x00–0x08, 0x0B, 0x0C, 0x0E–0x1F, U+FFFE/U+FFFF, lone
+  surrogate halves) in `SetString`, rich-text runs, and `Comment` — both
+  engines — are now stored using Excel's own `_xHHHH_` escape convention
+  (ECMA-376 ST_Xstring) and decoded transparently on read. Previously they
+  passed the setter silently and exploded at `Save` as a raw SDK
+  `ArgumentException` with no cell context — and **CR (0x0D) was silently
+  destroyed** (`"C\rD"` read back `"C\nD"`); CR now round-trips via
+  `_x000D_`, matching MS-OI29500. Literal `_xHHHH_` user text is protected
+  per the convention (`_x005F_`); decode is hex-case-insensitive with a
+  required lowercase `x`; emission is uppercase hex (Excel parity). This is
+  also a read-fidelity fix: Excel-authored escapes used to surface as
+  seven-character literals. Oracle-verified: LibreOffice 26.2 preserves the
+  escapes through its own resave (lossless both ways); openpyxl surfaces
+  the literal text (documented on `ICell.SetString`). Name/formula surfaces
+  fail fast instead: sheet names reject all control characters (attribute
+  normalization would mutate even XML-legal ones), and
+  `SetFormula`/named-range formulas reject XML-invalid characters with a
+  `FormulaException` at the setter. Exceeds the field: the raw SDK throws,
+  SpreadCheetah silently strips.
+
 ### Fixed
 
 - **`Workbook.Open` classifies corrupted sheet relationships instead of

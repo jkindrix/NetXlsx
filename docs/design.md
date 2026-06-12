@@ -2485,6 +2485,27 @@ Generator behavior summary:
 - Emits source files visible under `obj/Generated/` when `<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>` is set in the consuming project (useful for debugging).
 - Generated extension classes are `internal` by default; consumers may opt into `public` via `[Worksheet(Visibility = Visibility.Public)]`.
 
+### 6.12.1 Control-character policy — I-88
+
+**I-88 (proposed 2026-06-10, signed off as amended 2026-06-11, landed
+S10):** full shape and amendment history in
+`docs/s2-design-proposals-2026-06-10.md#i-88`. Summary: user *content*
+surfaces (`SetString`, rich-text runs, `Comment`, both engines) encode
+XML-invalid characters **plus CR** to ECMA-376 `ST_Xstring` `_xHHHH_`
+escapes at the setter (uppercase hex out, case-insensitive decode,
+lowercase `x` required, `_x005F_` literal protection) and every string
+read path decodes — lossless round-trip, Excel-native bytes, and a
+read-fidelity fix for Excel-authored escapes that previously surfaced as
+literals. Name/formula surfaces (sheet names, defined names,
+`SetFormula`/named-range formulas) **fail fast** in the
+`WorkbookException` family at the setter instead — escaping there would
+change reference semantics. Sheet names additionally reject the
+XML-*legal* control chars (tab/LF/CR), because `sheet/@name` is an
+attribute and attribute-value normalization silently mutates them.
+Oracle results at landing: LibreOffice 26.2 preserves the escapes through
+its own resave (lossless both ways); openpyxl surfaces literal escape
+text (documented on `ICell.SetString`).
+
 ### 6.13 Exception hierarchy
 
 ```csharp

@@ -65,7 +65,8 @@ internal sealed class OoxmlStreamingCell : IStreamingCell
             throw new ResourceLimitExceededException("cell text length", limit, value.Length);
         var data = Write();
         data.Kind = CellKind.String;
-        data.Str = value;
+        // ST_Xstring escaping (I-88) at the setter, same as the DOM engine.
+        data.Str = XStringCodec.Encode(value);
         data.FormulaBody = null;
     }
 

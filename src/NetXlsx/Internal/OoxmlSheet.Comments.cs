@@ -48,7 +48,7 @@ internal sealed partial class OoxmlSheet
         uint authorId = GetOrAddAuthor(comments.Authors!, authorName);
 
         var commentText = new S.CommentText(
-            new S.Text(text) { Space = SpaceProcessingModeValues.Preserve });
+            new S.Text(XStringCodec.Encode(text)) { Space = SpaceProcessingModeValues.Preserve });
 
         var existing = comments.CommentList!.Elements<S.Comment>()
             .FirstOrDefault(c => c.Reference?.Value == reference);
@@ -73,7 +73,7 @@ internal sealed partial class OoxmlSheet
     // and rich-text comments alike (InnerText concatenates the runs), matching
     // the NPOI engine's CellComment.String.String.
     internal string? GetComment(int row, int col)
-        => FindComment(row, col)?.CommentText?.InnerText;
+        => FindComment(row, col)?.CommentText?.InnerText is { } raw ? XStringCodec.Decode(raw) : null;
 
     // The comment's author, or null when the cell has no comment. A corrupt
     // @authorId (non-integer, missing, or out of range of <authors>) fails loud
