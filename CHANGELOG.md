@@ -11,6 +11,22 @@ changes (decision I19).
 
 ### CI / packaging
 
+- **Nightly LibreOffice interop gauntlet (R-25).** New
+  `interop-nightly.yml`: `tools/NetXlsx.InteropProbe` (the promoted
+  2026-06-10 review harness, now with hard-assert modes) generates the
+  kitchen-sink + streaming workbooks; LibreOffice headless renders a PDF
+  canary and resaves both; NetXlsx re-reads the resave and asserts the
+  survivor contract; openpyxl read-only asserts the sized-worksheet
+  contract from a second consumer. All four assertion legs verified green
+  locally against LO 26.2 before landing. Also discharges the release
+  DoD's "LibreOffice smoke test" line with automation.
+- **`docs/interop.md` (R-22).** The verified interop/limits surface in one
+  place: the LO resave matrix (what survives, what LO drops — autofilter
+  model, workbook structure lock — and the theme substitution), the
+  hyperlink-on-edit semantics, the ~2 GB single-part ceiling, formula-
+  injection guidance for untrusted data, the recorded decision to keep
+  packages `docProps`-free, and the source-tree generator-wiring example.
+
 - **Package validation at pack time (R-24).** `EnablePackageValidation`
   on `NetXlsx.csproj` — catches cross-TFM surface drift the per-compilation
   PublicAPI analyzer can't see. `PackageValidationBaselineVersion` activates

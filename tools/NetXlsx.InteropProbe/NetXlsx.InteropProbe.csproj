@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LO interop probe harness (ledger R-25). Generates the kitchen-sink +
+       streaming workbooks, prints read-back probes, and hard-asserts the
+       interop contract — against our own output (assert-self) and against
+       a LibreOffice headless resave (assert-lo, survivor set per
+       docs/interop.md). Run by .github/workflows/interop-nightly.yml. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <!-- Single TFM: the probe runs in CI via plain `dotnet run`; a
+         multi-TFM exe would force -f plumbing for no coverage benefit
+         (the library's TFM matrix is exercised by the test suites). -->
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks></TargetFrameworks>
+    <!-- Console tool, not shipped: the library's analyzer bar (CA1303
+         literals-as-localizable etc.) is noise here. -->
+    <AnalysisLevel>none</AnalysisLevel>
+    <RootNamespace>NetXlsx.InteropProbe</RootNamespace>
+    <AssemblyName>NetXlsx.InteropProbe</AssemblyName>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NetXlsx\NetXlsx.csproj" />
+    <ProjectReference Include="..\..\src\NetXlsx.SourceGen\NetXlsx.SourceGen.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

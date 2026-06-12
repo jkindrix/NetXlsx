@@ -1,0 +1,91 @@
+# Third-party-consumer interop gauntlet (ledger R-25) — nightly, not per-PR.
+# Exactly the class of defect the 2026-06-10 review caught by hand (R-6 serial
+# truncation, R-7 formula-cached reads, R-8 theme substitution): generate the
+# kitchen-sink + streaming workbooks, push them through LibreOffice headless
+# (PDF render as a crash canary + xlsx resave), re-read the resave with
+# NetXlsx, and hard-assert the survivor contract documented in
+# docs/interop.md. An openpyxl read-only leg covers the "sized worksheet"
+# contract (R-13) from a second independent consumer.
+#
+# This workflow also satisfies the release DoD's "LibreOffice smoke test"
+# line with automation.
+
+name: interop-nightly
+
+on:
+  schedule:
+    - cron: '17 4 * * *'   # nightly, 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lo-gauntlet:
+    name: LibreOffice + openpyxl gauntlet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # MinVer
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Install LibreOffice Calc + openpyxl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice-calc python3-pip
+          pip3 install --user openpyxl
+
+      - name: Generate probe workbooks
+        run: dotnet run --project tools/NetXlsx.InteropProbe --configuration Release -- gen out
+
+      - name: Self-read assertions (sanity before the gauntlet)
+        run: |
+          dotnet run --project tools/NetXlsx.InteropProbe --configuration Release -- assert-self out/kitchen.xlsx
+          dotnet run --project tools/NetXlsx.InteropProbe --configuration Release -- assert-streaming out/streaming.xlsx
+
+      - name: LibreOffice headless convert (pdf canary + xlsx resave)
+        run: |
+          mkdir -p out/resave out/pdf
+          soffice --headless --convert-to pdf  --outdir out/pdf    out/kitchen.xlsx
+          soffice --headless --convert-to xlsx --outdir out/resave out/kitchen.xlsx out/streaming.xlsx
+          # The PDF is a render canary: zero bytes / absence means LO
+          # crashed or hung on our output.
+          test -s out/pdf/kitchen.pdf
+
+      - name: NetXlsx re-reads the LO resave (survivor contract)
+        run: |
+          dotnet run --project tools/NetXlsx.InteropProbe --configuration Release -- assert-lo out/resave/kitchen.xlsx
+          dotnet run --project tools/NetXlsx.InteropProbe --configuration Release -- assert-streaming-lo out/resave/streaming.xlsx
+
+      - name: openpyxl read-only leg (sized-worksheet contract, R-13)
+        run: |
+          python3 - <<'EOF'
+          import openpyxl, sys
+          failures = 0
+          for f in ("out/kitchen.xlsx", "out/streaming.xlsx",
+                    "out/resave/kitchen.xlsx", "out/resave/streaming.xlsx"):
+              try:
+                  wb = openpyxl.load_workbook(f, read_only=True)
+                  for ws in wb.worksheets:
+                      _ = ws.calculate_dimension()  # raises on an unsized sheet
+                  wb.close()
+                  print(f"PASS {f}")
+              except Exception as e:
+                  print(f"FAIL {f}: {e}")
+                  failures += 1
+          sys.exit(failures)
+          EOF
+
+      - name: Upload gauntlet artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: interop-gauntlet-files
+          path: out/
