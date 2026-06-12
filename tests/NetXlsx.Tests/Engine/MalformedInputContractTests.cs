@@ -326,4 +326,79 @@ public class MalformedInputContractTests
         }
         finally { File.Delete(path); }
     }
+
+    // ---- R-37: corrupted workbook-sheet relationship ids ----------------
+    // Found by the deep-fuzz harness (a single bit flip in xl/workbook.xml
+    // produced a raw NullReferenceException from Open). All three breach
+    // shapes classify to MalformedFileException naming the sheet.
+
+    private static string CorruptWorkbookXmlFile(Func<string, string> transform)
+    {
+        var path = TempPath();
+        using (var wb = Workbook.Create())
+        {
+            wb.AddSheet("S")["A1"].SetString("hello");
+            wb.Save(path);
+        }
+        RewriteEntry(path, "xl/workbook.xml", transform, required: true);
+        return path;
+    }
+
+    [Fact]
+    public void Sheet_Missing_RelId_Fails_Loud()
+    {
+        // Mangle the r:id attribute NAME so sheet.Id parses as absent.
+        var path = CorruptWorkbookXmlFile(x => x.Replace("r:id=", "r:iX="));
+        try
+        {
+            Action act = () => { using var wb = Workbook.Open(path); };
+            act.Should().Throw<MalformedFileException>()
+                .WithMessage("*missing its relationship id*");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Sheet_Dangling_RelId_Fails_Loud()
+    {
+        var path = CorruptWorkbookXmlFile(x =>
+            System.Text.RegularExpressions.Regex.Replace(x, "r:id=\"[^\"]+\"", "r:id=\"rId999\""));
+        try
+        {
+            Action act = () => { using var wb = Workbook.Open(path); };
+            act.Should().Throw<MalformedFileException>()
+                .WithMessage("*rId999*does not exist*");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Sheet_Targeting_NonWorksheet_Part_Fails_Loud()
+    {
+        // Point the sheet's r:id at the styles part — a non-worksheet
+        // target (the R-38 chartsheet shape lands here too, for now).
+        var path = TempPath();
+        using (var wb = Workbook.Create())
+        {
+            wb.AddSheet("S")["A1"].SetString("hello");
+            wb.Save(path);
+        }
+        string? stylesId = null;
+        RewriteEntry(path, "xl/_rels/workbook.xml.rels", x =>
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(x, "<Relationship(?=[^>]*styles)[^>]*Id=\"([^\"]+)\"");
+            m.Success.Should().BeTrue("the styles relationship must exist");
+            stylesId = m.Groups[1].Value;
+            return x + " ";   // satisfied the must-change guard; content-equivalent
+        }, required: true);
+        RewriteEntry(path, "xl/workbook.xml", x =>
+            System.Text.RegularExpressions.Regex.Replace(x, "r:id=\"[^\"]+\"", $"r:id=\"{stylesId}\""), required: true);
+        try
+        {
+            Action act = () => { using var wb = Workbook.Open(path); };
+            act.Should().Throw<MalformedFileException>()
+                .WithMessage("*not a worksheet part*");
+        }
+        finally { File.Delete(path); }
+    }
 }

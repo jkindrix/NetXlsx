@@ -71,8 +71,15 @@ internal sealed partial class OoxmlSheet : ISheet
     //     interleaved with facade calls, is documented on the hatches:
     //     re-acquire any Underlying member after such mutations.
 
-    // WorksheetPart.Worksheet is annotated nullable; create/open always set it.
-    private S.Worksheet Worksheet => _worksheetPart.Worksheet!;
+    // WorksheetPart.Worksheet is null when the part's XML is corrupt enough
+    // that the SDK's DOM load produced no root (R-37 sibling — the deep-fuzz
+    // sweep hit this through a bit-flipped worksheet part). Classify instead
+    // of null-forgiving: every access path then surfaces the documented
+    // MalformedFileException rather than an NRE.
+    private S.Worksheet Worksheet =>
+        _worksheetPart.Worksheet
+        ?? throw new MalformedFileException(
+            $"worksheet part for sheet '{_name}' has no worksheet root element (corrupt or non-spreadsheet content)");
 
     private S.SheetData Data =>
         Worksheet.GetFirstChild<S.SheetData>() ?? Worksheet.AppendChild(new S.SheetData());

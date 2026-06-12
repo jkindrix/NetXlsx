@@ -63,6 +63,20 @@ changes (decision I19).
 
 ### Fixed
 
+- **`Workbook.Open` classifies corrupted sheet relationships instead of
+  crashing (R-37).** A `<sheet>` element with a corrupted/absent `r:id`,
+  a dangling part reference, or a non-worksheet target produced a raw
+  `NullReferenceException` (or `InvalidCastException`) from `Open` —
+  outside the documented exception contract. Found by the new deep-fuzz
+  harness on its first scaled run; an exhaustive single-bit-flip sweep
+  pinned 9 crash positions in a 2,221-byte workbook, all now classified
+  as `MalformedFileException` naming the sheet. The same sweep surfaced a
+  sibling: a worksheet part whose corrupt XML loads no DOM root
+  null-forgave its way to an NRE on any access — also classified now.
+  Post-fix the exhaustive sweep reports zero contract breaches.
+  (Chartsheet/dialogsheet-bearing workbooks — legal files that previously
+  crashed the cast — now get the honest rejection; supporting them is
+  tracked as ledger R-38.)
 - **Spec-legal files without `row/@r` / `c/@r` no longer lose data
   (R-14).** Both attributes are optional per ECMA-376 (absent =
   previous + 1); Excel opens such files fine, but this engine silently

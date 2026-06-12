@@ -309,8 +309,30 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         foreach (var sheet in sheets.Elements<S.Sheet>())
         {
             var name = sheet.Name?.Value ?? string.Empty;
-            // Resolve the worksheet part backing this sheet via its r:id.
-            var wsPart = (WorksheetPart)wbPart.GetPartById(sheet.Id!.Value!);
+            // Resolve the worksheet part backing this sheet via its r:id —
+            // fail-loud classification per the Open contract (R-37; the
+            // pre-fix null-forgiving cast NRE'd on a corrupted r:id, found
+            // by the deep-fuzz harness). A LEGAL chartsheet/dialogsheet
+            // target also lands in the last branch until R-38 decides its
+            // shape — honest rejection beats an InvalidCastException.
+            var relId = sheet.Id?.Value;
+            if (string.IsNullOrEmpty(relId))
+                throw new MalformedFileException(
+                    $"workbook sheet '{name}' is missing its relationship id (r:id)");
+            OpenXmlPart part;
+            try
+            {
+                part = wbPart.GetPartById(relId);
+            }
+            catch (Exception ex) when (ex is ArgumentException or KeyNotFoundException)
+            {
+                throw new MalformedFileException(
+                    $"workbook sheet '{name}' references part '{relId}', which does not exist in the package", ex);
+            }
+            if (part is not WorksheetPart wsPart)
+                throw new MalformedFileException(
+                    $"workbook sheet '{name}' relationship '{relId}' targets a {part.GetType().Name}, not a worksheet part" +
+                    " (chartsheet/dialogsheet workbooks are not supported yet — tracked as ledger R-38)");
             var wrapper = new OoxmlSheet(this, name, wsPart);
             // R-14: row/@r and c/@r are OPTIONAL per ECMA-376 (absent =
             // previous + 1). Our own writers always emit them, but a
