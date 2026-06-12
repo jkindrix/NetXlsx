@@ -171,4 +171,31 @@ public class NamedRangeApiTests
         }
         finally { if (File.Exists(path)) File.Delete(path); }
     }
+
+    // ---- R-16: structural validation of the refers-to formula ----------
+
+    [Theory]
+    [InlineData("=SUM(A1")]            // unbalanced '('
+    [InlineData("=A1)")]               // unbalanced ')'
+    [InlineData("='Sheet One!A1")]     // unterminated quoted sheet name
+    [InlineData("=\"unterminated")]     // unterminated string literal
+    [InlineData("=")]                  // empty body after '=' strip
+    public void AddNamedRange_Rejects_Structurally_Broken_Formulas(string formula)
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("Data");
+        Action act = () => wb.AddNamedRange("Broken", formula);
+        act.Should().Throw<FormulaException>(
+            "a structurally broken defined name corrupts every formula that references it (R-16)");
+    }
+
+    [Fact]
+    public void AddNamedRange_Still_Accepts_Quoted_Sheet_Names_And_Functions()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("My Data");
+        wb.AddNamedRange("Q", "'My Data'!$A$1:$B$2");
+        wb.AddNamedRange("F", "=OFFSET('My Data'!$A$1,0,0,COUNTA('My Data'!$A:$A),1)");
+        wb.NamedRanges.Should().HaveCount(2);
+    }
 }

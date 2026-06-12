@@ -312,6 +312,14 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             // Resolve the worksheet part backing this sheet via its r:id.
             var wsPart = (WorksheetPart)wbPart.GetPartById(sheet.Id!.Value!);
             var wrapper = new OoxmlSheet(this, name, wsPart);
+            // R-14: row/@r and c/@r are OPTIONAL per ECMA-376 (absent =
+            // previous + 1). Our own writers always emit them, but a
+            // spec-legal third-party file without them previously had its
+            // rows/cells silently invisible to every reader path. Infer and
+            // materialize the references once at open — Excel-compatible,
+            // and every downstream consumer (row cache, dimension, sort,
+            // EnumeratePopulated) sees one consistent grid.
+            wrapper.NormalizeMissingReferences();
             _sheetsByIndex.Add(wrapper);
             _sheetsByName[name] = wrapper;
         }
@@ -593,6 +601,21 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     internal SpreadsheetDocument Document => _document;
 
     public void Dispose()
+    {
+        // R-15: in strict mode, disposal takes the same per-workbook lock as
+        // every mutating path, so a concurrent mutation can never interleave
+        // with teardown. The default mode stays opportunistic — its
+        // documented race scope (WorkbookOptions.StrictConcurrencyDetection)
+        // includes dispose-vs-mutate.
+        if (Options.StrictConcurrencyDetection)
+        {
+            lock (_strictLock) { DisposeCore(); }
+            return;
+        }
+        DisposeCore();
+    }
+
+    private void DisposeCore()
     {
         if (_disposed) return;
         _disposed = true;

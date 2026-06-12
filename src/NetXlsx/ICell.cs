@@ -268,6 +268,14 @@ public interface ICell
     /// Shortcut for the common case: applies the given Excel number
     /// format string to the cell while leaving other style properties
     /// untouched. Pass-through bytes per §7.2.
+    /// <para>
+    /// The format code is <b>not validated</b> (R-16, deliberate): the
+    /// Excel format-string grammar is rendered — and arbitrated — by the
+    /// consumer at display time, and a malformed code degrades to General
+    /// display rather than corrupting the file. Compile-time
+    /// <c>[Column(Format = ...)]</c> codes get a structural smoke check
+    /// (<c>NXLS0003</c>); this runtime path is pass-through by design.
+    /// </para>
     /// </summary>
     ICell NumberFormat(string format);
 

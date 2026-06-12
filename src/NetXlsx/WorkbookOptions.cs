@@ -94,6 +94,18 @@ public class WorkbookOptions
     /// Strict mode does not make the workbook thread-safe for
     /// reads — concurrent reads of any kind remain undefined.
     /// </para>
+    /// <para>
+    /// <b>The default mode's exact race scope (R-15):</b> the
+    /// opportunistic counter checks disposal and then enters the
+    /// mutation as two separate steps, so a <c>Dispose()</c> racing a
+    /// mutating call on another thread can interleave between them —
+    /// the mutation then runs against a disposed document and surfaces
+    /// as an engine exception (or, in principle, not at all) rather
+    /// than the contract's <see cref="System.ObjectDisposedException"/>.
+    /// <c>Dispose()</c> itself takes no lock in the default mode. In
+    /// strict mode, disposal acquires the same per-workbook lock as
+    /// every mutating path, closing the dispose-vs-mutate window.
+    /// </para>
     /// </summary>
     public bool StrictConcurrencyDetection { get; init; }
 }

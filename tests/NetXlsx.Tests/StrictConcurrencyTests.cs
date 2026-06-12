@@ -141,4 +141,54 @@ public class StrictConcurrencyTests
             "the default-mode error must point users at the opt-in real-lock option (decision I-59)");
         message.Should().Contain("not thread-safe");
     }
+
+    // ---- R-15: Dispose participates in the strict lock ------------------
+
+    [Fact]
+    public void Strict_Dispose_Is_Clean_And_Idempotent()
+    {
+        var wb = Workbook.Create(new WorkbookOptions { StrictConcurrencyDetection = true });
+        wb.AddSheet("S");
+        wb.Dispose();
+        Action again = wb.Dispose;
+        again.Should().NotThrow("Dispose is idempotent in strict mode too");
+    }
+
+    [Fact]
+    public void Strict_Dispose_Racing_Mutations_Surfaces_Only_Contract_Exceptions()
+    {
+        // R-15: with disposal under the same per-workbook lock as every
+        // mutating path, a dispose racing mutations can only produce the
+        // contract's ObjectDisposedException — never a torn-state engine
+        // exception from mutating a half-disposed document.
+        var wb = Workbook.Create(new WorkbookOptions { StrictConcurrencyDetection = true });
+        var threads = new System.Collections.Generic.List<System.Threading.Thread>();
+        var unexpected = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
+        using var start = new System.Threading.ManualResetEventSlim(false);
+
+        for (int t = 0; t < 8; t++)
+        {
+            int id = t;
+            var thread = new System.Threading.Thread(() =>
+            {
+                start.Wait();
+                for (int i = 0; i < 50; i++)
+                {
+                    try { wb.AddSheet($"T{id}-{i}"); }
+                    catch (ObjectDisposedException) { return; } // contract
+                    catch (Exception ex) { unexpected.Enqueue(ex); return; }
+                }
+            });
+            thread.Start();
+            threads.Add(thread);
+        }
+
+        start.Set();
+        System.Threading.Thread.Sleep(5);
+        wb.Dispose();
+        foreach (var thread in threads) thread.Join();
+
+        unexpected.Should().BeEmpty(
+            "dispose-vs-mutate under the strict lock must never tear state");
+    }
 }

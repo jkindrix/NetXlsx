@@ -112,9 +112,11 @@ internal sealed partial class OoxmlSheet : ISheet
         int max = 0;
         foreach (var r in data.Elements<S.Row>())
         {
-            // Rows without an explicit @r were invisible to the pre-cache
-            // FindRow/MaxRowIndex scans (null never equals a 1-based index);
-            // keep them invisible. Duplicate @r (malformed input): first in
+            // Rows without an explicit @r: opened files have them inferred
+            // and materialized at Open (R-14, NormalizeMissingReferences);
+            // an @r-less row seen HERE was added through the escape hatch
+            // post-open (out-of-contract) and stays invisible, matching the
+            // pre-cache scans. Duplicate @r (malformed input): first in
             // document order wins, matching the pre-cache scan.
             if (r.RowIndex?.Value is not uint ri || ri == 0) continue;
             map.TryAdd((int)ri, r);
@@ -437,6 +439,54 @@ internal sealed partial class OoxmlSheet : ISheet
             throw new ArgumentOutOfRangeException(nameof(index), index, $"row index must be in [1, {rowCap}]");
         GetOrCreateRow(index);
         return new OoxmlRow(this, index);
+    }
+
+    // R-14: materialize row/@r and c/@r where a spec-legal third-party file
+    // omitted them (ECMA-376: absent = previous + 1). Called once at Open,
+    // before any read path runs. Inference is Excel-compatible — throwing
+    // would reject files Excel opens fine. A reference that is PRESENT but
+    // unparseable is left untouched (that is corruption, not omission —
+    // I-83 fail-loud paths own it), and inference stops for the rest of
+    // that row since the running column is no longer trustworthy.
+    internal void NormalizeMissingReferences()
+    {
+        int prevRow = 0;
+        foreach (var r in Data.Elements<S.Row>())
+        {
+            int ri;
+            if (r.RowIndex?.Value is uint explicitRi && explicitRi != 0)
+            {
+                ri = (int)explicitRi;
+            }
+            else if (r.RowIndex is null && prevRow < CellAddress.MaxRow)
+            {
+                ri = prevRow + 1;
+                r.RowIndex = (uint)ri;
+            }
+            else
+            {
+                // @r="0" (malformed) or inference past the row limit:
+                // leave the row as it was (invisible, pre-R-14 behavior).
+                prevRow = Math.Max(prevRow, (int)(r.RowIndex?.Value ?? 0));
+                continue;
+            }
+            prevRow = ri;
+
+            int prevCol = 0;
+            foreach (var c in r.Elements<S.Cell>())
+            {
+                if (c.CellReference?.Value is string a1)
+                {
+                    if (!CellAddress.TryParse(a1, out _, out int col)) break; // corrupt @r — stop inferring here
+                    prevCol = col;
+                    continue;
+                }
+                if (prevCol >= CellAddress.MaxColumn) break;
+                prevCol++;
+                c.CellReference = CellAddress.Format(ri, prevCol);
+            }
+        }
+        InvalidateRowCache();
     }
 
     // R-13: refresh this sheet's <dimension> from the live cell extent.

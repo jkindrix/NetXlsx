@@ -65,6 +65,14 @@ internal sealed partial class OoxmlWorkbook
 
         // Strip an optional leading '=' for consistency with SetFormula / the NPOI engine.
         var body = formula[0] == '=' ? formula.Substring(1) : formula;
+        if (body.Length == 0)
+            throw new FormulaException("formula body is empty (expected '=...' or a non-empty expression)");
+        // R-16: the refers-to body gets the same structural gate as
+        // SetFormula (balanced parens, terminated quoted literals) — a
+        // structurally broken defined name corrupts the workbook for every
+        // formula that references it. Semantic validity stays Excel's call,
+        // same as cell formulas.
+        OoxmlCell.ValidateFormulaStructure(formula, body);
 
         var defined = new S.DefinedName { Name = name, Text = body };
         if (localSheetId is uint lsid) defined.LocalSheetId = lsid;

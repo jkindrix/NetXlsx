@@ -17,7 +17,18 @@ namespace NetXlsx;
 public static class Workbook
 {
     private const int MaxSheetNameLength = 31;
-    private static readonly char[] s_invalidSheetNameChars = { '\\', '/', '?', '*', '[', ']' };
+    // Excel's documented forbidden set is / \ ? * : [ ] — the colon was
+    // missing here until R-9 (it collides with 3D-reference syntax, so a
+    // colon-bearing name corrupts every formula that mentions the sheet).
+    // This one array feeds IsValidSheetName, SanitizeSheetName and
+    // ValidateSheetName so the three can never disagree.
+    private static readonly char[] s_invalidSheetNameChars = { '\\', '/', '?', '*', ':', '[', ']' };
+    // Excel also forbids a LEADING or TRAILING apostrophe (interior is
+    // fine — "O'Brien" is a legal sheet name) and reserves "History" for
+    // shared-workbook change tracking. LibreOffice silently renames an
+    // apostrophe-edged sheet to "Sheet1" on resave — accepting one here
+    // means data corruption one consumer downstream (R-9).
+    private const string ReservedSheetName = "History";
 
     /// <summary>
     /// Creates a new, empty workbook with no sheets.
@@ -125,14 +136,18 @@ public static class Workbook
 
     /// <summary>
     /// Returns <c>true</c> if <paramref name="proposed"/> meets Excel's
-    /// sheet-name rules: length 1..31, no <c>\ / ? * [ ]</c> characters.
-    /// Does not check workbook-level uniqueness.
+    /// sheet-name rules: length 1..31, no <c>\ / ? * : [ ]</c> characters,
+    /// no leading or trailing apostrophe, and not the reserved name
+    /// <c>History</c> (case-insensitive). Does not check workbook-level
+    /// uniqueness.
     /// </summary>
     public static bool IsValidSheetName(string proposed)
     {
         if (string.IsNullOrEmpty(proposed)) return false;
         if (proposed.Length > MaxSheetNameLength) return false;
         if (proposed.IndexOfAny(s_invalidSheetNameChars) >= 0) return false;
+        if (proposed[0] == '\'' || proposed[^1] == '\'') return false;
+        if (string.Equals(proposed, ReservedSheetName, StringComparison.OrdinalIgnoreCase)) return false;
         return true;
     }
 
@@ -160,9 +175,18 @@ public static class Workbook
             if (Array.IndexOf(s_invalidSheetNameChars, chars[i]) >= 0)
                 chars[i] = '_';
         }
+        if (chars[0] == '\'') chars[0] = '_';
         var sanitized = new string(chars);
         if (sanitized.Length > MaxSheetNameLength)
             sanitized = sanitized.Substring(0, MaxSheetNameLength);
+        // The trailing-apostrophe fix runs AFTER truncation — truncating a
+        // longer name can expose a new last character.
+        if (sanitized[^1] == '\'')
+            sanitized = string.Concat(sanitized.AsSpan(0, sanitized.Length - 1), "_");
+        // Reserved name: exact (case-insensitive) match only — appending an
+        // underscore stays within the length limit ("History" is 7 chars).
+        if (string.Equals(sanitized, ReservedSheetName, StringComparison.OrdinalIgnoreCase))
+            sanitized += "_";
         return sanitized;
     }
 
@@ -224,5 +248,9 @@ public static class Workbook
         int invalidIdx = name.IndexOfAny(s_invalidSheetNameChars);
         if (invalidIdx >= 0)
             throw new SheetNameException(name, $"sheet name contains invalid character '{name[invalidIdx]}' at position {invalidIdx}");
+        if (name[0] == '\'' || name[^1] == '\'')
+            throw new SheetNameException(name, "sheet name cannot begin or end with an apostrophe (Excel rule; LibreOffice silently renames such sheets)");
+        if (string.Equals(name, ReservedSheetName, StringComparison.OrdinalIgnoreCase))
+            throw new SheetNameException(name, "'History' is reserved by Excel for shared-workbook change tracking");
     }
 }

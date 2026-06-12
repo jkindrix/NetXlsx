@@ -9,7 +9,50 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Changed
+
+- **Sheet-name validation matches Excel's actual rule set (R-9) —
+  behavioral change.** Names that previously passed are now rejected by
+  `AddSheet`/`ValidateSheetName` (and reported invalid by
+  `IsValidSheetName`): a colon (`a:b` collides with 3D-reference syntax —
+  the worst pre-fix gap), a leading or trailing apostrophe (`'Leading` /
+  `Trailing'` — LibreOffice silently renames such sheets to `Sheet1` on
+  resave), and the reserved name `History` (case-insensitive; Excel
+  reserves it for shared-workbook change tracking). Interior apostrophes
+  (`O'Brien`) remain legal. `SanitizeSheetName` maps each new rule to an
+  underscore fix (running the trailing-apostrophe fix after truncation,
+  which can expose a new last character) and appends `_` to `History`.
+  One shared character array still feeds all three surfaces.
+
 ### Fixed
+
+- **Spec-legal files without `row/@r` / `c/@r` no longer lose data
+  (R-14).** Both attributes are optional per ECMA-376 (absent =
+  previous + 1); Excel opens such files fine, but this engine silently
+  skipped the rows — unreachable cells on legal input. References are now
+  inferred and materialized once at `Open`, so every reader path (row
+  cache, `LastRowNumber`, `EnumeratePopulated`, sorting, the R-13
+  dimension) sees one consistent grid, and the inferred references
+  persist on resave. A reference that is present but corrupt is left
+  alone — that is corruption, not omission, and the existing fail-loud
+  paths own it (pinned).
+- **`Dispose` participates in the strict concurrency lock (R-15).** In
+  `StrictConcurrencyDetection` mode, disposal now takes the same
+  per-workbook lock as every mutating path, closing the dispose-vs-mutate
+  window (a racing mutation can only observe the contract's
+  `ObjectDisposedException`, never a torn half-disposed document). The
+  default mode's exact race scope — including the check-then-act window
+  and unsynchronized dispose — is now documented verbatim on
+  `WorkbookOptions.StrictConcurrencyDetection`.
+- **`AddNamedRange` validates the refers-to formula structurally
+  (R-16).** The body now passes the same structural gate as `SetFormula`
+  (balanced parentheses, terminated string/quoted-sheet-name literals) —
+  a structurally broken defined name corrupts every formula that
+  references it. Semantic validity stays Excel's call, unchanged. The
+  remaining R-16 item — runtime number-format codes — is deliberately
+  pass-through (consumer-rendered, degrades to General; the compile-time
+  `[Column(Format)]` path keeps its NXLS0003 smoke check) and is now
+  documented as such on `ICell.NumberFormat`.
 
 - **`GetTime`/`GetDuration` round serials to the nearest millisecond (R-6).**
   A fraction-of-day serial authored at 15 significant digits (LibreOffice,
