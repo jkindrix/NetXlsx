@@ -11,6 +11,16 @@ changes (decision I19).
 
 ### CI / packaging
 
+- **Nightly deep fuzz (R-26).** The roadmap's "long-running on a nightly
+  cadence" promise is real now: `fuzz-nightly.yml` runs the same harness
+  with environment-scaled depth (20k random-sweep iterations + a
+  2k-seed bit-flip sweep across a five-entry corpus covering every major
+  emission path — plain, formula-heavy, styled/rich, macro-enabled,
+  streaming). PR smoke is unchanged (sub-second, small defaults). A
+  finding persists its exact failing input as a CI artifact, since the
+  corpus is content- but not byte-deterministic. The harness earned its
+  keep before landing: its first scaled run found R-37.
+
 - **Nightly LibreOffice interop gauntlet (R-25).** New
   `interop-nightly.yml`: `tools/NetXlsx.InteropProbe` (the promoted
   2026-06-10 review harness, now with hard-assert modes) generates the

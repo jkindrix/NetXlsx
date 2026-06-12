@@ -1,0 +1,54 @@
+# Nightly deep fuzz (ledger R-26) — the roadmap promised "long-running on a
+# nightly cadence"; the PR smoke (18 tests, sub-second) never delivered it.
+# Same harness, scaled through environment knobs the smoke leaves at small
+# defaults: a high-iteration random sweep plus a bit-flip sweep across the
+# deterministic in-code corpus (one workbook per major emission path).
+# PR-smoke behavior is unchanged by design.
+
+name: fuzz-nightly
+
+on:
+  schedule:
+    - cron: '43 3 * * *'   # nightly, 03:43 UTC
+  workflow_dispatch:
+    inputs:
+      iterations:
+        description: random-sweep iterations
+        default: '20000'
+      bitflip_seeds:
+        description: bit-flip seeds per corpus entry
+        default: '2000'
+
+permissions:
+  contents: read
+
+jobs:
+  deep-fuzz:
+    name: deep fuzz (scaled harness)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # MinVer
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Deep fuzz (both TFMs)
+        env:
+          NETXLSX_FUZZ_ITERATIONS: ${{ github.event.inputs.iterations || '20000' }}
+          NETXLSX_FUZZ_BITFLIP_SEEDS: ${{ github.event.inputs.bitflip_seeds || '2000' }}
+        run: dotnet test tests/NetXlsx.Fuzz/NetXlsx.Fuzz.csproj --configuration Release --logger "console;verbosity=minimal"
+
+      - name: Upload fuzz findings (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-findings
+          path: '**/fuzz-findings/'
+          if-no-files-found: ignore

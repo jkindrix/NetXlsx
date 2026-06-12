@@ -210,7 +210,9 @@ public class FuzzHarness
     [Fact]
     public async Task Bulk_Random_Sweep_Open_Never_Hangs_Or_Crashes()
     {
-        const int iterations = 100;
+        // PR smoke runs the default; the nightly deep-fuzz workflow (R-26)
+        // scales this up via NETXLSX_FUZZ_ITERATIONS.
+        int iterations = EnvInt("NETXLSX_FUZZ_ITERATIONS", 100);
         var rng = new Random(42);
         for (int i = 0; i < iterations; i++)
         {
@@ -237,6 +239,144 @@ public class FuzzHarness
             }
         }
     }
+
+    // ---- Deep bit-flip sweep across the corpus (R-26) ------------------
+    //
+    // The corpus is COMMITTED AS CODE: deterministic builders with fixed
+    // content (below), not binary fixtures — same reproducibility, none of
+    // the fixture-provenance overhead, and the corpus automatically tracks
+    // the writer (a new emission path joins the corpus by construction
+    // when a builder grows). The nightly workflow scales the seed count
+    // via NETXLSX_FUZZ_BITFLIP_SEEDS; the PR-smoke default stays small.
+
+    [Fact]
+    public async Task Deep_Bitflip_Sweep_Across_Corpus()
+    {
+        int seeds = EnvInt("NETXLSX_FUZZ_BITFLIP_SEEDS", 5);
+        var corpus = BuildCorpus();
+
+        for (int seed = 0; seed < seeds; seed++)
+        {
+            foreach (var (name, baseline) in corpus)
+            {
+                var rng = new Random(seed * 31 + name.Length);
+                var mutated = (byte[])baseline.Clone();
+                int flips = 1 + rng.Next(8);
+                for (int i = 0; i < flips; i++)
+                {
+                    int pos = rng.Next(mutated.Length);
+                    mutated[pos] = (byte)~mutated[pos];
+                }
+
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(2));
+                try
+                {
+                    await Task.Run(() =>
+                    {
+                        try { using var wb = Workbook.Open(new MemoryStream(mutated)); }
+                        catch (Exception ex) when (IsAcceptableOpenException(ex)) { /* contract */ }
+                        catch (Exception ex)
+                        {
+                            // Corpus bytes are content-deterministic but not
+                            // byte-deterministic across runs (zip timestamps),
+                            // so a seed alone cannot reproduce a finding —
+                            // persist the exact failing input for triage (the
+                            // nightly workflow uploads it as an artifact).
+                            Directory.CreateDirectory("fuzz-findings");
+                            var dump = Path.Combine("fuzz-findings", $"{name}-seed{seed}.xlsx.bin");
+                            File.WriteAllBytes(dump, mutated);
+                            throw new Xunit.Sdk.XunitException(
+                                $"corpus '{name}' seed {seed} ({flips} flips) produced " +
+                                $"{ex.GetType().FullName} outside the documented contract: {ex.Message} " +
+                                $"[failing input saved to {Path.GetFullPath(dump)}]");
+                        }
+                    }, cts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw new Xunit.Sdk.XunitException(
+                        $"Open() exceeded 2s on corpus '{name}' seed {seed} — potential resource-exhaustion finding.");
+                }
+            }
+        }
+    }
+
+    // Deterministic corpus: one workbook per major emission path, fixed
+    // content. Built once per test run.
+    private static (string Name, byte[] Bytes)[] BuildCorpus()
+    {
+        static byte[] Build(Action<IWorkbook> fill, Func<IWorkbook>? factory = null)
+        {
+            using var wb = factory is null ? Workbook.Create() : factory();
+            fill(wb);
+            using var ms = new MemoryStream();
+            wb.Save(ms, leaveOpen: true);
+            return ms.ToArray();
+        }
+
+        var plain = Build(wb =>
+        {
+            var s = wb.AddSheet("S");
+            s["A1"].SetString("hello");
+            s["B2"].SetNumber(42.5);
+            s["C3"].SetBool(true);
+        });
+
+        var formulaHeavy = Build(wb =>
+        {
+            var s = wb.AddSheet("F");
+            for (int r = 1; r <= 20; r++)
+            {
+                s[r, 1].SetNumber(r);
+                s[r, 2].SetFormula($"=A{r}*2+SUM($A$1:$A${r})");
+            }
+            wb.AddNamedRange("All", "F!$A$1:$A$20");
+        });
+
+        var styledRich = Build(wb =>
+        {
+            var s = wb.AddSheet("R");
+            s["A1"].SetRichText(new RichText(
+                new RichTextRun("hot") { Style = new RichTextStyle { Bold = true } },
+                new RichTextRun("cold") { Style = new RichTextStyle { Italic = true } }));
+            s["B1"].SetString("merged"); s.MergeCells("B1:C2");
+            s["D1"].SetDate(new DateTime(2026, 6, 12, 8, 0, 0));
+            s["E1"].Comment("note", "fuzz");
+            s["F1"].Hyperlink("https://example.com");
+        });
+
+        var macro = Build(wb => wb.AddSheet("M")["A1"].SetString("xlsm"),
+            () => Workbook.CreateMacroEnabled());
+
+        byte[] streaming;
+        using (var ms = new MemoryStream())
+        {
+            using (var swb = Workbook.CreateStreaming())
+            {
+                var sh = swb.AddSheet("Big");
+                for (int i = 1; i <= 50; i++)
+                {
+                    var row = sh.AppendRow();
+                    row.Set(1, i);
+                    row.Set(2, $"row-{i}");
+                }
+                swb.Save(ms, leaveOpen: true);
+            }
+            streaming = ms.ToArray();
+        }
+
+        return new[]
+        {
+            ("plain", plain),
+            ("formula-heavy", formulaHeavy),
+            ("styled-rich", styledRich),
+            ("macro-enabled", macro),
+            ("streaming", streaming),
+        };
+    }
+
+    private static int EnvInt(string name, int @default)
+        => int.TryParse(Environment.GetEnvironmentVariable(name), out int v) && v > 0 ? v : @default;
 
     // ---- Helpers ------------------------------------------------------
 
