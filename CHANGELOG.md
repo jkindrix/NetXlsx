@@ -11,6 +11,41 @@ changes (decision I19).
 
 ### Fixed
 
+- **`GetTime`/`GetDuration` round serials to the nearest millisecond (R-6).**
+  A fraction-of-day serial authored at 15 significant digits (LibreOffice,
+  Excel) truncated on read — LO's 9:30:15 came back as 9:30:14.9999996 —
+  while `GetDate` and the display path rounded, so `GetString()` and
+  `GetTime()` disagreed on the same cell. Both getters now round to the
+  millisecond, mirroring `FromSerial`. Boundary pinned: a serial inside
+  [0, 1) that rounds to exactly 24:00:00 (unrepresentable in `TimeOnly`)
+  returns null, same as any out-of-range serial; the equivalent duration
+  reads as 24 hours.
+- **Formula-cached results read across the entire typed-getter surface
+  (R-7, design-I7 conformance).** `KindOf` short-circuited every formula
+  cell before checking its cached type, and no getter had a Formula/Error
+  arm — `GetNumber` on `<f>1+1</f><v>2</v>` was null, `GetString` on a
+  cached formula-string was `""`, error cells stringified to `""`, and the
+  generated `ReadRows` threw on any Excel-authored file with a formula
+  column. Typed getters now classify a formula cell by its CACHED RESULT:
+  `GetString` returns the cached value (and, per I7 verbatim, the error
+  literal such as `"#DIV/0!"` for error cells); `GetNumber`/`GetBool`/
+  `GetDate`/`GetTime`/`GetDuration` honor the cached `<v>` with
+  `t`-appropriate typing. The public `Kind` still reports `Formula`, fresh
+  formulas without a cached value still read as nothing, and `GetError`
+  (#49) is unchanged. Includes a compile-and-run `ReadRows`-over-a-formula-
+  column proof.
+
+### Added
+
+- **Both writers emit `<dimension>` (R-13).** The DOM engine refreshes each
+  sheet's declared used range from the live extent on every `Save` (also
+  correcting a stale dimension carried by an opened file); the streaming
+  engine tracks the extent as rows flush and splices the element in at
+  package assembly. openpyxl's read-only/streaming mode — which refused the
+  pre-fix streaming output with "Worksheet is unsized" — now reads both
+  engines' files (verified live). Empty sheets declare `A1`, Excel's own
+  convention.
+
 - **Source-gen `ReadRows` now compiles for positional records (R-4).** The
   generated `ReadRows` constructed every type through an object initializer,
   which is CS7036 inside the `.g.cs` for positional records (no parameterless

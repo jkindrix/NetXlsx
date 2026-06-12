@@ -26,6 +26,11 @@ internal sealed class OoxmlStreamingSheet : IStreamingSheet, IDisposable
     private int _lastWritten0 = -1;     // 0-based; -1 == no rows yet
     private bool _finalized;
 
+    // Used-range extent, tracked as rows flush (R-13). 0 = nothing yet.
+    // Rows are append-only ascending, so max row is just the last flushed
+    // row that carried a cell; columns accumulate across all flushed rows.
+    private int _minRow1, _maxRow1, _minCol1, _maxCol1;
+
     internal OoxmlStreamingSheet(OoxmlStreamingWorkbook workbook, string name)
     {
         _workbook = workbook;
@@ -119,8 +124,35 @@ internal sealed class OoxmlStreamingSheet : IStreamingSheet, IDisposable
     private void FlushOldest()
     {
         var buffer = _window.Dequeue();
+        TrackExtent(buffer);
         _writer!.WriteElement(Materialize(buffer));
         buffer.MarkFlushed(); // releases the cell data; later writes fail loud
+    }
+
+    // A row counts toward the extent only when it carries >=1 cell — the
+    // same rule the DOM engine's dimension (and I-85 LastRowNumber) uses.
+    private void TrackExtent(StreamingRowBuffer buffer)
+    {
+        bool anyCell = false;
+        foreach (var (col, _) in buffer.Cells)
+        {
+            anyCell = true;
+            if (_minCol1 == 0 || col < _minCol1) _minCol1 = col;
+            if (col > _maxCol1) _maxCol1 = col;
+        }
+        if (!anyCell) return;
+        if (_minRow1 == 0) _minRow1 = buffer.Row1;
+        _maxRow1 = buffer.Row1;
+    }
+
+    // The A1-style used range for <dimension> — "A1" for an empty sheet
+    // (Excel's own convention for a sheet with no cells).
+    private string DimensionRef()
+    {
+        if (_minRow1 == 0) return "A1";
+        return _minRow1 == _maxRow1 && _minCol1 == _maxCol1
+            ? CellAddress.Format(_minRow1, _minCol1)
+            : CellAddress.FormatRange(_minRow1, _minCol1, _maxRow1, _maxCol1);
     }
 
     private static S.Row Materialize(StreamingRowBuffer buffer)
@@ -151,13 +183,55 @@ internal sealed class OoxmlStreamingSheet : IStreamingSheet, IDisposable
         _finalized = true;
     }
 
-    /// <summary>Opens the finalized worksheet XML for FeedData assembly.</summary>
-    internal Stream OpenFinalizedXml()
+    /// <summary>
+    /// Copies the finalized worksheet XML into <paramref name="target"/>,
+    /// splicing <c>&lt;x:dimension ref="…"/&gt;</c> in front of the structural
+    /// <c>&lt;x:sheetData&gt;</c> marker (R-13). The dimension must precede
+    /// sheetData per the CT_Worksheet sequence but is only known once the
+    /// last row has flushed — so it is injected at assembly time rather than
+    /// written by the forward-only part writer. The prolog is this class's
+    /// own deterministic ctor output (~115 bytes), so a bounded head-scan
+    /// for the marker is an invariant, not a heuristic — its absence is a
+    /// bug worth failing loud on.
+    /// </summary>
+    internal void WriteFinalizedXml(Stream target)
     {
         Stream fs = File.OpenRead(_tempPath);
-        return _workbook.Options.CompressTempFiles
+        using Stream src = _workbook.Options.CompressTempFiles
             ? new GZipStream(fs, CompressionMode.Decompress)
             : fs;
+
+        byte[] marker = System.Text.Encoding.UTF8.GetBytes("<x:sheetData");
+        var head = new byte[512];
+        int read = 0;
+        while (read < head.Length)
+        {
+            int n = src.Read(head, read, head.Length - read);
+            if (n == 0) break;
+            read += n;
+        }
+        int at = IndexOf(head, read, marker);
+        if (at < 0)
+            throw new InvalidOperationException(
+                "streaming worksheet prolog did not contain <x:sheetData> — temp-file corruption or a writer change this splice was not updated for");
+
+        byte[] dimension = System.Text.Encoding.UTF8.GetBytes(
+            $"<x:dimension ref=\"{DimensionRef()}\"/>");
+        target.Write(head, 0, at);
+        target.Write(dimension, 0, dimension.Length);
+        target.Write(head, at, read - at);
+        src.CopyTo(target);
+    }
+
+    private static int IndexOf(byte[] haystack, int length, byte[] needle)
+    {
+        for (int i = 0; i + needle.Length <= length; i++)
+        {
+            int j = 0;
+            while (j < needle.Length && haystack[i + j] == needle[j]) j++;
+            if (j == needle.Length) return i;
+        }
+        return -1;
     }
 
     /// <summary>The workbook owns sheet lifetime; its Dispose fans out here.</summary>

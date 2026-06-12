@@ -68,6 +68,47 @@ public class DateTimeApiTests
     }
 
     [Fact]
+    public void GetTime_Rounds_15_Digit_Serial_To_Nearest_Millisecond()
+    {
+        // R-6: LibreOffice/Excel author serials at 15 significant digits;
+        // 0.396006944444444 is LO's 9:30:15. Truncation read it back as
+        // 9:30:14.9999996 — GetTime must round to the millisecond, agreeing
+        // with GetDate/FromSerial and the §7.10 display path on the same cell.
+        using var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        sheet["A1"].SetNumber(0.396006944444444);
+
+        sheet["A1"].GetTime().Should().Be(new TimeOnly(9, 30, 15));
+    }
+
+    [Fact]
+    public void GetDuration_Rounds_15_Digit_Serial_To_Nearest_Millisecond()
+    {
+        // 27.5 hours + 15 s at LO's 15-digit precision: 1.14600694444444 days
+        // is 27:30:15 minus ~0.3 µs — must read back as exactly 27:30:15.
+        using var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        sheet["A1"].SetNumber(1.14600694444444);
+
+        sheet["A1"].GetDuration().Should().Be(new TimeSpan(27, 30, 15));
+    }
+
+    [Fact]
+    public void GetTime_Returns_Null_When_Serial_Rounds_Up_To_Midnight()
+    {
+        // R-6 boundary pin: a serial inside [0, 1) that ROUNDS to exactly
+        // 24:00:00 is unrepresentable in TimeOnly — the contract's "null when
+        // outside [0, 1)" applies to the post-rounding value, not 00:00:00.
+        using var wb = Workbook.Create();
+        var sheet = wb.AddSheet("S");
+        sheet["A1"].SetNumber(0.99999999999); // < 1.0, but < half a ms from 24h
+
+        sheet["A1"].GetTime().Should().BeNull();
+        // The same serial as a duration is fine — TimeSpan can hold 24h.
+        sheet["A1"].GetDuration().Should().Be(TimeSpan.FromDays(1));
+    }
+
+    [Fact]
     public void GetTime_Returns_Null_For_Values_Outside_TimeOnly_Range()
     {
         using var wb = Workbook.Create();

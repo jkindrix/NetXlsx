@@ -439,6 +439,41 @@ internal sealed partial class OoxmlSheet : ISheet
         return new OoxmlRow(this, index);
     }
 
+    // R-13: refresh this sheet's <dimension> from the live cell extent.
+    // Called by the workbook's Save so consumers that trust the declared
+    // extent (openpyxl's read-only/streaming mode refuses an "unsized"
+    // worksheet) can size the sheet without scanning it; a stale dimension
+    // on an opened file is corrected by the same pass. Empty sheet → "A1"
+    // (Excel's own convention). Extent counts rows holding >=1 <c> (the
+    // I-85 LastRowNumber rule) and columns from cell @r; @r-less rows and
+    // cells stay invisible here exactly as they are to the reader (R-14).
+    internal void UpdateDimension()
+    {
+        int minRow = 0, maxRow = 0, minCol = 0, maxCol = 0;
+        foreach (var r in Data.Elements<S.Row>())
+        {
+            if (r.RowIndex?.Value is not uint ri || ri == 0) continue;
+            bool anyCell = false;
+            foreach (var c in r.Elements<S.Cell>())
+            {
+                if (c.CellReference?.Value is not string a1) continue;
+                if (!CellAddress.TryParse(a1, out _, out int col)) continue;
+                anyCell = true;
+                if (minCol == 0 || col < minCol) minCol = col;
+                if (col > maxCol) maxCol = col;
+            }
+            if (!anyCell) continue;
+            if (minRow == 0 || (int)ri < minRow) minRow = (int)ri;
+            if ((int)ri > maxRow) maxRow = (int)ri;
+        }
+        string reference = minRow == 0
+            ? "A1"
+            : minRow == maxRow && minCol == maxCol
+                ? CellAddress.Format(minRow, minCol)
+                : CellAddress.FormatRange(minRow, minCol, maxRow, maxCol);
+        Worksheet.SheetDimension = new S.SheetDimension { Reference = reference };
+    }
+
     public int LastRowNumber
     {
         get

@@ -511,6 +511,10 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         ArgumentNullException.ThrowIfNull(stream);
         if (!stream.CanWrite) throw new ArgumentException("Stream must be writable.", nameof(stream));
 
+        // Refresh every sheet's <dimension> from the live extent (R-13) —
+        // sized output is part of the save contract on both engines.
+        foreach (var sheet in _sheetsByIndex) sheet.UpdateDimension();
+
         // Flush the strongly-typed DOM into the in-memory package parts, then
         // clone into a throwaway buffer whose disposal finalizes the zip central
         // directory. The live document stays open and re-saveable.

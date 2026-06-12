@@ -184,8 +184,9 @@ internal sealed class OoxmlStreamingWorkbook : IStreamingWorkbook
         foreach (var sheet in _sheets)
         {
             var wsPart = wbPart.AddNewPart<WorksheetPart>();
-            using (var src = sheet.OpenFinalizedXml())
-                wsPart.FeedData(src);
+            // Dimension-splicing copy (R-13) — see WriteFinalizedXml.
+            using (var dst = wsPart.GetStream(FileMode.Create, FileAccess.Write))
+                sheet.WriteFinalizedXml(dst);
             sheets.AppendChild(new S.Sheet
             {
                 Name = sheet.SheetName,

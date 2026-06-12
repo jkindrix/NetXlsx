@@ -82,6 +82,25 @@ internal sealed class OoxmlCell : ICell
             : CellKind.Number;
     }
 
+    // The kind of the VALUE a typed getter reads (design I7 / R-7). For a
+    // formula cell this is the kind of its CACHED RESULT — `t` plus `<v>`
+    // presence — so `<f>1+1</f><v>2</v>` reads as a number, a `t="str"`
+    // cached string as a string, `t="e"` as an error, and a fresh formula
+    // with no cached value (this engine's own SetFormula output, or NPOI's
+    // empty `<v/>`) as Empty. Non-formula cells defer to KindOf. The public
+    // Kind property deliberately keeps reporting Formula — this classifier
+    // is about what the getters can extract, not what the cell IS.
+    private static CellKind EffectiveKindOf(S.Cell? c)
+    {
+        if (c?.CellFormula is null) return KindOf(c);
+        var t = c.DataType?.Value ?? S.CellValues.Number;
+        if (t == S.CellValues.InlineString || t == S.CellValues.SharedString || t == S.CellValues.String)
+            return CellKind.String;
+        if (t == S.CellValues.Boolean) return CellKind.Bool;
+        if (t == S.CellValues.Error) return CellKind.Error;
+        return string.IsNullOrEmpty(c.CellValue?.InnerText) ? CellKind.Empty : CellKind.Number;
+    }
+
     // ---- Setters (implemented) ---------------------------------------------
 
     public void SetString(string value)
@@ -163,13 +182,18 @@ internal sealed class OoxmlCell : ICell
     {
         Wb.ThrowIfDisposed();
         var c = Element;
-        switch (KindOf(c))
+        // EffectiveKindOf (not KindOf): a formula cell's cached result reads
+        // through the same arms as a plain cell of that kind (design I7).
+        switch (EffectiveKindOf(c))
         {
             case CellKind.Empty: return string.Empty;
             case CellKind.String: return ReadString(c!);
             case CellKind.Bool: return ReadBool(c!) ? "TRUE" : "FALSE";
             case CellKind.Number:
                 return FormatNumberForDisplay(c!);
+            case CellKind.Error:
+                // I7 verbatim: error → the error code literal ("#DIV/0!").
+                return c!.CellValue?.InnerText ?? string.Empty;
             default: return string.Empty;
         }
     }
@@ -193,7 +217,7 @@ internal sealed class OoxmlCell : ICell
     {
         Wb.ThrowIfDisposed();
         var c = Element;
-        return KindOf(c) switch
+        return EffectiveKindOf(c) switch
         {
             CellKind.Number => ReadNumber(c!),
             CellKind.Bool => ReadBool(c!) ? 1.0 : 0.0,
@@ -205,14 +229,14 @@ internal sealed class OoxmlCell : ICell
     {
         Wb.ThrowIfDisposed();
         var c = Element;
-        return KindOf(c) == CellKind.Bool ? ReadBool(c!) : null;
+        return EffectiveKindOf(c) == CellKind.Bool ? ReadBool(c!) : null;
     }
 
     public DateTime? GetDate()
     {
         Wb.ThrowIfDisposed();
         var c = Element;
-        if (KindOf(c) != CellKind.Number || !IsDateFormatted(c)) return null;
+        if (EffectiveKindOf(c) != CellKind.Number || !IsDateFormatted(c)) return null;
         // Result kind is always Unspecified (decision I17 — no timezone math).
         return DateTime.SpecifyKind(Wb.FromSerial(ReadNumber(c!)), DateTimeKind.Unspecified);
     }
@@ -224,13 +248,36 @@ internal sealed class OoxmlCell : ICell
         // §7.9: any numeric cell; null when outside TimeOnly's [0, 1) range.
         var num = GetNumber();
         if (num is null || num.Value < 0.0 || num.Value >= 1.0) return null;
-        return TimeOnly.FromTimeSpan(TimeSpan.FromDays(num.Value));
+        var span = RoundToMillisecond(TimeSpan.FromDays(num.Value));
+        // A serial just under 1.0 can ROUND to exactly 24:00:00, which TimeOnly
+        // cannot represent — that value is outside [0, 1) after rounding, so it
+        // gets the same null the contract gives any out-of-range serial (R-6).
+        if (span >= TimeSpan.FromDays(1)) return null;
+        return TimeOnly.FromTimeSpan(span);
     }
 
     public TimeSpan? GetDuration()
     {
         var num = GetNumber();
-        return num is null ? null : TimeSpan.FromDays(num.Value);
+        return num is null ? null : RoundToMillisecond(TimeSpan.FromDays(num.Value));
+    }
+
+    // A fraction-of-day serial authored at 15 significant digits (LibreOffice,
+    // Excel) lands sub-millisecond OFF the exact instant; truncation read
+    // 9:30:15 back as 9:30:14.9999996 (R-6). Round to the nearest millisecond,
+    // mirroring OoxmlWorkbook.FromSerial's date-path rounding so GetTime,
+    // GetDuration, GetDate, and the display path agree on the same cell.
+    // Half-away-from-zero so a negative duration mirrors its positive twin.
+    private static TimeSpan RoundToMillisecond(TimeSpan value)
+    {
+        long per = TimeSpan.TicksPerMillisecond;
+        long half = per / 2;
+        long t = value.Ticks;
+        // A crafted serial within half a millisecond of TimeSpan's range
+        // would overflow the rounding addition — return it unrounded.
+        if (t > long.MaxValue - half || t < long.MinValue + half) return value;
+        long rounded = t >= 0 ? (t + half) / per * per : -((-t + half) / per * per);
+        return new TimeSpan(rounded);
     }
 
     // Mirrors the NPOI engine: "=" + the formula body, null for non-formula
