@@ -2,7 +2,7 @@
 
 Idiomatic C# library for creating and reading `.xlsx` spreadsheets, built on Microsoft's [Open XML SDK](https://github.com/dotnet/Open-XML-SDK).
 
-**Status:** **v2.0.0-alpha.1** — the release candidate for the v2.0.0 engine swap (decision I-82, cut over 2026-06-04): the engine is Microsoft's Open XML SDK, NPOI is removed from the library, and the escape hatches are SDK-typed (a breaking change for `.Underlying` consumers; see the [CHANGELOG](CHANGELOG.md) migration table). The full v1.3 behavioral suite passes against the new engine on both target frameworks. **v1.3.0** (named-style round-trip, partial `FilterCriteria.In` — I-67/I-68), **v1.2.0** and **v1.1.0** released 2026-05-22; **v1.0.0** released 2026-05-20.
+**Status:** **v2.0.1** — released 2026-06-04. The v2.0.0 engine swap (decision I-82) shipped: the engine is Microsoft's Open XML SDK, NPOI is removed from the library, and the escape hatches are SDK-typed (a breaking change for `.Underlying` consumers; see the [CHANGELOG](CHANGELOG.md) migration table). v2.0.1 follows immediately with the bulk-write performance fix (I-87) and is the first publishable v2 version. **v1.3.0**, **v1.2.0** and **v1.1.0** released 2026-05-22; **v1.0.0** released 2026-05-20.
 
 The public surface is exercised on every CI build, across both target frameworks, by five suites — unit, golden-file, source-generator, fuzz, and public-API snapshot. (An exact count isn't quoted here: it's not gated, so a hand-maintained number only drifts. Run `bash build/build.sh test` for the current tally.) The [CHANGELOG](CHANGELOG.md) has slice-level granularity all the way back to the initial scaffold. The [roadmap](docs/roadmap.md) lists the v1.2 and beyond backlog.
 
@@ -22,7 +22,7 @@ Raw OOXML is verbose and easy to get subtly wrong; the Open XML SDK is schema-co
 
 | | NetXlsx | ClosedXML | EPPlus | MiniExcel |
 |---|---|---|---|---|
-| Engine | Open XML SDK (Microsoft) | own OOXML impl | own OOXML impl | own OOXML impl |
+| Engine | Open XML SDK (Microsoft) | Open XML SDK (Microsoft) | own OOXML impl | own OOXML impl |
 | License | MIT | MIT | Commercial (since 5.0) | Apache-2.0 |
 | `.xls` (legacy) | no (explicit `Never`) | no | no | yes |
 | Streaming write | yes (forward-only, bounded memory) | partial | yes | yes |
@@ -31,7 +31,7 @@ Raw OOXML is verbose and easy to get subtly wrong; the Open XML SDK is schema-co
 | Formula *evaluation* | no (explicit `Never`) | yes (limited) | yes | no |
 | Escape hatch to raw OOXML | yes (`.Underlying`) | partial | partial | no |
 
-**Pick NetXlsx if** you want an MIT-licensed, AOT-friendly library on Microsoft's own OOXML implementation, you write large styled reports (the dedup pool is real), or you want compile-time-checked typed mapping without runtime reflection. **Pick ClosedXML** if you need formula evaluation. **Pick MiniExcel** if you need `.xls` support.
+**Pick NetXlsx if** you want a deliberately thin, AOT-friendly layer (ClosedXML shares the SDK engine but builds a much larger object model on it — the differentiation is thinness, streaming write, source-gen typed mapping, and the raw-SDK escape hatch, not the engine), you write large styled reports (the dedup pool is real), or you want compile-time-checked typed mapping without runtime reflection. **Pick ClosedXML** if you need formula evaluation. **Pick MiniExcel** if you need `.xls` support.
 
 ## Requirements & known limitations
 
@@ -197,11 +197,11 @@ ChartPart           chart = myChart.Underlying;   // chart/table content lives i
 
 This is by design (#1, #32 / I-82) — the facade is *additive over the OOXML document*, not a sandbox around it. (The streaming surface has no hatch: rows stream forward-only and the package exists only at `Save`.)
 
-See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes (13 v1.0 + 7 v1.1) covering every public-surface area; each recipe doubles as a golden-file test.
+See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes (13 v1.0 + 7 v1.1) covering the v1.0/v1.1 surface; each recipe doubles as a golden-file test. Recipes for the post-v1.1 surface (conditional formatting, charts, sorting, panes, grouping, shapes) are tracked on the roadmap.
 
 ## Documentation
 
-- [Design](docs/design.md) — 52 foundational + 32 implementation decisions, full interface sketch, performance targets, behavioral specifications, quality gates.
+- [Design](docs/design.md) — the numbered decision record (52 foundational decisions plus the growing I-NN implementation series; an exact tally isn't quoted here for the same no-drift reason as test counts), full interface sketch, performance targets, behavioral specifications, quality gates.
 - [Roadmap](docs/roadmap.md) — binary feature matrix v1.0 / v1.1 / v2.0 / v3.0 / Never, per-release DoD, process rules.
 - [Implementation notes](docs/implementation-notes.md) — patterns and lessons from the implementation phase (not yet a methodology — see file header).
 - [Scheduled spikes](docs/scheduled-spikes.md) — quarterly re-checks (historical: the NPOI AOT/trim re-check is retired with the v2.0.0 engine swap).
@@ -213,12 +213,13 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes
 
 ```
 src/         NetXlsx, NetXlsx.SourceGen
-tests/       NetXlsx.Tests, NetXlsx.GoldenFiles, NetXlsx.PublicApi
+tests/       NetXlsx.Tests, NetXlsx.GoldenFiles, NetXlsx.Fuzz, NetXlsx.PublicApi
 benchmarks/  NetXlsx.Benchmarks (BenchmarkDotNet)
 samples/     NetXlsx.Cookbook (20 worked recipes — 13 v1.0 + 7 v1.1)
 spikes/      NetXlsx.AotSpike + Spike{1,2,3} harnesses + results/
 build/       build.sh / build.ps1 (local + CI entry points)
-docs/        design, roadmap, implementation-notes, scheduled-spikes, npoi-workarounds
+docs/        design, roadmap, implementation-notes, scheduled-spikes,
+             remediation ledger, historical NPOI docs
 ```
 
 ## Build
@@ -232,7 +233,7 @@ build/build.sh -- spike-1   # run a specific pre-impl spike
 
 PowerShell equivalent: `build/build.ps1`. Both scripts auto-detect a user-level .NET install under `~/.dotnet` and prefer it over a system install (useful if your system SDK is older than 10.x or if you maintain multiple SDK versions side-by-side).
 
-**SDK requirement:** building from source needs the **.NET 10 SDK** (`global.json` pins it with `rollForward: latestFeature`). The .NET 8 + 9 runtimes are needed for the test matrix. See [CONTRIBUTING.md](CONTRIBUTING.md) for install pointers.
+**SDK requirement:** building from source needs the **.NET 10 SDK** (`global.json` pins it with `rollForward: latestFeature`). The .NET 8 runtime is needed for the test matrix. See [CONTRIBUTING.md](CONTRIBUTING.md) for install pointers.
 
 ## Contributing
 

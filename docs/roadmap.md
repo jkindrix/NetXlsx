@@ -1,88 +1,137 @@
 # NetXlsx — Roadmap
 
-**Status:** Draft for review
-**Date:** 2026-05-14
+**Status:** Active — re-baselined 2026-06-11 (post-I-82 engine swap; ledger R-18)
+**Date:** 2026-05-14; matrix re-baselined 2026-06-11
 
-Each capability has a binary answer per release: **Yes** = supported in that version, blank = not in that version, **No** = explicitly out of scope (never).
+Each capability has a binary answer per release: **Yes** = shipped in that version, blank = not in that version, **No** = explicitly out of scope (never). The **v2.x** column holds work that is design-approved or scheduled but NOT yet shipped — v2.0 itself has shipped, so a "Yes" under a released column is a claim about reality, not intent.
+
+> **Re-baseline note (2026-06-11, R-18).** The post-swap audit found four
+> rows falsely marked shipped (sheet rename/reorder/delete; `ILogger`;
+> benchmark-vs-peers; `net9.0` in the TFM row) and four v2.0-"Yes" items
+> that v2.0 shipped without (themes, threaded comments, streaming read,
+> Roslyn analyzers). Every correction below carries its verdict; the
+> per-version sections record the rationale. Dead "Blocked on NPOI 3.x"
+> rationales are rewritten to engine truth throughout — the NPOI engine
+> no longer exists.
 
 ## Feature matrix
 
-| Capability                              | v1.0 | v1.1 | v2.0 | v3.0 | Never |
-|-----------------------------------------|------|------|------|------|-------|
-| **Core I/O**                            |      |      |      |      |       |
-| Create `.xlsx` workbook                 | Yes  |      |      |      |       |
-| Open `.xlsx` workbook                   | Yes  |      |      |      |       |
-| Save sync + async-over-sync             | Yes  |      |      |      |       |
-| File path API + Stream API              | Yes  |      |      |      |       |
-| Streaming write (`IStreamingWorkbook`)  | Yes  |      |      |      |       |
-| Streaming read                          |      |      | Yes  |      |       |
-| `.xls` (legacy binary)                  |      |      |      |      | No    |
-| Encrypted / password-protected files    |      |      |      | Yes  |       |
-| **Cells**                               |      |      |      |      |       |
-| String/number/date/bool/formula values  | Yes  |      |      |      |       |
-| Rich text in cells                      |      | Yes  |      |      |       |
-| Hyperlinks                              | Yes  |      |      |      |       |
-| Comments (basic)                        | Yes  |      |      |      |       |
-| Threaded / modern comments              |      |      | Yes  |      |       |
-| **Styling**                             |      |      |      |      |       |
-| Font / color / fill / border / align    | Yes  |      |      |      |       |
-| Auto style dedup                        | Yes  |      |      |      |       |
-| Number format strings                   | Yes  |      |      |      |       |
-| Built-in number format constants        | Yes  |      |      |      |       |
-| Themes / theme colors                   |      |      | Yes  |      |       |
-| Named/reusable styles                   |      | Yes  |      |      |       |
-| **Structure**                           |      |      |      |      |       |
-| Multiple sheets, rename/reorder/delete  | Yes  |      |      |      |       |
-| Merge cells                             | Yes  |      |      |      |       |
-| Freeze panes                            | Yes  |      |      |      |       |
-| Split panes                             |      |      | [x]  |      |       |
-| Hidden rows / columns / sheets          | Yes  |      |      |      |       |
-| Auto-size columns                       | Yes  |      |      |      |       |
-| Grouping / outlining                    |      |      | [x]  |      |       |
-| Named ranges                            | Yes  |      |      |      |       |
-| Tables (`ListObject`)                   |      | Yes  |      |      |       |
-| **Data features**                       |      |      |      |      |       |
-| Formulas (write only — Excel evaluates) | Yes  |      |      |      |       |
-| Formula evaluation                      |      |      |      |      | No    |
-| Data validation (drop-downs, ranges)    |      | Yes  |      |      |       |
-| Conditional formatting                  |      |      | [x]  |      |       |
-| AutoFilter                              |      | Yes  |      |      |       |
-| Sorting                                 |      |      | [x]  |      |       |
-| **Typed mapping**                       |      |      |      |      |       |
-| Source-gen `[Worksheet]` writer (ext.)  | Yes  |      |      |      |       |
-| Source-gen `[Worksheet]` reader (ext.)  | Yes  |      |      |      |       |
-| Custom type converters                  |      | Yes  |      |      |       |
-| LINQ provider over sheets               |      |      |      | Yes  |       |
-| **Advanced features**                   |      |      |      |      |       |
-| Images (PNG/JPEG embed)                 |      | Yes  |      |      |       |
-| Charts                                  |      |      | [x]  |      |       |
-| Pivot tables (write)                    |      |      |      | Yes  |       |
-| Pivot tables (read)                     |      |      |      |      | No    |
-| Macros / VBA                            |      |      |      |      | No    |
-| Drawings / shapes                       |      |      | [x]  |      |       |
-| Sparklines                              |      |      |      | Yes  |       |
-| **Output formats**                      |      |      |      |      |       |
-| `.xlsx`                                 | Yes  |      |      |      |       |
-| `.xlsm` (macro-enabled, passthrough)    |      |      | [x]  |      |       |
-| `.xlsb` (binary)                        |      |      |      |      | No    |
-| **Protection / security**               |      |      |      |      |       |
-| Sheet protection (basic)                |      | Yes  |      |      |       |
-| Workbook protection                     |      | Yes  |      |      |       |
-| File-level encryption                   |      |      |      | Yes  |       |
-| Bounded-resource parsing                | Yes  |      |      |      |       |
-| **Developer experience**                |      |      |      |      |       |
-| `.Underlying` escape hatch              | Yes  |      |      |      |       |
-| `ILogger` integration                   | Yes  |      |      |      |       |
-| Public API snapshot tests               | Yes  |      |      |      |       |
-| Benchmark suite vs peers                | Yes  |      |      |      |       |
-| Golden-file test corpus                 | Yes  |      |      |      |       |
-| Sample / cookbook project               | Yes  |      |      |      |       |
-| Roslyn analyzers (e.g., "date w/o fmt") |      |      | Yes  |      |       |
-| **Platform**                            |      |      |      |      |       |
-| `net8.0`, `net9.0`                      | Yes  |      |      |      |       |
-| `netstandard2.0` / .NET Framework       |      |      |      |      | No    |
-| Native AOT compatible                   |      |      | [x]† |      |       |
-| Trim compatible                         |      |      | [x]† |      |       |
+| Capability                              | v1.0 | v1.1 | v2.0 | v2.x | v3.0 | Never |
+|-----------------------------------------|------|------|------|------|------|-------|
+| **Core I/O**                            |      |      |      |      |      |       |
+| Create `.xlsx` workbook                 | Yes  |      |      |      |      |       |
+| Open `.xlsx` workbook                   | Yes  |      |      |      |      |       |
+| Save sync + async-over-sync             | Yes  |      |      |      |      |       |
+| File path API + Stream API              | Yes  |      |      |      |      |       |
+| Streaming write (`IStreamingWorkbook`)  | Yes  |      |      |      |      |       |
+| Streaming read                          |      |      |      | Planned |   |       |
+| `.xls` (legacy binary)                  |      |      |      |      |      | No    |
+| Encrypted / password-protected files    |      |      |      |      | Yes  |       |
+| **Cells**                               |      |      |      |      |      |       |
+| String/number/date/bool/formula values  | Yes  |      |      |      |      |       |
+| Rich text in cells                      |      | Yes  |      |      |      |       |
+| Hyperlinks                              | Yes  |      |      |      |      |       |
+| Comments (basic)                        | Yes  |      |      |      |      |       |
+| Threaded / modern comments              |      |      |      |      | Hold |       |
+| **Styling**                             |      |      |      |      |      |       |
+| Font / color / fill / border / align    | Yes  |      |      |      |      |       |
+| Auto style dedup                        | Yes  |      |      |      |      |       |
+| Number format strings                   | Yes  |      |      |      |      |       |
+| Built-in number format constants        | Yes  |      |      |      |      |       |
+| Themes / theme colors                   |      |      |      | Planned (I-89) | |  |
+| Named/reusable styles                   |      | Yes  |      |      |      |       |
+| **Structure**                           |      |      |      |      |      |       |
+| Multiple sheets (add, hide)             | Yes  |      |      |      |      |       |
+| Sheet rename / reorder / delete         |      |      |      | Planned (I-90) | |  |
+| Merge cells                             | Yes  |      |      |      |      |       |
+| Freeze panes                            | Yes  |      |      |      |      |       |
+| Split panes                             |      |      | Yes  |      |      |       |
+| Hidden rows / columns / sheets          | Yes  |      |      |      |      |       |
+| Auto-size columns                       | Yes  |      |      |      |      |       |
+| Grouping / outlining                    |      |      | Yes  |      |      |       |
+| Named ranges                            | Yes  |      |      |      |      |       |
+| Tables (`ListObject`)                   |      | Yes  |      |      |      |       |
+| **Data features**                       |      |      |      |      |      |       |
+| Formulas (write only — Excel evaluates) | Yes  |      |      |      |      |       |
+| Formula evaluation                      |      |      |      |      |      | No    |
+| Data validation (drop-downs, ranges)    |      | Yes  |      |      |      |       |
+| Conditional formatting                  |      |      | Yes  |      |      |       |
+| AutoFilter                              |      | Yes  |      |      |      |       |
+| `FilterCriteria.In(...)` 3+ values      |      |      |      | Planned |   |       |
+| `FilterCriteria` Top-N                  |      |      |      | Planned |   |       |
+| Sorting                                 |      |      | Yes  |      |      |       |
+| **Typed mapping**                       |      |      |      |      |      |       |
+| Source-gen `[Worksheet]` writer (ext.)  | Yes  |      |      |      |      |       |
+| Source-gen `[Worksheet]` reader (ext.)  | Yes  |      |      |      |      |       |
+| Custom type converters                  |      | Yes  |      |      |      |       |
+| LINQ provider over sheets               |      |      |      |      | Yes  |       |
+| **Advanced features**                   |      |      |      |      |      |       |
+| Images (PNG/JPEG embed)                 |      | Yes  |      |      |      |       |
+| Charts                                  |      |      | Yes  |      |      |       |
+| Pivot tables (write)                    |      |      |      |      | Yes  |       |
+| Pivot tables (read)                     |      |      |      |      |      | No    |
+| Macros / VBA                            |      |      |      |      |      | No    |
+| Drawings / shapes                       |      |      | Yes  |      |      |       |
+| Sparklines                              |      |      |      |      | Yes  |       |
+| **Output formats**                      |      |      |      |      |      |       |
+| `.xlsx`                                 | Yes  |      |      |      |      |       |
+| `.xlsm` (macro-enabled, passthrough)    |      |      | Yes  |      |      |       |
+| `.xlsb` (binary)                        |      |      |      |      |      | No    |
+| **Protection / security**               |      |      |      |      |      |       |
+| Sheet protection (basic)                |      | Yes  |      |      |      |       |
+| Workbook protection                     |      | Yes  |      |      |      |       |
+| File-level encryption                   |      |      |      |      | Yes  |       |
+| Bounded-resource parsing                | Yes  |      |      |      |      |       |
+| **Developer experience**                |      |      |      |      |      |       |
+| `.Underlying` escape hatch              | Yes  |      |      |      |      |       |
+| `ILogger` integration                   |      |      |      |      |      | — see note |
+| Public API snapshot tests               | Yes  |      |      |      |      |       |
+| Benchmark suite (internal §4 targets)   | Yes  |      |      |      |      |       |
+| Benchmark suite vs peers                |      |      |      | Planned (R-29) | | |
+| Golden-file test corpus                 | Yes  |      |      |      |      |       |
+| Sample / cookbook project               | Yes  |      |      |      |      |       |
+| Roslyn analyzers (e.g., "date w/o fmt") |      |      |      |      | Hold |       |
+| **Platform**                            |      |      |      |      |      |       |
+| `net8.0`, `net10.0` (current TFM set)   | Yes  |      |      |      |      |       |
+| `netstandard2.0` / .NET Framework       |      |      |      |      |      | No    |
+| Native AOT compatible                   |      |      | Yes† |      |      |       |
+| Trim compatible                         |      |      | Yes† |      |      |       |
+
+**Re-baseline verdicts (2026-06-11):**
+
+- **Sheet rename/reorder/delete** — was falsely "Yes v1.0" (only add +
+  hide ever shipped; `ISheet.Name` is get-only, no `RemoveSheet`/
+  `MoveSheet` exists). PROMOTE: design I-90 signed off 2026-06-11,
+  lands as two slices (rename+move, then delete) per the remediation
+  ledger (R-12).
+- **`ILogger` integration** — was falsely "Yes v1.0": zero references
+  in `src/` at HEAD. No design decision ever specified it and no demand
+  signal exists; UNSCHEDULED until a numbered decision motivates it
+  (structured logging may also be the wrong shape for a library this
+  thin — diagnostics like `StyleHitCount` are queries, not logs).
+- **Benchmark suite vs peers** — was falsely "Yes v1.0": zero
+  competitor references under `benchmarks/`. The internal §4-target
+  suite is real; the comparative suite is now an explicit planned item
+  (R-29, SpreadCheetah + ClosedXML as comparators). See R-20 decision
+  in the remediation ledger.
+- **Streaming read** — v2.0 shipped without it. PROMOTE (R-33,
+  2026-06-11): the dead "no SAX parser in NPOI" blocker is gone — the
+  SDK ships `OpenXmlPartReader`; scheduled after the remediation-ledger
+  drain.
+- **Themes / theme colors** — v2.0 shipped without full theme styling
+  (`SetThemeXml`/`GetThemeXml`/`ResolveThemeColor` shipped in v2.0.x;
+  `CellStyle` theme-styling symmetry + default-theme embed is I-89,
+  signed off 2026-06-11, lands per the ledger).
+- **Threaded / modern comments** — v2.0 shipped without it. DEMOTE/HOLD
+  (R-33): SDK-feasible but zero demand signal; revisit on user ask.
+- **Roslyn analyzers** — v2.0 shipped without them (the source
+  generator's NXLS diagnostics exist; dedicated analyzers do not).
+  HOLD: no signed-off design, no demand signal.
+- **`In(...)` 3+ / Top-N filters** — the NPOI blockers are dead; both
+  probe-verified model-shape-only on the SDK engine (R-33). `In(...)`
+  3+ PROMOTE (small slice); Top-N scheduled behind it.
+- **TFM row** — `net9.0` left the matrix with the I24-governed TFM
+  changes; current set is `net8.0` + `net10.0` (both LTS).
 
 † AOT/Trim were deferred through v1.x because Spike 4 (see
 `spikes/results/spike-4-aot-trim.md`) measured both as runtime-incompatible
@@ -101,7 +150,7 @@ removed, and the library declares `<IsAotCompatible>` (implying
 
 - **v1.0 — Foundation.** Core writing and reading, fluent cell API, auto-deduplicating styles, source-generated typed mapping, streaming write, benchmark suite, public-API snapshot tests, cookbook.
 - **v1.1 — Common asks.** Tables, rich text, images, sheet/workbook protection, data validation, named styles, custom type converters.
-- **v2.0 — Advanced styling & charts.** Conditional formatting, themes, charts, AutoFilter improvements, modern comments, `.xlsm` passthrough, Roslyn analyzers. Breaking changes allowed.
+- **v2.0 — Advanced styling & charts.** Conditional formatting, themes, charts, AutoFilter improvements, modern comments, `.xlsm` passthrough, Roslyn analyzers. Breaking changes allowed. *(As shipped 2026-06-04: v2.0 became the I-82 engine swap + CF/charts/sorting/panes/grouping/shapes/`.xlsm`; themes, threaded comments, streaming read and analyzers did not make it — see the v2.0 section and matrix re-baseline note.)*
 - **v3.0 — Power features.** Pivot tables (write), sparklines, encryption, LINQ provider. Breaking changes allowed.
 
 ## Definitions of Done
@@ -123,7 +172,26 @@ A release ships when **all** of the following are true:
 
 > **Target dates.** All releases are marked `TBD`. Concrete targets will be set after the v1.0 project is scaffolded and we have measured velocity data; this section will be revised in a follow-up commit at that point.
 
-### v1.0 — Foundation (target: TBD)
+### v1.0 — Foundation (shipped 2026-05-20 as v1.0.0)
+
+> **Historical note (re-baseline 2026-06-11, R-18).** The checklists
+> below were authored as pre-implementation planning and the boxes were
+> never ticked as items landed — v1.0.0 shipped via the release-PR gate
+> instead. They are kept as the historical plan, NOT as a live tracker.
+> Known deviations between this plan and what actually shipped:
+>
+> - **"Benchmark suite vs NPOI / EPPlus / ClosedXML" never landed** —
+>   only the internal §4-target suite exists (matrix corrected; R-20/R-29).
+> - **`GetValue<T>` was never implemented** — the typed-getter surface
+>   shipped as the per-type `Get*` methods only (design I6 describes the
+>   intended semantics; no public `GetValue<T>` exists at HEAD).
+> - **`RemoveSheet` / `RenameSheet` / `MoveSheet` never landed** — only
+>   `AddSheet` + sheet hiding shipped (matrix corrected; I-90 scheduled).
+> - The **headless-Linux `libgdiplus` item** was superseded by I-84
+>   (embedded font metrics, no native dependencies) at v2.0.0.
+> - Scaffold items referencing NPOI (exact NPOI pin, npoi-workarounds
+>   placeholder) are engine-historical; the v2.0.0 swap (I-82) retired
+>   them.
 
 **Pre-implementation spike** (precondition to locking the design) — **complete 2026-05-15**:
 - [x] Style-dedup feasibility benchmark — see `spikes/results/spike-1-style-dedup.md`. Design §4 perf row replaced (capacity + throughput, not overhead %).
@@ -320,42 +388,69 @@ the natural home for both.
       `PutCellXf` via the centralized reflection in
       `Internal/NpoiInternals.cs`.
 - [x] **`FilterCriteria.In(...)` explicit-value list filter** —
-      partial landing (I-68). v1.3 ships 1–2-value support via the
+      partial landing (I-68). v1.3 shipped 1–2-value support via the
       existing customFilters infrastructure (the same OR-joined-
       equality path Excel uses for short lists). 3+ values throw
-      `NotSupportedException` until NPOI 3.x or a custom XML-
-      emission workaround lifts the gap. API surface lifts
-      cleanly when that happens — no caller-code change.
+      `NotSupportedException`. **Blocker rewritten 2026-06-11 (R-18):
+      the original "until NPOI 3.x" rationale is dead — the SDK engine
+      models the `<filters>` element directly (probe-verified, R-33),
+      and the lift is PROMOTED as a small slice after the remediation-
+      ledger drain.** API surface lifts cleanly — no caller-code change.
 - [ ] **`FilterCriteria.Top(n)` / `BottomPercent(...)` Top-N filter** —
-      deferred indefinitely; **blocked on NPOI 3.x**. Unlike `In(...)`
-      (slice 2), Top-N has no customFilters fallback — the OOXML
-      `<top10>` element is fundamentally a different filter type that
-      can't be approximated with operator+value conditions. Adding the
-      method surface today would be a footgun (always throws). Re-add
-      when the upstream gap closes. Tracked here so it doesn't get
-      lost; not a v1.3 deliverable.
+      **blocker rewritten 2026-06-11 (R-18): "blocked on NPOI 3.x" is
+      dead — the SDK models `<top10>` (probe-verified, R-33); scheduled
+      behind the `In(...)` 3+ lift.** Unlike `In(...)`, Top-N has no
+      customFilters fallback — it is a different filter type — so the
+      method surface still should not land before the implementation
+      (a footgun that always throws). Tracked in the matrix's v2.x
+      column; not a v1.3 deliverable.
 - [ ] **Reactive items from v1.2 usage feedback.**
 
-### v2.0 — Advanced styling & charts (target: TBD)
+### v2.0 — Advanced styling & charts (shipped 2026-06-04 as v2.0.0/v2.0.1)
+
+v2.0 shipped as the I-82 engine swap plus the post-v1.3 feature slices.
+Four items from the original v2.0 theme did NOT ship with it; their
+status and rewritten rationales (re-baseline 2026-06-11, R-18 — all four
+original deferment rationales cited an NPOI engine that no longer
+exists):
 
 - [x] Conditional formatting — landed (I-73), post-v1.3
-- [ ] Themes / theme colors — **deferred**: NPOI 2.7.3 `GetTheme()` returns null on new workbooks; setting theme colors via XSSFFont throws NullReferenceException. Blocked on NPOI 3.x.
+- [ ] Themes / theme colors — **carried to v2.x**: the dead NPOI
+      rationale is rewritten — `SetThemeXml`/`GetThemeXml`/
+      `ResolveThemeColor` (I-79/I-81) shipped in v2.0.x; the remaining
+      gap (default theme at `Create()` + `CellStyle` theme-styling
+      symmetry) is **design I-89, signed off 2026-06-11**, landing per
+      the remediation ledger (R-8).
 - [x] Charts — landed (I-75), post-v1.3
-- [ ] Modern threaded comments — **deferred**: NPOI 2.7.3 has no threaded comment types (only legacy XSSFComment). Blocked on NPOI 3.x.
+- [ ] Modern threaded comments — **carried, DEMOTED to hold** (R-33,
+      2026-06-11): the SDK supports the parts (the NPOI blocker is
+      dead), but there is no demand signal; revisit on user ask.
 - [x] `.xlsm` passthrough — landed (I-69), post-v1.3
-- [ ] Drawings / shapes — accessible via NPOI (XSSFDrawing/XSSFSimpleShape), wide API surface, not yet wrapped
+- [x] Drawings / shapes — landed (I-74, six-shape facade + connectors;
+      I-76 anchoring), post-v1.3. (The old "not yet wrapped" note here
+      contradicted the matrix and the shipped API — corrected 2026-06-11.)
 - [x] Split panes — landed (I-70), post-v1.3
 - [x] Grouping / outlining — landed (I-71), post-v1.3
 - [x] Sorting helpers — landed (I-72), post-v1.3
-- [ ] Streaming read — **deferred**: NPOI 2.7.3 has no XSSFReader/SAX-style streaming parser. Would require custom XML SAX implementation over OPC parts.
-- [ ] Roslyn analyzers
-- [ ] Breaking-change review and migration guide
+- [ ] Streaming read — **carried to v2.x, PROMOTED** (R-33,
+      2026-06-11): the dead "no SAX parser in NPOI" rationale is
+      rewritten — the SDK ships `OpenXmlPartReader`; scheduled after
+      the remediation-ledger drain.
+- [ ] Roslyn analyzers — **carried, HOLD**: no signed-off design and no
+      demand signal; the source generator's NXLS diagnostics cover the
+      typed-mapping surface today.
+- [x] Breaking-change review and migration guide — shipped with v2.0.0
+      (CHANGELOG migration table for `.Underlying` consumers).
 
 ### v3.0 — Power features (target: TBD)
 
 - [ ] Pivot table writing
 - [ ] Sparklines
-- [ ] File-level encryption / password protection — **deferred**: NPOI 2.7.3's AgileEncryptor throws NullReferenceException in CryptoFunctions.GetCipher. Blocked on NPOI 3.x or a third-party encryption library.
+- [ ] File-level encryption / password protection — rationale rewritten
+      2026-06-11 (R-18; the NPOI AgileEncryptor note is dead): the Open
+      XML SDK does not implement OOXML agile encryption either —
+      shipping this means a third-party library or a from-scratch
+      implementation of MS-OFFCRYPTO. Still v3.0.
 - [ ] LINQ provider over sheets
 - [ ] Breaking-change review and migration guide
 
@@ -387,6 +482,13 @@ releases that perform the action; skip cleanly when not.
       header line.
 - [ ] **`PublicApiSnapshotTests` baseline reconciliation.** Verify
       the expected baseline still matches by running the test.
+- [ ] **AnalyzerReleases flip (R-21).** Move the contents of
+      `src/NetXlsx.SourceGen/AnalyzerReleases.Unshipped.md` into
+      `AnalyzerReleases.Shipped.md` under a `## Release X.Y.Z` heading
+      (release-tracking format), leaving `Unshipped.md` with only its
+      table header. The NXLS diagnostics ship inside `NetXlsx.nupkg`,
+      so their release tracking flips on the same PR as the PublicAPI
+      flip.
 - [ ] **TFM drops (when applicable).** When this release drops one
       or more TFMs per decision I24, remove them from
       `Directory.Build.props` `TargetFrameworks`, `global.json`
@@ -466,7 +568,7 @@ real version, to avoid the delete-and-re-tag dance.
   - ZIP central-directory entry ordering → sorted by part name before comparison
   - ZIP per-entry timestamps → zeroed
   
-  Any other byte difference is a failure to investigate; it usually indicates an NPOI behavior change that warrants a workaround note in `docs/npoi-workarounds.md`.
+  Any other byte difference is a failure to investigate; it usually indicates an engine behavior change (since v2.0.0: a `DocumentFormat.OpenXml` version bump) that warrants an SDK-quirk note in the design doc.
 
 ## Explicit non-goals (forever)
 

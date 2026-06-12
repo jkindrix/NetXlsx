@@ -116,7 +116,7 @@ These are below the API contract but above implementation discretion. They are d
 | Styled-write throughput (small palette)   | > 500k styled cells/s |
 | Styled-write throughput (1k-palette)      | > 400k styled cells/s |
 
-Benchmark suite under `benchmarks/` compares against NPOI direct, EPPlus, ClosedXML.
+~~Benchmark suite under `benchmarks/` compares against NPOI direct, EPPlus, ClosedXML.~~ **Amended 2026-06-11 (ledger R-20 decision):** the comparative suite was never built — `benchmarks/` measures NetXlsx against the absolute targets above only (plus the I-87 CI regression gate against committed baselines). The sentence stood as an unbacked claim through v2.0.1. Decision: amend this doc to truth now; an actual comparative suite (SpreadCheetah as the closest analog, ClosedXML as the breadth comparator — NPOI-direct is moot post-I-82) is the remediation ledger's R-29, scheduled, with test-side-only dependencies.
 
 > **Spike-measured numbers.** The in-memory row-count target (30k) and the style throughput targets above are spike-derived (spike 1 + spike 2, 2026-05-15) — not optimistic guesses. The original "100k rows in-memory" target was missed by ~2×; the threshold was lowered to a value that holds. Callers needing more than ~30k rows should use the streaming entry point (`Workbook.CreateStreaming()`), which sustained a flat ~70 MB ΔGC at 500k rows × 20 cols in spike 2.
 >
@@ -2657,7 +2657,7 @@ NetXlsx/
 │  ├─ NetXlsx.GoldenFiles/      # reference workbooks + round-trip tests
 │  └─ NetXlsx.PublicApi/        # public-API snapshot tests
 ├─ benchmarks/
-│  └─ NetXlsx.Benchmarks/       # BenchmarkDotNet vs NPOI/EPPlus/ClosedXML
+│  └─ NetXlsx.Benchmarks/       # BenchmarkDotNet vs the §4 absolute targets (comparative suite = R-29, planned)
 ├─ samples/
 │  └─ NetXlsx.Cookbook/         # runnable recipes (see §8.1)
 ├─ docs/

@@ -12,7 +12,53 @@ decision, not a drift.
 
 ---
 
-## Spike 4-Q — NPOI AOT/trim posture re-check
+## Spike 6-Q — Open XML SDK posture re-check (ACTIVE)
+
+**Established 2026-06-11 (ledger R-19)** — the SDK-era successor to the
+two retired NPOI spikes below. The re-check discipline died with the
+I-82 engine swap (both NPOI spikes became moot before their first
+re-run); this spike replaces it for the engine the library actually
+sits on.
+
+**Question.** Three sub-checks, run together:
+
+1. **Dependency bump.** Is `DocumentFormat.OpenXml` (and its
+   `System.IO.Packaging` transitive) current? Bump to latest stable on
+   a branch, run the full suite + the schema-validator gate + the
+   benchmark regression gate, and land or record-why-not.
+2. **Advisory check.** Any new GHSA advisories against
+   `DocumentFormat.OpenXml` / `System.IO.Packaging`? (The
+   System.IO.Packaging CVEs known at 2026-06 are floor-patched as of
+   SDK 3.5.1 — re-verify the floor each run.)
+3. **Competitive scan.** What did SpreadCheetah, ClosedXML, and EPPlus
+   ship this quarter that changes the README comparison table or the
+   roadmap's hold/promote verdicts (threaded comments, streaming read,
+   analyzers)?
+
+**Method.** Bump-on-a-branch + `bash build/build.sh test` for (1);
+GitHub advisory database + NuGet deprecation flags for (2); release
+notes of the three comparators for (3). Each run appends a dated row.
+
+**Cadence.** Quarterly. First due: **2026-09-11**. Subsequent:
+2026-12-11, 2027-03-11, …
+
+| Run date   | SDK version | Advisories | Competitive notes | Outcome |
+|------------|-------------|------------|-------------------|---------|
+| 2026-09-11 | (pending)   | (pending)  | (pending)         | (pending) |
+
+**Owner.** Project owner. The bump leg is scriptable; the advisory and
+competitive legs are judgment calls.
+
+---
+
+> **HISTORICAL — retired at the v2.0.0 engine swap (I-82, 2026-06-04).**
+> Both spikes below interrogated the NPOI engine, which no longer
+> exists in this library. Neither reached its first scheduled re-run
+> (2026-08-16); the cadence shown in them is dead, kept verbatim as the
+> historical record per the additive-history convention. Their successor
+> is Spike 6-Q above. (Banner added 2026-06-11, ledger R-19.)
+
+## Spike 4-Q — NPOI AOT/trim posture re-check (HISTORICAL)
 
 **Question.** Does the *current* NPOI release still produce a runtime
 failure under `PublishAot=true` and `PublishTrimmed=true`? (Spike 4
@@ -53,7 +99,7 @@ question.
 
 ---
 
-## Spike 5-Q — NPOI OSMF posture re-check
+## Spike 5-Q — NPOI OSMF posture re-check (HISTORICAL)
 
 **Question.** Has the NPOI OSMF (Open Source Maintenance Fee, introduced
 in 2.8.0) situation changed in a way that would let us bump past 2.7.3?
