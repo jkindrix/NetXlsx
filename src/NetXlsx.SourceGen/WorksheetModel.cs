@@ -20,12 +20,21 @@ internal sealed class WorksheetModel : IEquatable<WorksheetModel>
     public string Visibility { get; }
     public bool IsPartial { get; }
     public bool HasDesignatedConstructor { get; }
+    /// <summary>
+    /// Record primary-constructor parameters, declaration order. Empty for
+    /// non-records and records without a parameter list. When non-empty,
+    /// the generated <c>ReadRows</c> constructs through this constructor
+    /// instead of an object initializer (positional records have no
+    /// parameterless constructor — object-initializer emit is CS7036).
+    /// </summary>
+    public EquatableArray<PrimaryCtorParam> PrimaryCtorParameters { get; }
     public EquatableArray<WorksheetProperty> Properties { get; }
     public EquatableArray<DiagnosticInfo> EarlyDiagnostics { get; }
 
     public WorksheetModel(
         string fullyQualifiedName, string @namespace, string typeName,
         TypeKindLite kind, string visibility, bool isPartial, bool hasCtor,
+        EquatableArray<PrimaryCtorParam> primaryCtorParameters,
         EquatableArray<WorksheetProperty> properties,
         EquatableArray<DiagnosticInfo> earlyDiagnostics)
     {
@@ -36,6 +45,7 @@ internal sealed class WorksheetModel : IEquatable<WorksheetModel>
         Visibility = visibility;
         IsPartial = isPartial;
         HasDesignatedConstructor = hasCtor;
+        PrimaryCtorParameters = primaryCtorParameters;
         Properties = properties;
         EarlyDiagnostics = earlyDiagnostics;
     }
@@ -49,6 +59,7 @@ internal sealed class WorksheetModel : IEquatable<WorksheetModel>
         && Visibility == other.Visibility
         && IsPartial == other.IsPartial
         && HasDesignatedConstructor == other.HasDesignatedConstructor
+        && PrimaryCtorParameters.Equals(other.PrimaryCtorParameters)
         && Properties.Equals(other.Properties)
         && EarlyDiagnostics.Equals(other.EarlyDiagnostics);
 
@@ -66,6 +77,7 @@ internal sealed class WorksheetModel : IEquatable<WorksheetModel>
             h = h * 31 + Visibility.GetHashCode();
             h = h * 31 + IsPartial.GetHashCode();
             h = h * 31 + HasDesignatedConstructor.GetHashCode();
+            h = h * 31 + PrimaryCtorParameters.GetHashCode();
             h = h * 31 + Properties.GetHashCode();
             h = h * 31 + EarlyDiagnostics.GetHashCode();
             return h;
@@ -83,12 +95,16 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
     public bool IsIgnored { get; }
     public PropertyLocation Location { get; }
     public bool TypeIsSupported { get; }
+    /// <summary>True when the property has a public setter or init accessor (object-initializer assignable).</summary>
+    public bool IsSettable { get; }
+    /// <summary>True when the property is declared <c>required</c>.</summary>
+    public bool IsRequired { get; }
     /// <summary>Fully-qualified converter type, or null when no converter is configured.</summary>
     public string? ConverterTypeFullName { get; }
 
     public WorksheetProperty(string name, string fullTypeName, SpecialType underlyingSpecialType,
         bool isNullable, ColumnMapping? column, bool isIgnored, PropertyLocation location, bool typeIsSupported,
-        string? converterTypeFullName)
+        bool isSettable, bool isRequired, string? converterTypeFullName)
     {
         Name = name;
         FullTypeName = fullTypeName;
@@ -98,6 +114,8 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         IsIgnored = isIgnored;
         Location = location;
         TypeIsSupported = typeIsSupported;
+        IsSettable = isSettable;
+        IsRequired = isRequired;
         ConverterTypeFullName = converterTypeFullName;
     }
 
@@ -117,6 +135,8 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
         && Equals(Column, other.Column)
         && IsIgnored == other.IsIgnored
         && TypeIsSupported == other.TypeIsSupported
+        && IsSettable == other.IsSettable
+        && IsRequired == other.IsRequired
         && ConverterTypeFullName == other.ConverterTypeFullName;
 
     public override bool Equals(object? obj) => Equals(obj as WorksheetProperty);
@@ -133,6 +153,8 @@ internal sealed class WorksheetProperty : IEquatable<WorksheetProperty>
             h = h * 31 + (Column?.GetHashCode() ?? 0);
             h = h * 31 + IsIgnored.GetHashCode();
             h = h * 31 + TypeIsSupported.GetHashCode();
+            h = h * 31 + IsSettable.GetHashCode();
+            h = h * 31 + IsRequired.GetHashCode();
             h = h * 31 + (ConverterTypeFullName?.GetHashCode() ?? 0);
             return h;
         }
@@ -168,6 +190,45 @@ internal sealed class ColumnMapping : IEquatable<ColumnMapping>
             h = h * 31 + HeaderName.GetHashCode();
             h = h * 31 + Order;
             h = h * 31 + (Format?.GetHashCode() ?? 0);
+            return h;
+        }
+    }
+}
+
+/// <summary>
+/// One record primary-constructor parameter, captured for ReadRows
+/// construction (positional records expose mapped values as ctor params,
+/// not initializer-assignable properties).
+/// </summary>
+internal sealed class PrimaryCtorParam : IEquatable<PrimaryCtorParam>
+{
+    public string Name { get; }
+    public bool HasDefaultValue { get; }
+    public PropertyLocation Location { get; }
+
+    public PrimaryCtorParam(string name, bool hasDefaultValue, PropertyLocation location)
+    {
+        Name = name;
+        HasDefaultValue = hasDefaultValue;
+        Location = location;
+    }
+
+    // Location is excluded from equality/hash for the same incrementality
+    // reason as WorksheetProperty.Location (see comment there).
+    public bool Equals(PrimaryCtorParam? other) =>
+        other is not null
+        && Name == other.Name
+        && HasDefaultValue == other.HasDefaultValue;
+
+    public override bool Equals(object? obj) => Equals(obj as PrimaryCtorParam);
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + Name.GetHashCode();
+            h = h * 31 + HasDefaultValue.GetHashCode();
             return h;
         }
     }

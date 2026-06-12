@@ -1,4 +1,4 @@
-// NXLS0001-NXLS0006 diagnostic catalog.
+// NXLS0001-NXLS0007 diagnostic catalog.
 // See docs/design.md §6.12.
 
 using Microsoft.CodeAnalysis;
@@ -81,6 +81,22 @@ internal static class Diagnostics
         id: "NXLS0006",
         title: "[Worksheet] property type has no built-in converter",
         messageFormat: "Property '{0}.{1}' has type '{2}', which has no built-in converter. Supported types: string, bool, byte/short/int/long (and unsigned), float/double/decimal, DateTime, DateOnly, TimeOnly, TimeSpan. Other types (including Nullable<T>) need a custom converter via [Column(ConverterType = typeof(...))].",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
+
+    /// <summary>
+    /// The generated <c>ReadRows</c> has no way to materialize the type:
+    /// a primary-constructor parameter has no mapped supported column and
+    /// no default value, a mapped property is neither settable nor a
+    /// primary-constructor parameter, or a <c>required</c> property is not
+    /// covered by the generated object initializer. Fatal — the emitted
+    /// file would not compile, so emission is skipped entirely.
+    /// </summary>
+    public static readonly DiagnosticDescriptor UnconstructibleForRead = new(
+        id: "NXLS0007",
+        title: "[Worksheet] type cannot be constructed by the generated ReadRows",
+        messageFormat: "Type '{0}' cannot be constructed by the generated ReadRows: {1}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);

@@ -59,6 +59,10 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             // skip code emission — the file would not compile anyway.
             if (HasFatalEarlyDiagnostic(model)) return;
 
+            // ReadRows constructibility (NXLS0007). Also fatal: the emitted
+            // ReadRows body would not compile (CS7036 / CS0200 / CS9035).
+            if (ReportUnconstructibleForRead(spc, model)) return;
+
             var source = EmitExtensionsSource(model);
             var hintName = $"{Sanitize(model.FullyQualifiedName)}.g.cs";
             spc.AddSource(hintName, SourceText.From(source, Encoding.UTF8));
@@ -125,8 +129,41 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
             visibility: visibility,
             isPartial: isPartial,
             hasCtor: hasCtor,
+            primaryCtorParameters: GetPrimaryCtorParameters(type),
             properties: new EquatableArray<WorksheetProperty>(properties.ToImmutableArray()),
             earlyDiagnostics: new EquatableArray<DiagnosticInfo>(earlyDiagnostics.ToImmutable()));
+    }
+
+    /// <summary>
+    /// Returns the record primary-constructor parameters, or empty for
+    /// non-records / records without a parameter list. Resolved through
+    /// the symbol model (not the attributed syntax node) so a primary
+    /// constructor declared on a different partial declaration is found.
+    /// </summary>
+    private static EquatableArray<PrimaryCtorParam> GetPrimaryCtorParameters(INamedTypeSymbol type)
+    {
+        if (!type.IsRecord) return EquatableArray<PrimaryCtorParam>.Empty;
+        foreach (var ctor in type.InstanceConstructors)
+        {
+            // The primary ctor's declaring syntax is the record declaration
+            // itself; explicit ctors declare ConstructorDeclarationSyntax,
+            // and the synthesized copy ctor is implicitly declared.
+            if (ctor.IsImplicitlyDeclared) continue;
+            var isPrimary = ctor.DeclaringSyntaxReferences
+                .Any(r => r.GetSyntax() is RecordDeclarationSyntax);
+            if (!isPrimary) continue;
+
+            var builder = ImmutableArray.CreateBuilder<PrimaryCtorParam>(ctor.Parameters.Length);
+            foreach (var param in ctor.Parameters)
+            {
+                builder.Add(new PrimaryCtorParam(
+                    param.Name,
+                    param.HasExplicitDefaultValue,
+                    LocationFrom(param.Locations.FirstOrDefault()) ?? new PropertyLocation("<unknown>", 0, 0, 0)));
+            }
+            return new EquatableArray<PrimaryCtorParam>(builder.MoveToImmutable());
+        }
+        return EquatableArray<PrimaryCtorParam>.Empty;
     }
 
     private static List<WorksheetProperty> BuildProperties(
@@ -212,6 +249,8 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
                 isIgnored: ignored,
                 location: loc,
                 typeIsSupported: supported,
+                isSettable: member.SetMethod is { DeclaredAccessibility: Accessibility.Public },
+                isRequired: member.IsRequired,
                 converterTypeFullName: converterTypeName);
 
             // An override / `new` shadow keeps the base column position but
@@ -500,6 +539,82 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
     private static bool HasFatalEarlyDiagnostic(WorksheetModel m) =>
         !m.IsPartial || !m.HasDesignatedConstructor;
 
+    /// <summary>
+    /// Mapped, supported, non-ignored properties — the set AddRow writes
+    /// and ReadRows reads, in emission (column) order.
+    /// </summary>
+    private static List<WorksheetProperty> GetWritableProperties(WorksheetModel m)
+    {
+        var writable = new List<WorksheetProperty>();
+        foreach (var p in m.Properties)
+        {
+            if (p.IsIgnored) continue;
+            if (p.Column is null) continue;     // NXLS0004 (warning) already fired
+            if (!p.TypeIsSupported) continue;   // NXLS0006 already fired
+            writable.Add(p);
+        }
+        return writable;
+    }
+
+    /// <summary>
+    /// Reports NXLS0007 for every reason the generated <c>ReadRows</c>
+    /// could not materialize the type; returns true when any fired.
+    /// Three shapes: a primary-ctor parameter with no mapped supported
+    /// column and no default value; a mapped property that is neither
+    /// settable nor a primary-ctor parameter; a <c>required</c> property
+    /// the generated object initializer would not cover.
+    /// </summary>
+    private static bool ReportUnconstructibleForRead(SourceProductionContext spc, WorksheetModel m)
+    {
+        var writable = GetWritableProperties(m);
+        var writableNames = new HashSet<string>(writable.Select(p => p.Name), StringComparer.Ordinal);
+        var ctorParamNames = new HashSet<string>(StringComparer.Ordinal);
+        bool any = false;
+
+        void Report(PropertyLocation loc, string reason)
+        {
+            spc.ReportDiagnostic(Diagnostic.Create(
+                Diagnostics.UnconstructibleForRead, loc.ToRoslynLocation(), m.TypeName, reason));
+            any = true;
+        }
+
+        foreach (var cp in m.PrimaryCtorParameters)
+        {
+            ctorParamNames.Add(cp.Name);
+            if (!writableNames.Contains(cp.Name) && !cp.HasDefaultValue)
+            {
+                Report(cp.Location,
+                    $"primary-constructor parameter '{cp.Name}' has no mapped [Column] property of a supported type and no default value");
+            }
+        }
+
+        foreach (var p in writable)
+        {
+            if (ctorParamNames.Contains(p.Name)) continue;
+            if (!p.IsSettable)
+            {
+                Report(p.Location,
+                    $"mapped property '{p.Name}' has no public setter or init accessor and is not a primary-constructor parameter");
+            }
+        }
+
+        // `required` members must be set in the object initializer; a
+        // required property the generator does not write (ignored,
+        // unmapped, or unsupported type) makes every `new T {...}` we
+        // could emit a CS9035.
+        foreach (var p in m.Properties)
+        {
+            if (!p.IsRequired) continue;
+            // A ctor-param name match is passed as a constructor argument,
+            // which does not satisfy `required` (no [SetsRequiredMembers]).
+            if (writableNames.Contains(p.Name) && p.IsSettable && !ctorParamNames.Contains(p.Name)) continue;
+            Report(p.Location,
+                $"required property '{p.Name}' is not covered by the generated object initializer (it is ignored, unmapped, of an unsupported type, not settable, or shadows a primary-constructor parameter)");
+        }
+
+        return any;
+    }
+
     private static Diagnostic BuildDiagnostic(DiagnosticInfo info)
     {
         var args = info.MessageArgs.Array.Cast<object?>().ToArray();
@@ -560,14 +675,7 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         // sequence is currently declaration-order. Reorder-on-write
         // lands with the styling slice when format-string emission
         // arrives.
-        var writableProps = new List<WorksheetProperty>();
-        foreach (var p in m.Properties)
-        {
-            if (p.IsIgnored) continue;
-            if (p.Column is null) continue;     // NXLS0004 (warning) already fired
-            if (!p.TypeIsSupported) continue;   // NXLS0006 already fired
-            writableProps.Add(p);
-        }
+        var writableProps = GetWritableProperties(m);
 
         // ---- AddRow: real body, no [Obsolete] -----------------------------
         sb.AppendLine("    /// <summary>");
@@ -576,7 +684,10 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         sb.Append("    public static void AddRow(this global::NetXlsx.ISheet sheet, ").Append(m.FullyQualifiedName).AppendLine(" record)");
         sb.AppendLine("    {");
         sb.AppendLine("        if (sheet is null) throw new global::System.ArgumentNullException(nameof(sheet));");
-        sb.AppendLine("        if (record is null) throw new global::System.ArgumentNullException(nameof(record));");
+        // `record is null` on a value type is CS0037 — structs and record
+        // structs can never be null, so the guard is reference-type-only.
+        if (m.Kind is TypeKindLite.Class or TypeKindLite.Record)
+            sb.AppendLine("        if (record is null) throw new global::System.ArgumentNullException(nameof(record));");
         sb.AppendLine("        var row = sheet.AppendRow();");
         for (int i = 0; i < writableProps.Count; i++)
         {
@@ -641,18 +752,74 @@ public sealed class WorksheetGenerator : IIncrementalGenerator
         }
         sb.AppendLine("            if (!anyMappedCellHasValue) continue;");
         sb.AppendLine();
-        sb.Append("            yield return new ").Append(m.FullyQualifiedName).AppendLine();
-        sb.AppendLine("            {");
-        foreach (var p in writableProps)
-        {
-            sb.Append("                ").Append(p.Name).Append(" = ").Append(FormatReadExpression(p, "row")).AppendLine(",");
-        }
-        sb.AppendLine("            };");
+        EmitYieldReturn(sb, m, writableProps);
         sb.AppendLine("        }");
         sb.AppendLine("    }");
 
         sb.AppendLine("}");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Emits the <c>yield return new T ...</c> statement of ReadRows.
+    /// Types with a record primary constructor are constructed through it
+    /// (named arguments, declaration order) — positional records have no
+    /// parameterless constructor, so object-initializer-only emit is a
+    /// CS7036 (R-4). Mapped properties that are not ctor parameters are
+    /// assigned in an object-initializer suffix. A ctor parameter with no
+    /// mapped column is omitted (it has a default value — the NXLS0007
+    /// gate rejected the type otherwise).
+    /// </summary>
+    private static void EmitYieldReturn(StringBuilder sb, WorksheetModel m, List<WorksheetProperty> writableProps)
+    {
+        var ctorArgs = new List<string>();
+        var ctorParamNames = new HashSet<string>(StringComparer.Ordinal);
+        if (m.PrimaryCtorParameters.Length > 0)
+        {
+            var byName = new Dictionary<string, WorksheetProperty>(StringComparer.Ordinal);
+            foreach (var p in writableProps) byName[p.Name] = p;
+            foreach (var cp in m.PrimaryCtorParameters)
+            {
+                ctorParamNames.Add(cp.Name);
+                if (byName.TryGetValue(cp.Name, out var prop))
+                    ctorArgs.Add($"{cp.Name}: {FormatReadExpression(prop, "row")}");
+            }
+        }
+
+        var initProps = writableProps.Where(p => !ctorParamNames.Contains(p.Name)).ToList();
+
+        sb.Append("            yield return new ").Append(m.FullyQualifiedName);
+        if (m.PrimaryCtorParameters.Length > 0)
+        {
+            if (ctorArgs.Count == 0)
+            {
+                sb.Append("()");
+            }
+            else
+            {
+                sb.AppendLine("(");
+                for (int i = 0; i < ctorArgs.Count; i++)
+                {
+                    sb.Append("                ").Append(ctorArgs[i])
+                      .AppendLine(i < ctorArgs.Count - 1 ? "," : string.Empty);
+                }
+                sb.Append("            )");
+            }
+        }
+
+        if (m.PrimaryCtorParameters.Length > 0 && initProps.Count == 0)
+        {
+            sb.AppendLine(";");
+            return;
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("            {");
+        foreach (var p in initProps)
+        {
+            sb.Append("                ").Append(p.Name).Append(" = ").Append(FormatReadExpression(p, "row")).AppendLine(",");
+        }
+        sb.AppendLine("            };");
     }
 
     private static string Sanitize(string fullyQualifiedName)

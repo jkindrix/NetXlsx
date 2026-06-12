@@ -2476,6 +2476,7 @@ The `[Worksheet]` source generator emits diagnostics under the `NXLS` prefix. v1
 | `NXLS0004` | Warning  | `[Worksheet]` type has properties not marked `[Column]` or `[Ignore]` (silent skip is ambiguous) |
 | `NXLS0005` | Error    | `[Worksheet]` type is not `partial`. Required so the generator can emit nested helper types alongside it in later versions without breaking source layout; future-proofing decision recorded in v1.0 |
 | `NXLS0006` | Error    | Property type has no built-in converter (v1.0). In v1.1 this expands to: "and no `[ColumnConverter]` attribute" once custom converters ship |
+| `NXLS0007` | Error    | Type cannot be constructed by the generated `ReadRows` (added v2.0.2, R-4): a primary-constructor parameter with no mapped supported column and no default value; a mapped property that is neither settable nor a primary-ctor parameter; or a `required` property the generated object initializer would not cover. Fatal — emission is skipped. Positional records themselves are *supported* (ReadRows constructs through the primary constructor); this fires only for genuinely unconstructible shapes |
 
 Generator behavior summary:
 
