@@ -482,6 +482,11 @@ releases that perform the action; skip cleanly when not.
       header line.
 - [ ] **`PublicApiSnapshotTests` baseline reconciliation.** Verify
       the expected baseline still matches by running the test.
+- [ ] **PackageValidation baseline bump (R-24).** Set / advance
+      `PackageValidationBaselineVersion` in `NetXlsx.csproj` to the
+      version being released — but only once a prior version exists on
+      nuget.org to baseline against (the property is absent until the
+      first NuGet-published release; see R-31 for the publish status).
 - [ ] **AnalyzerReleases flip (R-21).** Move the contents of
       `src/NetXlsx.SourceGen/AnalyzerReleases.Unshipped.md` into
       `AnalyzerReleases.Shipped.md` under a `## Release X.Y.Z` heading

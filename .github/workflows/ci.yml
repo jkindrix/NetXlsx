@@ -17,7 +17,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # macOS leg added 2026-06-12 (ledger R-28) — AutoSize is
+        # embedded-metrics since I-84, so no font/native setup is needed.
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -46,6 +48,28 @@ jobs:
         # Excludes Category=HeadlessNoFonts tests, which require a known
         # font-less environment (the dedicated headless-no-fonts job below).
         run: dotnet test --configuration Release --no-build --logger "console;verbosity=minimal" --collect:"XPlat Code Coverage" --filter "Category!=HeadlessNoFonts"
+
+      # R-27: the cobertura artifacts were uploaded but never reported —
+      # surface per-assembly line coverage in the job summary (no hard
+      # gate; informational only, decision recorded in the remediation
+      # ledger).
+      - name: Coverage summary
+        if: always() && matrix.os == 'ubuntu-latest'
+        shell: python
+        run: |
+          import glob, os, xml.etree.ElementTree as ET
+          seen = {}
+          for f in sorted(glob.glob('**/TestResults/**/coverage.cobertura.xml', recursive=True)):
+              root = ET.parse(f).getroot()
+              for pkg in root.iter('package'):
+                  rate = float(pkg.get('line-rate', 0)) * 100
+                  seen.setdefault(pkg.get('name'), []).append(rate)
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+              out.write('## Line coverage (cobertura, informational)\n\n')
+              out.write('| Assembly | Line rate |\n|---|---|\n')
+              for name in sorted(seen):
+                  avg = sum(seen[name]) / len(seen[name])
+                  out.write(f'| {name} | {avg:.1f}% |\n')
 
       - name: Upload coverage artifacts
         if: always()

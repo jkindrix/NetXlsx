@@ -20,6 +20,16 @@
          every build of this project — both TFMs are net8.0+, where the
          property is fully supported. -->
     <IsAotCompatible>true</IsAotCompatible>
+
+    <!-- R-24: package validation at pack time — catches cross-TFM surface
+         drift (a member present on net8.0 but missing on net10.0, or vice
+         versa) that PublicApiAnalyzers cannot see (it audits per-compilation,
+         not per-package). PackageValidationBaselineVersion is deliberately
+         ABSENT until a NetXlsx version exists on nuget.org to baseline
+         against (R-31 — the package id is not yet published); the release-PR
+         checklist owns adding it at the first NuGet-published release and
+         bumping it on each one after. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
   </PropertyGroup>
 
   <ItemGroup>

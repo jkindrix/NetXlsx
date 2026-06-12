@@ -9,6 +9,27 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### CI / packaging
+
+- **Package validation at pack time (R-24).** `EnablePackageValidation`
+  on `NetXlsx.csproj` — catches cross-TFM surface drift the per-compilation
+  PublicAPI analyzer can't see. `PackageValidationBaselineVersion` activates
+  at the first NuGet-published release (the id isn't on nuget.org yet);
+  the release-PR checklist owns the bump.
+- **Coverage wiring completed (R-27).** `coverlet.collector` now in all
+  four test projects (three previously warned per run and contributed
+  nothing), and CI surfaces a per-assembly line-coverage table in the job
+  summary — informational, no gate.
+- **CI/pack hygiene (R-28).** macOS leg added to the CI matrix (AutoSize
+  is embedded-metrics since I-84 — no native setup);
+  `softprops/action-gh-release` SHA-pinned; the stale "re-add
+  Microsoft.SourceLink" TODO removed — Source Link ships in the .NET 8+
+  SDK and the `.snupkg` PDBs verifiably embed the source-link JSON for
+  both TFMs.
+- **Issue + PR templates (R-36).** Minimal bug/feature issue templates
+  (repro-first, interop-producer field; roadmap-check for features) and a
+  PR checklist template mirroring CONTRIBUTING's gates.
+
 ### Changed
 
 - **Sheet-name validation matches Excel's actual rule set (R-9) —

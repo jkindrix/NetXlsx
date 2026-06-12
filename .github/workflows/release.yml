@@ -69,7 +69,10 @@ jobs:
           path: artifacts/*.*nupkg
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        # SHA-pinned (R-28): third-party action with release-asset write
+        # access — a floating tag can be repointed upstream. SHA = where
+        # the v3 tag pointed on 2026-06-12.
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
           files: artifacts/*.*nupkg
           generate_release_notes: true

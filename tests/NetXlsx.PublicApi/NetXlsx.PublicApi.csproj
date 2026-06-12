@@ -10,6 +10,14 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
+    <!-- R-27: every test project carries the coverage collector so the CI
+         coverage-collect ("XPlat Code Coverage") flag is live everywhere (previously
+         only NetXlsx.Tests had it; the other projects warned per run and
+         contributed nothing to the coverage artifact). -->
+    <PackageReference Include="coverlet.collector">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="xunit.runner.visualstudio">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
