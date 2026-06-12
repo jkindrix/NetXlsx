@@ -43,7 +43,8 @@ internal sealed partial class OoxmlSheet : ISheet
 
     internal OoxmlWorkbook WorkbookInternal => _workbook;
 
-    // Allows the workbook to keep wrapper names in sync if a rename API lands.
+    // The workbook keeps the wrapper name in sync when RenameSheet (I-90)
+    // commits a rename — never called outside that path.
     internal void SetNameInternal(string name) => _name = name;
 
     // ---- Grid access over the worksheet DOM --------------------------------

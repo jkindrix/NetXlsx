@@ -125,6 +125,7 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
     public ISheet this[string name] => throw new NotImplementedException();
     public ISheet this[int index] => throw new NotImplementedException();
     public ISheet AddSheet(string name) => throw new NotImplementedException();
+    public void MoveSheet(ISheet sheet, int newIndex) => throw new NotImplementedException();
 
     public bool TryGetSheet(string name, [MaybeNullWhen(false)] out ISheet sheet)
     {

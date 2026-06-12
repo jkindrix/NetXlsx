@@ -213,6 +213,20 @@ static void BuildKitchen(string path)
         new Product { Sku = "cherry", Price = 3.50m, Added = new DateOnly(2026, 3, 7) },
     });
 
+    // ---------- I-90: sheet rename + move ----------
+    // A sheet referenced by a formula, a named range, and an internal
+    // hyperlink is renamed (to a name that needs quoting) and moved to the
+    // front. The LO leg proves the rewritten references still RESOLVE:
+    // LO calculates on load and caches results (R-7), so the formula's
+    // cached value reads back 42 only if 'Renamed 1'!A1 resolved.
+    var rn = wb.AddSheet("RenameMe");
+    rn["A1"].SetNumber(21);
+    sc["G1"].SetFormula("=SUM(RenameMe!A1)*2");
+    sc["G2"].Hyperlink("#RenameMe!A1", display: "jump");
+    wb.AddNamedRange("RenTarget", "RenameMe!$A$1");
+    rn.Rename("Renamed 1");
+    wb.MoveSheet(rn, 1);
+
     // ---------- Hidden sheet + workbook protection ----------
     var hi = wb.AddSheet("HiddenSheet");
     hi["A1"].SetString("you can't see me");
@@ -331,16 +345,24 @@ static void AssertKitchen(string path, bool loResave)
     Console.WriteLine($"== assert {(loResave ? "LO-resave" : "self")} {Path.GetFileName(path)} ==");
     using var wb = Workbook.Open(path);
 
-    Check.Eq("sheetCount", wb.SheetCount, 9);
+    Check.Eq("sheetCount", wb.SheetCount, 10);
     var names = Enumerable.Range(0, wb.SheetCount).Select(i => wb[i].Name).ToList();
-    foreach (var n in new[] { "Scalars", "Styles", "Data", "Visual", "Drawing", "Panes", "Protected", "TypedRows", "HiddenSheet" })
+    foreach (var n in new[] { "Renamed 1", "Scalars", "Styles", "Data", "Visual", "Drawing", "Panes", "Protected", "TypedRows", "HiddenSheet" })
         Check.True($"sheet:{n}", names.Contains(n), "missing sheet");
     Check.True("hiddenSheet", wb["HiddenSheet"].Hidden, "HiddenSheet must stay hidden");
+
+    // I-90 rename + move: the renamed sheet sits where MoveSheet put it and
+    // every reference to the old name was rewritten (quoted — the new name
+    // needs it). "RenameMe" must be gone.
+    Check.Eq("ren.position", wb[0].Name, "Renamed 1");
+    Check.True("ren.oldNameGone", !wb.TryGetSheet("RenameMe", out _), "old sheet name still resolves");
 
     // Named ranges survive both ways.
     var ranges = wb.NamedRanges.Select(n => n.Name).ToList();
     Check.True("name:TwoCells", ranges.Contains("TwoCells"), "workbook-scope name lost");
     Check.True("name:LocalName", ranges.Contains("LocalName"), "sheet-scope name lost");
+    var renTarget = wb.NamedRanges.FirstOrDefault(n => n.Name == "RenTarget")?.Formula ?? "";
+    Check.True("ren.namedRange", renTarget.Contains("'Renamed 1'"), $"name body was '{renTarget}'");
 
     // Workbook structure lock: LO drops it on resave (documented in
     // docs/interop.md) — soft-report so a future LO that preserves it is
@@ -362,6 +384,20 @@ static void AssertKitchen(string path, bool loResave)
     Check.Eq("sc.A3", sc["A3"].GetDate()?.ToString("yyyy-MM-dd HH:mm"), "2026-06-10 14:30");
     Check.Eq("sc.row8hidden", sc.Row(8).Hidden, true);
     Check.Eq("sc.colFhidden", sc.Column("F").Hidden, true);
+
+    // I-90 rewritten references. The formula and hyperlink were authored
+    // against "RenameMe" and must read back against the quoted new name.
+    var g1f = sc["G1"].GetFormula() ?? "";
+    Check.True("ren.formula", g1f.Contains("'Renamed 1'!A1"), $"formula was '{g1f}'");
+    var g2l = sc["G2"].GetHyperlink() ?? "";
+    Check.True("ren.hyperlink", g2l.Contains("Renamed 1"), $"location was '{g2l}'");
+    if (loResave)
+    {
+        // LO calculated on load and cached the result (R-7): 42 proves the
+        // rewritten reference RESOLVED in a second engine — the I-90
+        // acceptance oracle.
+        Check.Eq("ren.resolvesInLO", sc["G1"].GetNumber(), 42.0);
+    }
 
     // I-89: the kitchen carries theme-indexed styling, so its output embeds
     // the default Office theme — theme-4 resolves to Office blue on our own

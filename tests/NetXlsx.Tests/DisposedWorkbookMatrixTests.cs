@@ -22,6 +22,9 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "this[string]", (Action<IWorkbook>)(wb => { var _ = wb["S"]; }) };
         yield return new object[] { "this[int]", (Action<IWorkbook>)(wb => { var _ = wb[0]; }) };
         yield return new object[] { "AddSheet", (Action<IWorkbook>)(wb => wb.AddSheet("Another")) };
+        // MoveSheet checks disposal before its null/ownership guards, so the
+        // null handle never reaches ArgumentNullException here.
+        yield return new object[] { "MoveSheet", (Action<IWorkbook>)(wb => wb.MoveSheet(null!, 1)) };
         yield return new object[] { "TryGetSheet", (Action<IWorkbook>)(wb => wb.TryGetSheet("S", out _)) };
         yield return new object[] { "Save(stream)", (Action<IWorkbook>)(wb => wb.Save(new MemoryStream())) };
         yield return new object[] { "Save(path)", (Action<IWorkbook>)(wb => wb.Save(Path.Combine(Path.GetTempPath(), "x.xlsx"))) };
@@ -62,6 +65,7 @@ public class DisposedWorkbookMatrixTests
     public static IEnumerable<object[]> SheetOperations()
     {
         yield return new object[] { "Name", (Action<ISheet>)(s => { var _ = s.Name; }) };
+        yield return new object[] { "Rename", (Action<ISheet>)(s => s.Rename("Other")) };
         yield return new object[] { "Workbook", (Action<ISheet>)(s => { var _ = s.Workbook; }) };
         yield return new object[] { "this[A1]", (Action<ISheet>)(s => { var _ = s["A1"]; }) };
         yield return new object[] { "this[r,c]", (Action<ISheet>)(s => { var _ = s[1, 1]; }) };

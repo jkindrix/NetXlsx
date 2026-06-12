@@ -33,6 +33,28 @@ public interface IWorkbook : IDisposable
     /// </summary>
     ISheet AddSheet(string name);
 
+    /// <summary>
+    /// Moves <paramref name="sheet"/> so that it ends up at the 1-based
+    /// position <paramref name="newIndex"/> in workbook (tab) order —
+    /// remove-then-insert semantics, so <c>MoveSheet(s, 1)</c> makes it
+    /// the first sheet and <c>MoveSheet(s, SheetCount)</c> the last
+    /// (decision I-90). Note the contrast with the 0-based positional
+    /// indexer: after <c>MoveSheet(s, 1)</c>, <c>workbook[0]</c> returns
+    /// <paramref name="sheet"/>. Moving a sheet to its current position
+    /// is a no-op.
+    /// <para>
+    /// Sheet-scoped named ranges keep tracking their sheet (OOXML's
+    /// <c>localSheetId</c> is positional and is re-indexed on every
+    /// move), and the workbook's active tab follows the sheet that was
+    /// active before the move (an out-of-range value carried by an
+    /// opened file is clamped into range).
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sheet"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="sheet"/> does not belong to this workbook.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="newIndex"/> is outside <c>[1, SheetCount]</c>.</exception>
+    void MoveSheet(ISheet sheet, int newIndex);
+
     /// <summary>Non-throwing sheet lookup.</summary>
     bool TryGetSheet(string name, [MaybeNullWhen(false)] out ISheet sheet);
 

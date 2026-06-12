@@ -73,6 +73,42 @@ changes (decision I19).
 
 ### Added
 
+- **Sheet rename + reorder (I-90 slice 1 of 2, R-12).**
+  `ISheet.Rename(string)` renames a sheet and rewrites every reference to
+  the old name across the document. It is a method, not a `Name` setter,
+  because it validates (the `AddSheet` rules, including R-9's tightened
+  character set and the I-88 control-character fail-fast) and throws
+  `SheetNameException` on an invalid or duplicate name — side effects a
+  property setter would hide. References are rewritten via a
+  sheet-reference lexer (not a formula parser; only string-literal and
+  quoted-name state is tracked): cell formulas (including shared-formula
+  masters) on every sheet, defined-name bodies including the `_xlnm.*`
+  built-ins (print areas and titles follow the rename), conditional-
+  formatting and data-validation formulas, chart series references
+  (`c:f`), sparkline `xm:f` and table column formulas, pivot-cache
+  `worksheetSource/@sheet`, and internal hyperlink locations — the last
+  deliberately **exceeds Excel**, which lets hyperlink locations break on
+  rename. Quoting is normalized on output (the new name is quoted iff it
+  needs quoting — including cell-reference-shaped names like `A1` or
+  `R1C1` — with embedded apostrophes doubled). Documented residuals:
+  string arguments (`INDIRECT("Old!A1")`) are not rewritten (Excel
+  parity), and 3D span references (`Sheet1:Sheet3!A1`) are not rewritten
+  (Excel does rewrite those; pinned by test).
+  `IWorkbook.MoveSheet(sheet, newIndex)` reorders the sheet tabs by
+  1-based **resulting** position (remove-then-insert: `MoveSheet(s, 1)`
+  makes it first, `MoveSheet(s, SheetCount)` last). Sheet-scoped named
+  ranges keep tracking their sheet (`localSheetId` is a zero-based
+  position and is re-indexed), and `bookViews/@activeTab` follows the
+  sheet that was active (clamping a malformed out-of-range value);
+  calcChain is deliberately untouched — its `c/@i` is a sheetId, not a
+  position. The streaming engine is out of scope (forward-only model).
+  Oracle-verified vs LibreOffice 26.2: a renamed-and-moved sheet's
+  rewritten formula recalculates to the correct value on LO load (the
+  reference resolves in a second engine) and the rewritten named range,
+  hyperlink location, and tab order survive its resave; openpyxl reads
+  the result cleanly (the interop-nightly kitchen now carries the
+  scenario).
+
 - **Theme cluster: lazy default-theme embed + theme-color styling symmetry
   (I-89, R-8).** Theme-indexed styling is no longer a consumer lottery.
   The first time a theme-indexed color is written into a workbook that has

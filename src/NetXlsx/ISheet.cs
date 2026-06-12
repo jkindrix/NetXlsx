@@ -19,6 +19,40 @@ public interface ISheet
     /// <summary>The sheet's name.</summary>
     string Name { get; }
 
+    /// <summary>
+    /// Renames this sheet to <paramref name="newName"/> and rewrites every
+    /// reference to the old name across the workbook (decision I-90). The
+    /// new name must satisfy the same rules as
+    /// <see cref="IWorkbook.AddSheet"/> — 1..31 characters, none of
+    /// <c>\ / ? * : [ ]</c> or control characters, no leading or trailing
+    /// apostrophe, not the reserved <c>History</c> — and must not collide
+    /// with another sheet (case-insensitive). Violations throw
+    /// <see cref="SheetNameException"/> and leave the workbook unchanged.
+    /// Renaming a sheet to its own name is a no-op; a case-only rename is
+    /// allowed and rewrites references to the new casing.
+    /// <para>
+    /// Rewritten surfaces: cell formulas (including shared-formula
+    /// masters) on every sheet, defined-name bodies (including the
+    /// <c>_xlnm.*</c> built-ins, so print areas and titles follow the
+    /// rename), conditional-formatting and data-validation formulas,
+    /// chart series references, sparkline and table formulas, pivot-cache
+    /// worksheet sources, and internal hyperlink locations. Rewriting
+    /// hyperlink locations <b>exceeds Excel</b>, which leaves them to
+    /// break on rename. Quoting is normalized on output: the new name is
+    /// quoted exactly when it needs quoting, with embedded apostrophes
+    /// doubled.
+    /// </para>
+    /// <para>
+    /// Not rewritten (documented residuals): sheet names inside string
+    /// arguments — e.g. <c>INDIRECT("Old!A1")</c> — which is Excel parity
+    /// (Excel does not rewrite those either), and 3D span references
+    /// (<c>Sheet1:Sheet3!A1</c>), which Excel does rewrite but NetXlsx
+    /// leaves untouched.
+    /// </para>
+    /// </summary>
+    /// <exception cref="SheetNameException"><paramref name="newName"/> is null, violates Excel's sheet-name rules, or collides with an existing sheet (case-insensitive).</exception>
+    void Rename(string newName);
+
     /// <summary>The owning workbook.</summary>
     IWorkbook Workbook { get; }
 
