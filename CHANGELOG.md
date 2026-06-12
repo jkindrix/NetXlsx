@@ -11,6 +11,30 @@ changes (decision I19).
 
 ### Fixed
 
+- **Source-gen `ReadRows` now compiles for positional records (R-4).** The
+  generated `ReadRows` constructed every type through an object initializer,
+  which is CS7036 inside the `.g.cs` for positional records (no parameterless
+  constructor) — the README's flagship typed-mapping example was exactly this
+  shape — and no diagnostic fired. The generator now constructs through the
+  record primary constructor (named arguments; mapped extra body properties
+  in an object-initializer suffix; unmapped defaulted parameters omitted).
+  Value-type `[Worksheet]` types also stop receiving the `record is null`
+  guard in `AddRow`, which was CS0037 for structs/record structs — the same
+  silent non-compiling-emit class. Genuinely unconstructible shapes now fire
+  the new **`NXLS0007`** error instead of emitting code that cannot compile:
+  a primary-constructor parameter with no mapped supported column and no
+  default value, a mapped property that is neither settable nor a
+  primary-constructor parameter, or a `required` property the generated
+  object initializer would not cover. Pinned by a compile-AND-run round-trip
+  test (`AddRows` → save → open → `ReadRows` on an executed emission).
+- **README typed-mapping docs match the emitted API (R-5).** The generated
+  `ReadRows()` is a per-type, non-generic extension; the README documented a
+  `ReadRows<SalesRow>()` that never existed (CS1061) and an example that
+  omitted the hand-authored header row `ReadRows` maps against. The example
+  is now compile-and-run verified verbatim, and the feature bullet documents
+  the per-type (not generic) dispatch and the static-class disambiguation
+  path when multiple `[Worksheet]` types are in scope.
+
 - **`Save(path)` is now atomic on both engines (R-1, R-2).** Serialization
   targets a sibling temp file (its name embeds the destination filename) and
   promotes it with a same-volume rename, so a failed save leaves a

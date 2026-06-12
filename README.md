@@ -14,7 +14,7 @@ Raw OOXML is verbose and easy to get subtly wrong; the Open XML SDK is schema-co
 
 - **Adds fluent ergonomics.** `sheet.Range("A1:C1").Value("header").Apply(new CellStyle { Bold = true })` instead of hand-building schema elements.
 - **Deduplicates styles automatically.** A single internal pool keyed off `CellStyle` value equality. Avoids Excel's 64K-style cap that bites every team writing many-colored reports (spike-measured at 60–64K — this is a correctness fix, not just polish).
-- **Generates typed export/import at compile time.** `[Worksheet]` on a record gets you `sheet.AddRows<T>(items)` / `sheet.ReadRows<T>()` via source generator. No reflection at runtime, AOT-safe in principle.
+- **Generates typed export/import at compile time.** `[Worksheet]` on a record gets you `sheet.AddRows(items)` / `sheet.ReadRows()` extension methods via source generator — per-type, no generic dispatch. No reflection at runtime, AOT-safe in principle.
 - **Doesn't hide the OOXML.** Every random-access public type exposes `.Underlying` returning the raw Open XML SDK object (`SpreadsheetDocument`, `Worksheet`, `Cell`, parts for charts/tables). The facade is *additive over the document*, not a sandbox.
 - **Splits streaming from random-access at the type level.** `Workbook.CreateStreaming()` returns `IStreamingWorkbook` — not the same type as the random-access one. Random-access members are absent from the streaming surface because they'd lie. (Looking at you, EPPlus.)
 
@@ -166,13 +166,20 @@ public partial record SalesRow(
     [property: Column("Region")]  string Region,
     [property: Column("Revenue", Format = NumberFormats.Currency)] decimal Revenue);
 
-using var wb = Workbook.Create();
-var sheet = wb.AddSheet("Sales");
-sheet.AddRows(records);                       // generator emits the body
+using (var wb = Workbook.Create())
+{
+    var sheet = wb.AddSheet("Sales");
+    sheet.AppendRow().Set(1, "Region").Set(2, "Revenue");  // header row (authored by hand)
+    sheet.AddRows(records);                                // generator emits the body
+    wb.Save("sales.xlsx");
+}
 
-foreach (var row in read["Sales"].ReadRows<SalesRow>())
+using var read = Workbook.Open("sales.xlsx");
+foreach (var row in read["Sales"].ReadRows())              // maps columns by [Column] header name
     Console.WriteLine($"{row.Region}: {row.Revenue:C}");
 ```
+
+The generated methods are per-type extensions (`SalesRow_SheetExtensions.AddRows/ReadRows`), not a generic `ReadRows<T>()` — with several `[Worksheet]` types in scope, disambiguate by calling through the generated static class.
 
 The generator (`NetXlsx.SourceGen`) emits stable diagnostic IDs `NXLS0001`–`NXLS0099` for invalid `[Worksheet]` / `[Column]` usage. (The `NXLS0100`–`NXLS0199` AOT/trim build guards were retired at v2.0.0 — the engine passed the AOT/trim audit.)
 
