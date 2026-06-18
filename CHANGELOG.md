@@ -11,6 +11,18 @@ changes (decision I19).
 
 ### Added
 
+- **Open workbooks containing chartsheets / dialogsheets (R-38 / decision
+  I-92).** A valid, Excel-authorable workbook whose `<sheet>` targets a
+  chartsheet (full-window chart, no grid) or a legacy dialogsheet previously
+  failed to open (`MalformedFileException`). It now opens with the
+  chartsheet/dialogsheet as a placeholder sheet: it counts in `SheetCount`,
+  appears in `Sheets`, carries `Name`/`Hidden`, takes part in
+  rename/move/remove, and round-trips byte-stable — every cell-/grid-shaped
+  member throws `NotSupportedException` (use `IWorkbook.Underlying` for the
+  part). New `ISheet.Kind` (`SheetKind.Worksheet` / `Chartsheet` /
+  `Dialogsheet`) discriminates. A sheet relationship pointed at a genuinely
+  non-sheet part (e.g. the styles part) still fails loud.
+
 - **`IWorkbook.AddSheet(string name, int index)`** — insert-at-position
   overload. The `index` is 1-based, matching `MoveSheet`: the call is
   equivalent to `AddSheet(name)` followed by `MoveSheet(sheet, index)`, so

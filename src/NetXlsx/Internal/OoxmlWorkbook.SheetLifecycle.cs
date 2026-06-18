@@ -34,7 +34,7 @@ internal sealed partial class OoxmlWorkbook
     /// document-wide. An exact-equal rename is a no-op; a case-only rename
     /// proceeds (references are rewritten to the new casing, as Excel does).
     /// </summary>
-    internal void RenameSheet(OoxmlSheet sheet, string newName)
+    internal void RenameSheet(IOoxmlSheet sheet, string newName)
     {
         using var _ = EnterMutation();
         Workbook.ValidateSheetName(newName);
@@ -48,7 +48,7 @@ internal sealed partial class OoxmlWorkbook
         // every worksheet root through the classified getter (R-14's
         // NormalizeMissingReferences), so a load-failing part never reaches
         // a live workbook — the rename is all-or-nothing.
-        SheetElementFor(sheet.WorksheetPartInternal).Name = newName;
+        SheetElementFor(sheet.SheetPartInternal).Name = newName;
         _sheetsByName.Remove(oldName);
         _sheetsByName[newName] = sheet;
         sheet.SetNameInternal(newName);
@@ -61,7 +61,7 @@ internal sealed partial class OoxmlWorkbook
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(sheet);
         using var _ = EnterMutation();
-        if (sheet is not OoxmlSheet target || !ReferenceEquals(target.WorkbookInternal, this)
+        if (sheet is not IOoxmlSheet target || !ReferenceEquals(target.WorkbookInternal, this)
             || !_sheetsByIndex.Contains(target))
         {
             throw new ArgumentException("sheet does not belong to this workbook.", nameof(sheet));
@@ -86,7 +86,7 @@ internal sealed partial class OoxmlWorkbook
         // reproduces List.Insert exactly.
         var sheetsElement = _document.WorkbookPart?.Workbook?.GetFirstChild<S.Sheets>()
             ?? throw new InvalidOperationException("Workbook has no <sheets> element.");
-        var element = SheetElementFor(target.WorksheetPartInternal);
+        var element = SheetElementFor(target.SheetPartInternal);
         element.Remove();
         var siblings = sheetsElement.Elements<S.Sheet>().ToList();
         if (newPos >= siblings.Count) sheetsElement.AppendChild(element);
@@ -118,7 +118,7 @@ internal sealed partial class OoxmlWorkbook
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(sheet);
         using var _ = EnterMutation();
-        if (sheet is not OoxmlSheet target || !ReferenceEquals(target.WorkbookInternal, this)
+        if (sheet is not IOoxmlSheet target || !ReferenceEquals(target.WorkbookInternal, this)
             || !_sheetsByIndex.Contains(target))
         {
             throw new ArgumentException("sheet does not belong to this workbook.", nameof(sheet));
@@ -136,7 +136,7 @@ internal sealed partial class OoxmlWorkbook
         string removedName = target.Name;
         int removedPos = _sheetsByIndex.IndexOf(target);
         var before = _sheetsByIndex.ToArray();
-        var part = target.WorksheetPartInternal;
+        var part = target.SheetPartInternal;
         var wbPart = _document.WorkbookPart
             ?? throw new InvalidOperationException("Workbook has no workbook part.");
 
@@ -264,7 +264,7 @@ internal sealed partial class OoxmlWorkbook
     // localSheetId is a zero-based sheet POSITION; re-point every
     // sheet-scoped defined name (including hidden built-ins like
     // _xlnm._FilterDatabase) at its sheet's new position.
-    private void ReindexLocalSheetIds(OoxmlSheet[] before)
+    private void ReindexLocalSheetIds(IOoxmlSheet[] before)
     {
         var container = DefinedNamesContainer();
         if (container is null) return;
@@ -286,7 +286,7 @@ internal sealed partial class OoxmlWorkbook
     // into range first). Created workbooks carry no bookViews — nothing is
     // added; only an existing attribute whose effective value changed is
     // written.
-    private void RetargetActiveTab(OoxmlSheet[] before)
+    private void RetargetActiveTab(IOoxmlSheet[] before)
     {
         var views = _document.WorkbookPart?.Workbook?.GetFirstChild<S.BookViews>();
         if (views is null) return;

@@ -2759,6 +2759,48 @@ flattened picture border carries the correct Office literal); openpyxl
 reads theme index and tint. This also closes XlsxCodeGen Appendix A #1
 (`FontColorTheme` read-back included).
 
+### 6.12.5 Chartsheets / dialogsheets: open-with-visibility — I-92 (closes R-38)
+
+**I-92 (proposed + signed off 2026-06-18, landed S20):** full shape in
+`docs/r38-chartsheet-proposal-2026-06-18.md`. A valid, Excel-authorable
+workbook whose `<sheet>` targets a `ChartsheetPart` (a full-window chart,
+no cell grid) or the legacy `DialogsheetPart` previously could not be
+opened — the open path cast every sheet part to `WorksheetPart` and threw
+`MalformedFileException` (R-38). The fix is **open-with-visibility**: such a
+sheet opens as a placeholder rather than rejecting the whole file.
+
+- **Discriminator.** `ISheet.Kind` (new) returns `SheetKind.Worksheet` for
+  every sheet created by `AddSheet`, and `Chartsheet` / `Dialogsheet` for a
+  placeholder opened from a file.
+- **Open classification.** `IndexExistingSheets` now branches three ways:
+  `WorksheetPart` → the grid-backed `OoxmlSheet` (unchanged, incl.
+  `NormalizeMissingReferences`); `ChartsheetPart` / `DialogsheetPart` → an
+  `OoxmlChartsheet` placeholder (the content part is never parsed or
+  rewritten); anything else (e.g. a sheet `r:id` mis-pointed at the styles
+  part) → `MalformedFileException`, **unchanged** — only genuinely
+  sheet-typed parts get the placeholder.
+- **Placeholder behaviour.** It participates in `SheetCount`, `Sheets`, and
+  the indexers; carries `Name`, `Kind`, `Hidden` (get/set); and takes part
+  in `Rename` / `MoveSheet` / `RemoveSheet` (lifecycle parity). Every
+  cell-/grid-shaped member throws `NotSupportedException` with a recoverable
+  message pointing at `IWorkbook.Underlying`.
+- **Round-trip.** The content part is reachable in the relationship graph,
+  so the clone-`Save` preserves it byte-stable — open→save keeps the
+  chartsheet intact (no parsing, no rewrite). `RemoveSheet` tears the part
+  down via the generalized `IOoxmlSheet.SheetPartInternal` (the worksheet-only
+  cleanups — calcChain, pivot caches, dimension, row caches — are no-ops for
+  a chartsheet).
+
+Internally, the workbook's sheet collection is retyped to a small
+`IOoxmlSheet` abstraction (worksheet-or-placeholder) carrying the
+lifecycle hooks the workbook needs (`WorkbookInternal`, `SheetPartInternal`,
+`IsHiddenInternal`, `SetNameInternal`, `MarkRemoved`, and the
+rename/delete reference-rewrite passes — the latter no-ops for a chartsheet,
+which has no formula surface; references *to* it from worksheets are still
+rewritten by the workbook's fan-out). Verification: `ChartsheetTests` opens
+SDK-authored chartsheet + dialogsheet fixtures and asserts surface,
+grid-access throws, `Hidden`/rename/move/remove, and byte-stable round-trip.
+
 ### 6.13 Exception hierarchy
 
 ```csharp

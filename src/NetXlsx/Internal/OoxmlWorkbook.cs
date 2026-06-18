@@ -31,8 +31,10 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     private readonly SpreadsheetDocument _document;
     private readonly MemoryStream _backing;
     private readonly WorkbookOptions _options;
-    private readonly Dictionary<string, OoxmlSheet> _sheetsByName = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<OoxmlSheet> _sheetsByIndex = new();
+    // IOoxmlSheet (I-92): the collection holds both grid-backed OoxmlSheet and
+    // the non-grid OoxmlChartsheet placeholder uniformly.
+    private readonly Dictionary<string, IOoxmlSheet> _sheetsByName = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<IOoxmlSheet> _sheetsByIndex = new();
     private OoxmlStylePool? _stylePool;
     private Dictionary<string, CellStyle>? _namedStyles;
     private bool? _date1904;
@@ -337,19 +339,39 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
                 throw new MalformedFileException(
                     $"workbook sheet '{name}' references part '{relId}', which does not exist in the package", ex);
             }
-            if (part is not WorksheetPart wsPart)
+            // I-92: a sheet may legally target a chartsheet (full-window chart,
+            // no grid) or a legacy dialogsheet. Open those as a placeholder that
+            // participates in the collection and round-trips byte-stable; only a
+            // genuinely non-sheet target (e.g. a sheet r:id mis-pointed at the
+            // styles part) stays a fail-loud MalformedFileException.
+            IOoxmlSheet wrapper;
+            if (part is WorksheetPart wsPart)
+            {
+                var ws = new OoxmlSheet(this, name, wsPart);
+                // R-14: row/@r and c/@r are OPTIONAL per ECMA-376 (absent =
+                // previous + 1). Our own writers always emit them, but a
+                // spec-legal third-party file without them previously had its
+                // rows/cells silently invisible to every reader path. Infer and
+                // materialize the references once at open — Excel-compatible,
+                // and every downstream consumer (row cache, dimension, sort,
+                // EnumeratePopulated) sees one consistent grid. (Worksheet-only —
+                // a chartsheet/dialogsheet has no grid to normalize.)
+                ws.NormalizeMissingReferences();
+                wrapper = ws;
+            }
+            else if (part is ChartsheetPart)
+            {
+                wrapper = new OoxmlChartsheet(this, name, part, SheetKind.Chartsheet);
+            }
+            else if (part is DialogsheetPart)
+            {
+                wrapper = new OoxmlChartsheet(this, name, part, SheetKind.Dialogsheet);
+            }
+            else
+            {
                 throw new MalformedFileException(
-                    $"workbook sheet '{name}' relationship '{relId}' targets a {part.GetType().Name}, not a worksheet part" +
-                    " (chartsheet/dialogsheet workbooks are not supported yet — tracked as ledger R-38)");
-            var wrapper = new OoxmlSheet(this, name, wsPart);
-            // R-14: row/@r and c/@r are OPTIONAL per ECMA-376 (absent =
-            // previous + 1). Our own writers always emit them, but a
-            // spec-legal third-party file without them previously had its
-            // rows/cells silently invisible to every reader path. Infer and
-            // materialize the references once at open — Excel-compatible,
-            // and every downstream consumer (row cache, dimension, sort,
-            // EnumeratePopulated) sees one consistent grid.
-            wrapper.NormalizeMissingReferences();
+                    $"workbook sheet '{name}' relationship '{relId}' targets a {part.GetType().Name}, not a sheet part");
+            }
             _sheetsByIndex.Add(wrapper);
             _sheetsByName[name] = wrapper;
         }
@@ -580,8 +602,10 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         if (!stream.CanWrite) throw new ArgumentException("Stream must be writable.", nameof(stream));
 
         // Refresh every sheet's <dimension> from the live extent (R-13) —
-        // sized output is part of the save contract on both engines.
-        foreach (var sheet in _sheetsByIndex) sheet.UpdateDimension();
+        // sized output is part of the save contract on both engines. Chartsheets
+        // have no grid extent, so the refresh is worksheet-only (I-92).
+        foreach (var sheet in _sheetsByIndex)
+            if (sheet is OoxmlSheet ws) ws.UpdateDimension();
 
         // Flush the strongly-typed DOM into the in-memory package parts, then
         // clone into a throwaway buffer whose disposal finalizes the zip central
@@ -652,7 +676,8 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     // row caches and the style apply-memo reset.
     internal void InvalidateRowCaches()
     {
-        foreach (var sheet in _sheetsByIndex) sheet.InvalidateRowCache();
+        foreach (var sheet in _sheetsByIndex)
+            if (sheet is OoxmlSheet ws) ws.InvalidateRowCache();   // chartsheets have no row cache (I-92)
         StylePool.ClearApplyMemo();
     }
 
@@ -773,7 +798,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
     /// on this element, not on the worksheet — so <see cref="OoxmlSheet.Hidden"/>
     /// reaches it through here.
     /// </summary>
-    internal S.Sheet SheetElementFor(WorksheetPart part)
+    internal S.Sheet SheetElementFor(OpenXmlPart part)
     {
         var wbPart = _document.WorkbookPart
             ?? throw new InvalidOperationException("Workbook has no workbook part.");
@@ -782,7 +807,7 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
             ?? throw new InvalidOperationException("Workbook has no <sheets> element.");
         foreach (var sheet in sheets.Elements<S.Sheet>())
             if (sheet.Id?.Value == rid) return sheet;
-        throw new InvalidOperationException("No <sheet> element backs this worksheet part.");
+        throw new InvalidOperationException("No <sheet> element backs this sheet part.");
     }
 
     // Resolves a sheet name to its 0-based document-order index (case-insensitive,

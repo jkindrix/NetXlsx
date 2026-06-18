@@ -154,7 +154,7 @@ internal sealed partial class OoxmlSheet
     // last-visible-sheet guard in RemoveSheet counts visible sheets without
     // tripping any disposal/removed guard). Mirrors NPOI: both Hidden and
     // VeryHidden read as hidden.
-    internal bool IsHiddenInternal
+    public bool IsHiddenInternal
     {
         get
         {

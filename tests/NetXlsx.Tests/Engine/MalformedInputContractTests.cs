@@ -375,8 +375,10 @@ public class MalformedInputContractTests
     [Fact]
     public void Sheet_Targeting_NonWorksheet_Part_Fails_Loud()
     {
-        // Point the sheet's r:id at the styles part — a non-worksheet
-        // target (the R-38 chartsheet shape lands here too, for now).
+        // Point the sheet's r:id at the styles part — a genuinely non-sheet
+        // target still fails loud. (Since I-92/R-38, ChartsheetPart and
+        // DialogsheetPart targets open as placeholders instead — see
+        // ChartsheetTests; only non-sheet parts like this land here.)
         var path = TempPath();
         using (var wb = Workbook.Create())
         {
@@ -397,7 +399,7 @@ public class MalformedInputContractTests
         {
             Action act = () => { using var wb = Workbook.Open(path); };
             act.Should().Throw<MalformedFileException>()
-                .WithMessage("*not a worksheet part*");
+                .WithMessage("*not a sheet part*");
         }
         finally { File.Delete(path); }
     }

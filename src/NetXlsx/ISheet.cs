@@ -57,6 +57,19 @@ public interface ISheet
     IWorkbook Workbook { get; }
 
     /// <summary>
+    /// What kind of sheet this is (decision I-92). <see cref="SheetKind.Worksheet"/>
+    /// for every sheet created by <see cref="IWorkbook.AddSheet(string)"/>; a
+    /// workbook opened from a file may also surface a
+    /// <see cref="SheetKind.Chartsheet"/> or <see cref="SheetKind.Dialogsheet"/>.
+    /// Those open as placeholders — they count in <see cref="IWorkbook.SheetCount"/>,
+    /// appear in <see cref="IWorkbook.Sheets"/>, carry <see cref="Name"/> /
+    /// <see cref="Hidden"/>, participate in rename/move/remove, and round-trip
+    /// byte-stable — but any cell-/grid-shaped member throws
+    /// <see cref="System.NotSupportedException"/>.
+    /// </summary>
+    SheetKind Kind { get; }
+
+    /// <summary>
     /// Looks up a cell by <c>A1</c> address. Returns a materialized
     /// <see cref="ICell"/> even for never-written addresses (decision #40);
     /// the returned cell reports <see cref="CellKind.Empty"/>.

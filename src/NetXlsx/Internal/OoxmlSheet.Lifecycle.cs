@@ -15,8 +15,10 @@ namespace NetXlsx;
 internal sealed partial class OoxmlSheet
 {
     // Workbook-side lifecycle code locates this sheet's <sheet> entry (via
-    // SheetElementFor) and its part subtree through here.
-    internal WorksheetPart WorksheetPartInternal => _worksheetPart;
+    // SheetElementFor) and its part subtree through here. Typed as the base
+    // OpenXmlPart so the workbook collection can hold worksheet and chartsheet
+    // shapes uniformly (I-92); for a worksheet it is always the WorksheetPart.
+    public OpenXmlPart SheetPartInternal => _worksheetPart;
 
     public void Rename(string newName)
     {
@@ -35,7 +37,7 @@ internal sealed partial class OoxmlSheet
 
     // Set by OoxmlWorkbook.RemoveSheet once the sheet's parts and entries have
     // been torn down. The wrapper instance lingers only as a tombstone.
-    internal void MarkRemoved() => _removed = true;
+    public void MarkRemoved() => _removed = true;
 
     // The unified liveness guard the public surface routes through (replacing
     // the bare _workbook.ThrowIfDisposed()). Disposal is checked first so a
@@ -53,7 +55,7 @@ internal sealed partial class OoxmlSheet
     /// Rename's per-sheet rewrite: replaces <paramref name="oldName"/> sheet
     /// references with the (normalized-quoted) <paramref name="newName"/>.
     /// </summary>
-    internal void RewriteSheetReferences(string oldName, string newName)
+    public void RewriteSheetReferences(string oldName, string newName)
         => RewriteSheetReferences(text => SheetReferenceLexer.Rewrite(text, oldName, newName));
 
     /// <summary>
@@ -64,7 +66,7 @@ internal sealed partial class OoxmlSheet
     /// hyperlink <c>@location</c> values pointing at the removed sheet are
     /// rewritten too, consistent with rename touching the same surface.
     /// </summary>
-    internal void RewriteSheetReferencesToRefError(string removedName)
+    public void RewriteSheetReferencesToRefError(string removedName)
         => RewriteSheetReferences(text => SheetReferenceLexer.RewriteToRefError(text, removedName));
 
     /// <summary>

@@ -1,4 +1,9 @@
 #nullable enable
+NetXlsx.ISheet.Kind.get -> NetXlsx.SheetKind
+NetXlsx.SheetKind
+NetXlsx.SheetKind.Chartsheet = 1 -> NetXlsx.SheetKind
+NetXlsx.SheetKind.Dialogsheet = 2 -> NetXlsx.SheetKind
+NetXlsx.SheetKind.Worksheet = 0 -> NetXlsx.SheetKind
 NetXlsx.CellBorders.BottomColorTheme.get -> NetXlsx.ThemeColor?
 NetXlsx.CellBorders.BottomColorTheme.init -> void
 NetXlsx.CellBorders.LeftColorTheme.get -> NetXlsx.ThemeColor?

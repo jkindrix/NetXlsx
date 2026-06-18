@@ -18,7 +18,7 @@ using S = DocumentFormat.OpenXml.Spreadsheet;
 
 namespace NetXlsx;
 
-internal sealed partial class OoxmlSheet : ISheet
+internal sealed partial class OoxmlSheet : IOoxmlSheet
 {
     private readonly OoxmlWorkbook _workbook;
     private readonly WorksheetPart _worksheetPart;
@@ -41,11 +41,17 @@ internal sealed partial class OoxmlSheet : ISheet
         get { ThrowIfUnusable(); return _workbook; }
     }
 
-    internal OoxmlWorkbook WorkbookInternal => _workbook;
+    /// <summary>Always <see cref="SheetKind.Worksheet"/> — this is the grid-backed sheet.</summary>
+    public SheetKind Kind
+    {
+        get { ThrowIfUnusable(); return SheetKind.Worksheet; }
+    }
+
+    public OoxmlWorkbook WorkbookInternal => _workbook;
 
     // The workbook keeps the wrapper name in sync when RenameSheet (I-90)
     // commits a rename — never called outside that path.
-    internal void SetNameInternal(string name) => _name = name;
+    public void SetNameInternal(string name) => _name = name;
 
     // ---- Grid access over the worksheet DOM --------------------------------
     // Excel requires <row> elements in ascending @r order and <c> elements in
