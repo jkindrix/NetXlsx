@@ -601,6 +601,15 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         ArgumentNullException.ThrowIfNull(stream);
         if (!stream.CanWrite) throw new ArgumentException("Stream must be writable.", nameof(stream));
 
+        // R-30: Save enumerates the whole sheet collection (below) and clones
+        // the part graph, so it must serialize against mutations like every
+        // other workbook-wide operation (mirrors Dispose taking the lock, R-15).
+        // In strict mode this takes the real lock; in the default mode the
+        // opportunistic counter surfaces a racing Save+mutate as the
+        // discoverable concurrency exception, not a raw "Collection was
+        // modified" thrown from mid-enumeration.
+        using var _ = EnterMutation();
+
         // Refresh every sheet's <dimension> from the live extent (R-13) —
         // sized output is part of the save contract on both engines. Chartsheets
         // have no grid extent, so the refresh is worksheet-only (I-92).

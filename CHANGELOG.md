@@ -9,6 +9,19 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`Save` now participates in the concurrency guard (R-30).** `Save` reads
+  and refreshes the whole sheet collection and clones the part graph, but did
+  not take the workbook mutation lock — so a `Save` racing a mutation could
+  throw a raw `InvalidOperationException` ("Collection was modified") from
+  mid-enumeration. `Save` now enters the same mutation scope as every other
+  workbook-wide operation (mirroring `Dispose`, R-15): in strict mode
+  (`StrictConcurrencyDetection`) a `Save` and a mutation serialize cleanly; in
+  the default mode a racing pair surfaces the discoverable concurrency
+  exception (which names the strict-mode option) instead of the opaque
+  collection-modified error. Surfaced by the new concurrency stress test.
+
 ### Added
 
 - **Open workbooks containing chartsheets / dialogsheets (R-38 / decision
