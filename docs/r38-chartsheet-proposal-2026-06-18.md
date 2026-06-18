@@ -1,9 +1,10 @@
 # Design proposal — I-92: open workbooks containing chartsheets / dialogsheets (R-38)
 
-**Status: PROPOSED — awaiting operator sign-off.** Per the ledger's
-`[I-NN first]` rule, this memo proposes the shape only; no code lands in the
-same session. On sign-off it graduates R-38, is copied into `design.md` §6 in
-house style by the implementing slice (S20), and the R-38 row closes.
+**Status: SIGNED OFF + LANDED — operator, 2026-06-18 (all four recommendations
+accepted).** Implemented as slice S20 (`@daadf58`), folded into `design.md`
+§6.12.5; R-38 closed. This memo is retained as the decision record. (It was
+authored under the `[I-NN first]` rule as a proposal; the sign-off and
+implementation followed.)
 
 **Numbering:** the highest decision today is I-91 (removal family); this is
 **I-92**.
