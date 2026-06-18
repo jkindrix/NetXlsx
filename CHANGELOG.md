@@ -9,6 +9,22 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Added
+
+- **`IWorkbook.AddSheet(string name, int index)`** — insert-at-position
+  overload. The `index` is 1-based, matching `MoveSheet`: the call is
+  equivalent to `AddSheet(name)` followed by `MoveSheet(sheet, index)`, so
+  `AddSheet(name, 1)` makes the new sheet first and `AddSheet(name,
+  SheetCount + 1)` appends. An out-of-range index throws
+  `ArgumentOutOfRangeException` before any sheet is added.
+- **`IWorkbook.Sheets`** (`IReadOnlyList<ISheet>`) — all sheets in tab
+  order as a 0-based read-only snapshot, aligned with the `this[int]`
+  indexer (`Sheets[i] == workbook[i]`) and including hidden sheets.
+
+  These resolve the two never-built members carried as `PENDING` in the
+  design §6.2 sketch (the third, `IAsyncDisposable`, was dropped —
+  disposal does no I/O, so there is nothing to await).
+
 ### Documentation
 
 - **Named-style round-trip truth pass.** Four places still claimed v1.1's

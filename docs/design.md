@@ -194,19 +194,22 @@ public enum DateSystem { Excel1900, Excel1904 }
 
 ### 6.2 Workbook
 
-> **Sketch reconciliation (I-90 / 2026-06-17).** This block was the
-> 2026-05-14 initial sketch. The sheet-lifecycle members shipped under I-90
-> with different (handle-based) shapes — corrected below and detailed in
-> §6.12.2. Three members in the original sketch never shipped and are left
-> in place, flagged `PENDING`, for an operator doc-truth pass to decide
-> (build or drop): the `AddSheet(name, index)` insert-at-index overload,
-> `IAsyncDisposable`, and the `IReadOnlyList<ISheet> Sheets` property.
+> **Sketch reconciliation (I-90 / 2026-06-17, resolved 2026-06-18).** This
+> block was the 2026-05-14 initial sketch. The sheet-lifecycle members
+> shipped under I-90 with different (handle-based) shapes — corrected below
+> and detailed in §6.12.2. The three members that never shipped were carried
+> as `PENDING` for an operator doc-truth pass; that pass landed (S19):
+> `AddSheet(name, index)` and `IReadOnlyList<ISheet> Sheets` were **built**
+> (the overload is 1-based, equivalent to `AddSheet(name)` + `MoveSheet`;
+> `Sheets` is a 0-based read-only snapshot aligned with the indexer), and
+> `IAsyncDisposable` was **dropped** (disposal does no I/O — there is nothing
+> to await; explicit `Save`/`SaveAsync` is the only flush point).
 
 ```csharp
-public interface IWorkbook : IDisposable   // PENDING: IAsyncDisposable (sketched, never built)
+public interface IWorkbook : IDisposable
 {
     ISheet AddSheet(string name);
-    // PENDING: ISheet AddSheet(string name, int index);  // insert-at-index overload — sketched, never built
+    ISheet AddSheet(string name, int index);   // S19: 1-based; = AddSheet(name) + MoveSheet(sheet, index)
     ISheet this[string name] { get; }
     ISheet this[int index] { get; }
     bool TryGetSheet(string name, [MaybeNullWhen(false)] out ISheet sheet);
@@ -217,7 +220,7 @@ public interface IWorkbook : IDisposable   // PENDING: IAsyncDisposable (sketche
     void MoveSheet(ISheet sheet, int newIndex);   // 1-based resulting position
     void RemoveSheet(ISheet sheet);
 
-    // PENDING: IReadOnlyList<ISheet> Sheets { get; }  // sketched, never built (use this[int] + SheetCount)
+    IReadOnlyList<ISheet> Sheets { get; }   // S19: 0-based snapshot, all sheets incl. hidden, aligned with this[int]
 
     void Save(string path);
     void Save(Stream stream, bool leaveOpen = true);

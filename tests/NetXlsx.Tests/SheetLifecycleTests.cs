@@ -1062,4 +1062,112 @@ public class SheetLifecycleTests
         reopened.TryGetSheet("Data", out _).Should().BeFalse();
         reopened["Calc"]["A1"].GetFormula().Should().Be("=#REF!A1+1");
     }
+
+    // ---- AddSheet(name, index) + Sheets (S19, §6.2 sketch reconciliation) ----
+
+    [Fact]
+    public void AddSheet_At_Index_Inserts_At_OneBased_Position()
+    {
+        using var wb = Workbook.Create();
+        foreach (var n in new[] { "A", "B", "C" }) wb.AddSheet(n);
+
+        var front = wb.AddSheet("Front", 1);
+        front.Name.Should().Be("Front");
+        wb[0].Should().BeSameAs(front);
+        Enumerable.Range(0, 4).Select(i => wb[i].Name).Should().Equal("Front", "A", "B", "C");
+
+        wb.AddSheet("Mid", 3);
+        Enumerable.Range(0, 5).Select(i => wb[i].Name).Should().Equal("Front", "A", "Mid", "B", "C");
+    }
+
+    [Fact]
+    public void AddSheet_At_Index_Append_Position_Equals_Plain_AddSheet()
+    {
+        using var wb = Workbook.Create();
+        foreach (var n in new[] { "A", "B" }) wb.AddSheet(n);
+
+        // SheetCount + 1 is the append position — identical to AddSheet(name).
+        var tail = wb.AddSheet("Tail", wb.SheetCount + 1);
+        wb[wb.SheetCount - 1].Should().BeSameAs(tail);
+        Enumerable.Range(0, 3).Select(i => wb[i].Name).Should().Equal("A", "B", "Tail");
+    }
+
+    [Theory]
+    [InlineData(0)]   // below the 1-based floor
+    [InlineData(5)]   // SheetCount (3) + 2 — past the append position
+    public void AddSheet_At_Index_OutOfRange_Throws_And_Adds_Nothing(int index)
+    {
+        using var wb = Workbook.Create();
+        foreach (var n in new[] { "A", "B", "C" }) wb.AddSheet(n);
+
+        Action act = () => wb.AddSheet("X", index);
+        act.Should().Throw<ArgumentOutOfRangeException>();
+        wb.SheetCount.Should().Be(3, "a rejected index must not add a sheet");
+    }
+
+    [Fact]
+    public void AddSheet_At_Index_Invalid_Name_Throws_And_Adds_Nothing()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("A");
+
+        Action dup = () => wb.AddSheet("A", 1);
+        dup.Should().Throw<SheetNameException>();
+        wb.SheetCount.Should().Be(1);
+        wb[0].Name.Should().Be("A");
+    }
+
+    [Fact]
+    public void AddSheet_At_Index_Order_Survives_Save_And_Reopen()
+    {
+        using var wb = Workbook.Create();
+        foreach (var n in new[] { "A", "B", "C" }) wb.AddSheet(n);
+        wb.AddSheet("Inserted", 2);
+
+        using var reopened = SaveAndReopen(wb);
+        Enumerable.Range(0, 4).Select(i => reopened[i].Name).Should().Equal("A", "Inserted", "B", "C");
+    }
+
+    [Fact]
+    public void Sheets_Matches_Indexer_And_SheetCount_In_TabOrder()
+    {
+        using var wb = Workbook.Create();
+        foreach (var n in new[] { "A", "B", "C" }) wb.AddSheet(n);
+
+        wb.Sheets.Should().HaveCount(wb.SheetCount);
+        wb.Sheets.Select(s => s.Name).Should().Equal("A", "B", "C");
+        for (int i = 0; i < wb.SheetCount; i++)
+            wb.Sheets[i].Should().BeSameAs(wb[i]);
+    }
+
+    [Fact]
+    public void Sheets_Includes_Hidden_Sheets()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("Visible");
+        wb.AddSheet("Hidden").Hidden = true;
+
+        wb.Sheets.Select(s => s.Name).Should().Equal("Visible", "Hidden");
+    }
+
+    [Fact]
+    public void Sheets_Is_Empty_For_New_Workbook()
+    {
+        using var wb = Workbook.Create();
+        wb.Sheets.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Sheets_Is_A_Snapshot_Not_A_Live_View()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("A");
+
+        var snapshot = wb.Sheets;
+        snapshot.Should().HaveCount(1);
+
+        wb.AddSheet("B");
+        snapshot.Should().HaveCount(1, "an already-returned list is a snapshot");
+        wb.Sheets.Should().HaveCount(2, "a fresh call reflects the new sheet");
+    }
 }

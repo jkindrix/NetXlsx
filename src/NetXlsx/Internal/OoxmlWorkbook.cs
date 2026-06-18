@@ -493,6 +493,19 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         }
     }
 
+    public IReadOnlyList<ISheet> Sheets
+    {
+        get
+        {
+            ThrowIfDisposed();
+            // Snapshot in tab order; covariant from OoxmlSheet[] to
+            // IReadOnlyList<ISheet>. Aligned 0-based with this[int].
+            return _sheetsByIndex.Count == 0
+                ? Array.Empty<ISheet>()
+                : _sheetsByIndex.ToArray();
+        }
+    }
+
     public ISheet AddSheet(string name)
     {
         ThrowIfDisposed();
@@ -522,6 +535,23 @@ internal sealed partial class OoxmlWorkbook : IWorkbook
         _sheetsByIndex.Add(wrapper);
         _sheetsByName[name] = wrapper;
         return wrapper;
+    }
+
+    public ISheet AddSheet(string name, int index)
+    {
+        ThrowIfDisposed();
+        // 1-based resulting position; valid range is [1, SheetCount + 1]
+        // because the new sheet grows the count by one (SheetCount + 1 ==
+        // append, identical to AddSheet(name)). Validate before adding so a
+        // bad index never leaves a half-added sheet behind.
+        if (index < 1 || index > _sheetsByIndex.Count + 1)
+            throw new ArgumentOutOfRangeException(
+                nameof(index), index,
+                $"index must be in [1, {_sheetsByIndex.Count + 1}] (the 1-based resulting position).");
+
+        var sheet = AddSheet(name);   // appends; may throw SheetNameException
+        MoveSheet(sheet, index);      // no-op when index is the append position
+        return sheet;
     }
 
     private static uint NextSheetId(S.Sheets sheets)

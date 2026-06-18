@@ -26,12 +26,37 @@ public interface IWorkbook : IDisposable
     ISheet this[int index] { get; }
 
     /// <summary>
+    /// All sheets in workbook (tab) order, as a read-only snapshot
+    /// (0-based, aligned with the <see cref="this[int]"/> indexer, so
+    /// <c>Sheets[i]</c> is the same sheet as <c>workbook[i]</c>). Includes
+    /// hidden sheets. The returned list is a snapshot taken at the time of
+    /// the call; later <see cref="AddSheet(string)"/> / <see cref="MoveSheet"/>
+    /// / <see cref="RemoveSheet"/> calls do not change a list already returned.
+    /// </summary>
+    System.Collections.Generic.IReadOnlyList<ISheet> Sheets { get; }
+
+    /// <summary>
     /// Adds a new sheet to the end of the workbook. The supplied name
     /// must be 1..31 characters, must not contain <c>\ / ? * [ ]</c>, and
     /// must be unique within the workbook (case-insensitive). Throws
     /// <see cref="SheetNameException"/> on rule violation.
     /// </summary>
     ISheet AddSheet(string name);
+
+    /// <summary>
+    /// Adds a new sheet (per the <see cref="AddSheet(string)"/> naming rules)
+    /// and positions it at the 1-based <paramref name="index"/> in workbook
+    /// (tab) order — equivalent to <c>AddSheet(name)</c> followed by
+    /// <see cref="MoveSheet"/><c>(sheet, index)</c>. <c>AddSheet(name, 1)</c>
+    /// makes it the first sheet; <c>AddSheet(name, SheetCount + 1)</c> appends
+    /// (identical to <see cref="AddSheet(string)"/>). The 1-based position
+    /// matches <see cref="MoveSheet"/>; note the contrast with the 0-based
+    /// positional indexer (after <c>AddSheet(name, 1)</c>, <c>workbook[0]</c>
+    /// returns the new sheet).
+    /// </summary>
+    /// <exception cref="SheetNameException"><paramref name="name"/> violates the naming rules or collides with an existing sheet.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is outside <c>[1, SheetCount + 1]</c>.</exception>
+    ISheet AddSheet(string name, int index);
 
     /// <summary>
     /// Moves <paramref name="sheet"/> so that it ends up at the 1-based

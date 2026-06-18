@@ -19,9 +19,11 @@ NetXlsx.ISheet.RemovePicture(NetXlsx.IPicture! picture) -> void
 NetXlsx.ISheet.RemoveShape(NetXlsx.IShape! shape) -> void
 NetXlsx.ISheet.Rename(string! newName) -> void
 NetXlsx.ISheet.RemoveValidation(string! a1Range) -> void
+NetXlsx.IWorkbook.AddSheet(string! name, int index) -> NetXlsx.ISheet!
 NetXlsx.IWorkbook.MoveSheet(NetXlsx.ISheet! sheet, int newIndex) -> void
 NetXlsx.IWorkbook.RemoveNamedRange(string! name) -> void
 NetXlsx.IWorkbook.RemoveSheet(NetXlsx.ISheet! sheet) -> void
+NetXlsx.IWorkbook.Sheets.get -> System.Collections.Generic.IReadOnlyList<NetXlsx.ISheet!>!
 NetXlsx.PictureBorder
 NetXlsx.PictureBorder.Color.get -> NetXlsx.Color?
 NetXlsx.PictureBorder.Color.init -> void
