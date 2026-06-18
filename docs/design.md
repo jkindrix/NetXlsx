@@ -280,7 +280,7 @@ IRange ApplyNamedStyle(string name);
 
 **I-57 (added 2026-05-22):** A workbook-scoped name registry for `CellStyle` values. Register once with a name; apply by name on cells or ranges. Backed by the existing style-pool dedup (decision #4) — equal `CellStyle` instances still share one underlying NPOI `ICellStyle`, so naming is purely a caller-side convenience.
 
-**v1.1 named styles are an in-process convenience, not OOXML named-style table entries.** When a workbook is saved and reopened via `Workbook.Open`, the per-cell style is preserved (via style-pool dedup), but the name → style map is not rehydrated — Excel itself never saw the names. Real OOXML named-style table integration (so styles persist by name across open/save) is deferred to v1.2.
+**Named styles round-trip as of I-67 (v1.3) — §6.2.6 is the current behavior; this paragraph records the original I-57 surface.** The v1.1 shape was an in-process-only convenience: when a workbook was saved and reopened via `Workbook.Open`, the per-cell style was preserved (via style-pool dedup) but the name → style map was not rehydrated. I-67 closed that loop — `RegisterStyle` now writes an OOXML `<cellStyle>` entry and `Workbook.Open` rehydrates the names (see §6.2.6, including the one carried-forward nuance: cells get an equivalent explicit style, not an `xfId` back-reference to the named-style entry).
 
 Names are case-insensitive. Re-registering an existing name replaces the definition.
 
@@ -2705,6 +2705,57 @@ LibreOffice 26.2 resave (the surviving picture still renders); the full local
 interop gauntlet (generate → assert-self → LO resave → assert-lo → streaming →
 openpyxl 3.1.5) is green.
 
+### 6.12.4 Theme cluster: default-theme embed + theme-color styling — I-89 (closes R-8)
+
+**I-89 (proposed 2026-06-10, signed off as amended 2026-06-11, landed
+S11):** full shape and amendment history in
+`docs/s2-design-proposals-2026-06-10.md#i-89`. Summary: before I-89,
+`Workbook.Create()` embedded **no theme part** while theme-indexed styling
+was already accepted, so theme-indexed colors were a consumer lottery
+(verified: LibreOffice injected its *own* theme — theme-4 resolving green
+instead of Office blue — and rewrote a theme-indexed picture border to a
+literal). I-89 closes the gap on two axes:
+
+- **Default theme.** `Workbook.DefaultThemeXml` is a byte-transcribed,
+  Excel-authored Office theme (accent1 `#4472C4`). It is embedded lazily,
+  the first time anything writes a theme-indexed color, through the single
+  `EnsureThemePart` choke point (hooked into the style pool, picture
+  borders, connectors, pie-chart fills, and rich-text runs; the streaming
+  writer embeds at save-time assembly). A workbook that never references a
+  theme color stays byte-identical to its pre-I-89 output — the existing
+  goldens are untouched. The read surface (`GetThemeXml`,
+  `ResolveThemeColor`) is the pre-existing I-81 introspection API.
+- **Theme-color styling symmetry.** The write surface for theme-indexed
+  colors, previously limited to `CellStyle.BackgroundTheme`, is completed:
+  `CellStyle.FontColorTheme`, `CellStyle.{Top,Right,Bottom,Left}ColorTheme`,
+  and `RichText.ColorTheme` (all `ThemeColor?` = theme index + tint), each
+  with read-back through the I-81 surface.
+
+Two judgment calls were surfaced at landing and are **ratified by the
+operator (2026-06-18)** as correct:
+
+1. *Pie-chart accent fills are a theme-embed trigger site.* A pie chart
+   emits `schemeClr accent1..6` per slice, which cannot resolve without a
+   theme part — so creating one embeds the default theme. This follows the
+   memo's normative "every theme-color write triggers embedding" rule (its
+   illustrative list merely omitted charts); the bytes are correct, not
+   gratuitous, and no other chart type emits scheme colors.
+2. *Read-back truthfully surfaces font-0's `theme="1"`.* The default font
+   carries Excel's conventional `<color theme="1"/>`, so `GetStyle()` on a
+   default-font cell reports `FontColorTheme = ThemeColor(1)` even though
+   the caller never set one — and re-applying that read style counts as a
+   theme-color write (it embeds the default theme). Reading alone embeds
+   nothing. Suppressing index 1 on read would mis-report a font that
+   genuinely uses theme 1, so the read path stays faithful: a benign
+   over-report (output renders identically) is preferred to a lossy
+   under-report.
+
+Oracle results at landing: LibreOffice 26.2 **preserves** the embedded
+theme through its own resave (theme-4 = `#FF4472C4` before and after, the
+flattened picture border carries the correct Office literal); openpyxl
+reads theme index and tint. This also closes XlsxCodeGen Appendix A #1
+(`FontColorTheme` read-back included).
+
 ### 6.13 Exception hierarchy
 
 ```csharp
@@ -3014,4 +3065,4 @@ Everything else is decided.
 - Error messages that help the caller recover (`InvalidCellAddressException` says *why* the address was invalid, what was expected, and what they passed).
 - Performance per the **absolute** targets in §4 (the old "`< 10%` / `< 30%` overhead vs raw NPOI" two-tier framing was retired with the NPOI engine at the I-82 cutover — §4 explains why that phantom baseline never existed, and R-29's comparative data, 2026-06-18, confirms raw throughput is *not* where NetXlsx wins). The bar here is: the §4 absolute numbers hold, measured, not handwaved.
 - Documentation that clarifies rather than restates.
-- The escape hatch is honest: nothing the facade does is uncovertible to a raw-NPOI equivalent.
+- The escape hatch is honest: nothing the facade does is unconvertible to a raw Open XML SDK equivalent — `IWorkbook.Underlying` exposes the `SpreadsheetDocument` directly (since the I-82 engine swap; pre-v2.0.0 this returned the NPOI workbook).

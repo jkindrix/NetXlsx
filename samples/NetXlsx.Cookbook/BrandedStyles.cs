@@ -5,9 +5,9 @@
 // is "company branding" — a fixed set of header / accent / footer
 // styles reused across many reports.
 //
-// Reminder: v1.1 named styles are an in-process convenience. The
-// styles themselves still serialize via the style-pool dedup, but
-// the name -> style map is not rehydrated by Workbook.Open.
+// Note: named styles round-trip as of I-67 (v1.3) — RegisterStyle writes
+// an OOXML named-style entry and Workbook.Open rehydrates the name map.
+// See the NamedStyleIntegration recipe for the round-trip behavior.
 
 using System.Threading.Tasks;
 

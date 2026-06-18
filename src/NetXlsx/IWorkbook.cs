@@ -137,15 +137,21 @@ public interface IWorkbook : IDisposable
     /// <summary>
     /// Registers <paramref name="style"/> under <paramref name="name"/> for
     /// reuse via <see cref="ICell.ApplyNamedStyle"/> and
-    /// <see cref="IRange.ApplyNamedStyle"/> (decision I-57). Names are
+    /// <see cref="IRange.ApplyNamedStyle"/> (decisions I-57, I-67). Names are
     /// case-insensitive. Re-registering an existing name replaces the
     /// definition.
     /// <para>
-    /// v1.1 named styles are an <b>in-process convenience</b> — they do
-    /// not produce entries in OOXML's named-style table. Reading a
-    /// saved workbook with <see cref="Workbook.Open"/> does not rehydrate
-    /// the name map; only the per-cell style is preserved (via the
-    /// style-pool dedup, decision #4).
+    /// Named styles persist across a save/open round-trip (decision I-67):
+    /// this method writes a <c>&lt;cellStyle&gt;</c> entry to the OOXML
+    /// named-style table, so reopening with <see cref="Workbook.Open"/>
+    /// rehydrates the name map — the names come back in
+    /// <see cref="RegisteredStyleNames"/> and appear in Excel's "Cell Styles"
+    /// gallery. One nuance carries forward: a cell styled via
+    /// <see cref="ICell.ApplyNamedStyle"/> is written with an equivalent
+    /// explicit style rather than a back-reference to the named-style entry,
+    /// so a reopened cell renders identically but is not badged <i>as</i>
+    /// that named style in Excel's ribbon. (Earlier v1.1 builds, decision
+    /// I-57, kept the registry in-process only; I-67 closed that loop in v1.3.)
     /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="name"/> or <paramref name="style"/> is null.</exception>

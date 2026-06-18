@@ -9,6 +9,32 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Named-style round-trip truth pass.** Four places still claimed v1.1's
+  in-process-only behavior ("the name map is not rehydrated by
+  `Workbook.Open`") after I-67 (v1.3) made registered style names persist
+  to the OOXML named-style table and rehydrate on open. Corrected: the
+  `IWorkbook.RegisterStyle` XML-doc (shipping IntelliSense — the most
+  impactful), `design.md` §6.2.2 (now forward-points to §6.2.6 / I-67),
+  the `BrandedStyles` cookbook recipe header, and the `roadmap.md` item
+  (flipped to shipped). The one carried-forward nuance — cells styled via
+  `ApplyNamedStyle` get an equivalent explicit style, not an `xfId`
+  back-reference, so they aren't badged *as* the named style in Excel's
+  ribbon — is preserved (already documented in §6.2.6).
+- **I-89 theme cluster folded into design §6.** Added `design.md` §6.12.4
+  documenting the I-89 default-theme embedding (`Workbook.DefaultThemeXml`,
+  the `EnsureThemePart` choke point) and the theme-color styling members
+  (`CellStyle.FontColorTheme`/`{Top,Right,Bottom,Left}ColorTheme`,
+  `RichText.ColorTheme`), matching the §6.12.1–.3 register; I-89 previously
+  had no §6 narrative. The two implementation judgment calls (pie-chart
+  fills as a theme-embed trigger; truthful font-0 `theme="1"` read-back)
+  are recorded as operator-ratified.
+- **§10 escape-hatch line de-NPOI'd.** "nothing the facade does is
+  unconvertible to a raw-NPOI equivalent" corrected to the Open XML SDK
+  reality (`IWorkbook.Underlying` returns `SpreadsheetDocument` since the
+  I-82 swap); fixed a pre-existing "uncovertible" typo.
+
 ### Samples / cookbook
 
 - **Post-v1.1 cookbook recipes (R-23).** The cookbook shipped recipes for

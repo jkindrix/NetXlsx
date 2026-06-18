@@ -344,17 +344,17 @@ the one substantive open item from the v1.1 external review pass
       rich (text equals / contains / not-equals, top-N, color, date
       range, custom expression). The v1.2 surface needs a builder or
       record-based criteria type — non-trivial design work.
-- [ ] **OOXML named-style table integration** — deferred to v1.3
-      after scope assessment in v1.2. v1.1 named styles (decision I-57)
-      are an in-process convenience — the name → style map is not
-      rehydrated by `Workbook.Open`. The full integration requires
-      both a write-side (allocate `CT_Xf` in `cellStyleXfs`, register
-      `CT_CellStyle` with name + xfId on each `RegisterStyle` call)
-      AND a read-side (new CT_Xf → `CellStyle` parser distinct from
-      the existing `CellStylePool.ReadFromNpoi(ICellStyle)`). The
-      paired implementation is one focused slice in its own right;
-      v1.2 ships the other five v1.1 deferments first, v1.3 leads
-      with this one.
+- [x] **OOXML named-style table integration** — **shipped in v1.3
+      (decision I-67).** `RegisterStyle` writes a `<cellStyle>` entry
+      (name + `xfId`) to the named-style table and `Workbook.Open`
+      rehydrates the name → style map; verified by
+      `NamedStyleTests.Registered_Names_Survive_File_Roundtrip`. The
+      v1.1 shape (decision I-57) was an in-process-only convenience.
+      One nuance carries forward — cells styled via `ApplyNamedStyle`
+      get an equivalent explicit style rather than an `xfId`
+      back-reference to the named-style entry, so they render
+      identically but aren't badged *as* that style in Excel's ribbon
+      (documented in design §6.2.6).
 - [ ] **`ISheet.cs` partial-class split** (v1.1 review item 2). The
       file is at 888 LOC and approaching SRP pressure as the v1.1
       surfaces (Tables, Pictures, Protection, AutoFilter, Validation)
