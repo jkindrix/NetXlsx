@@ -122,6 +122,13 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "AddConnector", (Action<ISheet>)(s => s.AddConnector(ConnectorType.Straight, "A1", "C3")) };
         yield return new object[] { "Pictures", (Action<ISheet>)(s => { var _ = s.Pictures; }) };
         yield return new object[] { "Connectors", (Action<ISheet>)(s => { var _ = s.Connectors; }) };
+        // Remove{Picture,Chart,Shape,Connector} check disposal before their
+        // foreign/stale-handle guards, so a benign foreign stub never reaches
+        // ArgumentException here (mirrors RemoveTable's XssfTableStub row).
+        yield return new object[] { "RemovePicture", (Action<ISheet>)(s => s.RemovePicture(new ForeignPicture())) };
+        yield return new object[] { "RemoveChart", (Action<ISheet>)(s => s.RemoveChart(new ForeignChart())) };
+        yield return new object[] { "RemoveShape", (Action<ISheet>)(s => s.RemoveShape(new ForeignShape())) };
+        yield return new object[] { "RemoveConnector", (Action<ISheet>)(s => s.RemoveConnector(new ForeignConnector())) };
         yield return new object[] { "AddConditionalFormatting", (Action<ISheet>)(s => s.AddConditionalFormatting("A1:A5", ConditionalFormat.CellValueGreaterThan("50", new CellStyle { Bold = true }))) };
         yield return new object[] { "ConditionalFormattingCount", (Action<ISheet>)(s => { var _ = s.ConditionalFormattingCount; }) };
         yield return new object[] { "RemoveConditionalFormatting", (Action<ISheet>)(s => s.RemoveConditionalFormatting(0)) };

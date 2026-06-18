@@ -115,27 +115,51 @@ internal sealed class OoxmlConnector : IConnector
             lineColor, lineSchemeColor, lineWidthPoints, lineStyleRefIndex, cxn);
     }
 
-    public ISheet Sheet { get { _workbook.ThrowIfDisposed(); return _sheet; } }
-    public ConnectorType Type { get { _workbook.ThrowIfDisposed(); return _type; } }
-    public string FromCell { get { _workbook.ThrowIfDisposed(); return _fromCell; } }
-    public string ToCell { get { _workbook.ThrowIfDisposed(); return _toCell; } }
-    public int Dx1 { get { _workbook.ThrowIfDisposed(); return _dx1; } }
-    public int Dy1 { get { _workbook.ThrowIfDisposed(); return _dy1; } }
-    public int Dx2 { get { _workbook.ThrowIfDisposed(); return _dx2; } }
-    public int Dy2 { get { _workbook.ThrowIfDisposed(); return _dy2; } }
-    public bool FlipH { get { _workbook.ThrowIfDisposed(); return _flipH; } }
-    public bool FlipV { get { _workbook.ThrowIfDisposed(); return _flipV; } }
-    public ConnectorEnd HeadEnd { get { _workbook.ThrowIfDisposed(); return _headEnd; } }
-    public ConnectorEnd TailEnd { get { _workbook.ThrowIfDisposed(); return _tailEnd; } }
-    public Color? LineColor { get { _workbook.ThrowIfDisposed(); return _lineColor; } }
-    public string? LineSchemeColor { get { _workbook.ThrowIfDisposed(); return _lineSchemeColor; } }
-    public double? LineWidthPoints { get { _workbook.ThrowIfDisposed(); return _lineWidthPoints; } }
-    public int? LineStyleRefIndex { get { _workbook.ThrowIfDisposed(); return _lineStyleRefIndex; } }
+    // ---- Removed-handle access guard (I-91 slice 2) -----------------------
+    // The drawing-layer twin of the OoxmlTable retrofit (S14): after
+    // OoxmlSheet.RemoveConnector detaches this connector's anchor, every public
+    // member throws InvalidOperationException — distinct from the
+    // disposed-workbook ObjectDisposedException. The flag is one-way.
+    private bool _removed;
+
+    internal void MarkRemoved() => _removed = true;
+
+    // The live xdr:cxnSp element, for RemoveConnector's anchor match (no
+    // liveness guard — internal engine use only).
+    internal XDR.ConnectionShape ConnectionElement => _cxn;
+
+    // Disposal first so a disposed workbook still surfaces
+    // ObjectDisposedException; a live workbook with this connector removed
+    // surfaces InvalidOperationException.
+    internal void ThrowIfUnusable()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_removed)
+            throw new InvalidOperationException(
+                "this connector has been removed from its sheet.");
+    }
+
+    public ISheet Sheet { get { ThrowIfUnusable(); return _sheet; } }
+    public ConnectorType Type { get { ThrowIfUnusable(); return _type; } }
+    public string FromCell { get { ThrowIfUnusable(); return _fromCell; } }
+    public string ToCell { get { ThrowIfUnusable(); return _toCell; } }
+    public int Dx1 { get { ThrowIfUnusable(); return _dx1; } }
+    public int Dy1 { get { ThrowIfUnusable(); return _dy1; } }
+    public int Dx2 { get { ThrowIfUnusable(); return _dx2; } }
+    public int Dy2 { get { ThrowIfUnusable(); return _dy2; } }
+    public bool FlipH { get { ThrowIfUnusable(); return _flipH; } }
+    public bool FlipV { get { ThrowIfUnusable(); return _flipV; } }
+    public ConnectorEnd HeadEnd { get { ThrowIfUnusable(); return _headEnd; } }
+    public ConnectorEnd TailEnd { get { ThrowIfUnusable(); return _tailEnd; } }
+    public Color? LineColor { get { ThrowIfUnusable(); return _lineColor; } }
+    public string? LineSchemeColor { get { ThrowIfUnusable(); return _lineSchemeColor; } }
+    public double? LineWidthPoints { get { ThrowIfUnusable(); return _lineWidthPoints; } }
+    public int? LineStyleRefIndex { get { ThrowIfUnusable(); return _lineStyleRefIndex; } }
 
     // Escape hatch (#32 / I-82): the live xdr:cxnSp element. Disposal first.
     public XDR.ConnectionShape Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _cxn; }
+        get { ThrowIfUnusable(); return _cxn; }
     }
 
     // ---- Mappings (inverse of OoxmlSheet.ToPreset / ToLineEnd) ---------------

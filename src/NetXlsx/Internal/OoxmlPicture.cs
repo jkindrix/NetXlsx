@@ -49,20 +49,45 @@ internal sealed class OoxmlPicture : IPicture
         _pic = pic;
     }
 
-    public ISheet Sheet { get { _workbook.ThrowIfDisposed(); return _sheet; } }
-    public ImageFormat Format { get { _workbook.ThrowIfDisposed(); return _format; } }
-    public string FromCell { get { _workbook.ThrowIfDisposed(); return _fromCell; } }
-    public string ToCell { get { _workbook.ThrowIfDisposed(); return _toCell; } }
-    public int Dx1 { get { _workbook.ThrowIfDisposed(); return _dx1; } }
-    public int Dy1 { get { _workbook.ThrowIfDisposed(); return _dy1; } }
-    public int Dx2 { get { _workbook.ThrowIfDisposed(); return _dx2; } }
-    public int Dy2 { get { _workbook.ThrowIfDisposed(); return _dy2; } }
-    public byte[] Data { get { _workbook.ThrowIfDisposed(); return _data; } }
+    // ---- Removed-handle access guard (I-91 slice 2) -----------------------
+    // The drawing-layer twin of the OoxmlTable retrofit (S14): after
+    // OoxmlSheet.RemovePicture detaches this picture's anchor (and, when no
+    // other anchor shares it, deletes the image part), every public member
+    // throws InvalidOperationException — distinct from the disposed-workbook
+    // ObjectDisposedException. The flag is one-way.
+    private bool _removed;
+
+    internal void MarkRemoved() => _removed = true;
+
+    // The live xdr:pic element, for RemovePicture's anchor match + the
+    // shared-image refcount (no liveness guard — internal engine use only).
+    internal XDR.Picture PicElement => _pic;
+
+    // Disposal first so a disposed workbook still surfaces
+    // ObjectDisposedException; a live workbook with this picture removed
+    // surfaces InvalidOperationException.
+    internal void ThrowIfUnusable()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_removed)
+            throw new InvalidOperationException(
+                "this picture has been removed from its sheet.");
+    }
+
+    public ISheet Sheet { get { ThrowIfUnusable(); return _sheet; } }
+    public ImageFormat Format { get { ThrowIfUnusable(); return _format; } }
+    public string FromCell { get { ThrowIfUnusable(); return _fromCell; } }
+    public string ToCell { get { ThrowIfUnusable(); return _toCell; } }
+    public int Dx1 { get { ThrowIfUnusable(); return _dx1; } }
+    public int Dy1 { get { ThrowIfUnusable(); return _dy1; } }
+    public int Dx2 { get { ThrowIfUnusable(); return _dx2; } }
+    public int Dy2 { get { ThrowIfUnusable(); return _dy2; } }
+    public byte[] Data { get { ThrowIfUnusable(); return _data; } }
 
     // Escape hatch (#32 / I-82): the live xdr:pic element. Disposal first.
     public XDR.Picture Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _pic; }
+        get { ThrowIfUnusable(); return _pic; }
     }
 
     // ---- Border (decision I-86) ------------------------------------------
@@ -82,12 +107,12 @@ internal sealed class OoxmlPicture : IPicture
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             return ReadBorder();
         }
         set
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             if (value is null) { _pic.ShapeProperties?.RemoveAllChildren<A.Outline>(); return; }
             ValidateBorder(value);
             WriteBorder(value);

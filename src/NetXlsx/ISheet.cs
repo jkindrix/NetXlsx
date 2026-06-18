@@ -266,6 +266,53 @@ public interface ISheet
     System.Collections.Generic.IReadOnlyList<IConnector> Connectors { get; }
 
     /// <summary>
+    /// Removes <paramref name="picture"/> from this sheet (decision I-91):
+    /// deletes its drawing anchor and, when no other anchor still references
+    /// the same image part, the image part too (shared media is reference-
+    /// counted). The drawing part and its worksheet <c>&lt;drawing&gt;</c>
+    /// relationship are dropped once the last anchor leaves. The supplied
+    /// handle becomes stale — subsequent member access throws
+    /// <see cref="InvalidOperationException"/> (or
+    /// <see cref="ObjectDisposedException"/> if the workbook is disposed).
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="picture"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="picture"/> is a foreign implementation, or its anchor no longer belongs to this sheet (already removed).</exception>
+    void RemovePicture(IPicture picture);
+
+    /// <summary>
+    /// Removes <paramref name="chart"/> from this sheet (decision I-91):
+    /// deletes its drawing anchor and its chart part (charts are not shared).
+    /// The drawing part and its worksheet <c>&lt;drawing&gt;</c> relationship
+    /// are dropped once the last anchor leaves. The supplied handle becomes
+    /// stale — see <see cref="RemovePicture"/> for the stale-handle contract.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="chart"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="chart"/> is a foreign implementation, or its anchor no longer belongs to this sheet (already removed).</exception>
+    void RemoveChart(IChart chart);
+
+    /// <summary>
+    /// Removes <paramref name="shape"/> from this sheet (decision I-91):
+    /// deletes its drawing anchor. The drawing part and its worksheet
+    /// <c>&lt;drawing&gt;</c> relationship are dropped once the last anchor
+    /// leaves. The supplied handle becomes stale — see
+    /// <see cref="RemovePicture"/> for the stale-handle contract.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="shape"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="shape"/> is a foreign implementation, or its anchor no longer belongs to this sheet (already removed).</exception>
+    void RemoveShape(IShape shape);
+
+    /// <summary>
+    /// Removes <paramref name="connector"/> from this sheet (decision I-91):
+    /// deletes its drawing anchor. The drawing part and its worksheet
+    /// <c>&lt;drawing&gt;</c> relationship are dropped once the last anchor
+    /// leaves. The supplied handle becomes stale — see
+    /// <see cref="RemovePicture"/> for the stale-handle contract.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="connector"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="connector"/> is a foreign implementation, or its anchor no longer belongs to this sheet (already removed).</exception>
+    void RemoveConnector(IConnector connector);
+
+    /// <summary>
     /// Adds one or more conditional formatting rules to the given range
     /// (decision I-73). Each rule is applied in order; Excel evaluates
     /// them top-to-bottom, stopping at the first match per cell.

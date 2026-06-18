@@ -28,12 +28,36 @@ internal sealed class OoxmlChart : IChart
         _part = part;
     }
 
-    public ISheet Sheet { get { _workbook.ThrowIfDisposed(); return _sheet; } }
-    public ChartType Type { get { _workbook.ThrowIfDisposed(); return _type; } }
+    // ---- Removed-handle access guard (I-91 slice 2) -----------------------
+    // The drawing-layer twin of the OoxmlTable retrofit (S14): after
+    // OoxmlSheet.RemoveChart detaches this chart's anchor and deletes its part,
+    // every public member throws InvalidOperationException — distinct from the
+    // disposed-workbook ObjectDisposedException. The flag is one-way.
+    private bool _removed;
+
+    internal void MarkRemoved() => _removed = true;
+
+    // The live ChartPart, for RemoveChart's anchor match + part teardown (no
+    // liveness guard — internal engine use only).
+    internal ChartPart PartRef => _part;
+
+    // Disposal first so a disposed workbook still surfaces
+    // ObjectDisposedException; a live workbook with this chart removed surfaces
+    // InvalidOperationException.
+    internal void ThrowIfUnusable()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_removed)
+            throw new InvalidOperationException(
+                "this chart has been removed from its sheet.");
+    }
+
+    public ISheet Sheet { get { ThrowIfUnusable(); return _sheet; } }
+    public ChartType Type { get { ThrowIfUnusable(); return _type; } }
 
     public void SetTitle(string title)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(title);
         var chart = _part.ChartSpace!.GetFirstChild<C.Chart>()!;
         chart.RemoveAllChildren<C.Title>();
@@ -59,6 +83,6 @@ internal sealed class OoxmlChart : IChart
     // Escape hatch (#32 / I-82): the chart's own OPC part. Disposal first.
     public DocumentFormat.OpenXml.Packaging.ChartPart Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _part; }
+        get { ThrowIfUnusable(); return _part; }
     }
 }

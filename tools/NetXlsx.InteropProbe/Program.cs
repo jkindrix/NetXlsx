@@ -15,8 +15,10 @@
 using System;
 using System.IO;
 using System.Linq;
+using DocumentFormat.OpenXml.Packaging;
 using NetXlsx;
 using ReproTypes;
+using A = DocumentFormat.OpenXml.Drawing;
 
 var mode = args.Length > 0 ? args[0] : "gen";
 var target = args.Length > 1 ? args[1] : "/tmp/netxlsx-lo";
@@ -191,6 +193,32 @@ static void BuildKitchen(string path)
     dr.Row(24).Set(1, "Q4").Set(2, 180.0);
     dr.AddChart(ChartType.Column, "D20", "K34", "A21:A24", "B21:B24", "Revenue by quarter");
     dr.AddChart(ChartType.Pie, "L20", "R34", "A21:A24", "B21:B24", "Share");
+
+    // ---------- I-91 slice 2: drawing removal ----------
+    // (a) Net-zero exercise of every removal path: add one throwaway of each
+    // kind and remove it. The drawing part survives (the steady-state drawings
+    // remain), so this proves anchor + part/rel cleanup yields an LO-valid
+    // package — assert-lo opens the LO resave and the survivor counts must hold.
+    var throwShape = dr.AddShape(ShapeType.Triangle, "H15", "J18");
+    var throwConn = dr.AddConnector(ConnectorType.Bent, "H19", "J21");
+    var throwChart = dr.AddChart(ChartType.Line, "L36", "R48", "A21:A24", "B21:B24");
+    dr.RemoveShape(throwShape);
+    dr.RemoveConnector(throwConn);
+    dr.RemoveChart(throwChart);
+
+    // (b) Shared-image refcount [A-2026-06-11], end-to-end through LO: two
+    // pictures share ONE image part (AddPicture doesn't dedup, so the shared rel
+    // is crafted via the Underlying hatch). Remove one — the survivor (at D14)
+    // must keep its bytes because its image part is still referenced. The LO
+    // resave is the second-consumer proof that the survivor still renders.
+    var shareSrc = dr.AddPicture("B14", png);
+    var shareDup = dr.AddPicture("D14", "F17", png, ImageFormat.Png);
+    var drPart = wb.Underlying.WorkbookPart!.WorksheetParts.First(p => ReferenceEquals(p.Worksheet, dr.Underlying));
+    var dupBlip = shareDup.Underlying.BlipFill!.GetFirstChild<A.Blip>()!;
+    var orphan = (ImagePart)drPart.DrawingsPart!.GetPartById(dupBlip.Embed!.Value!);
+    dupBlip.Embed = shareSrc.Underlying.BlipFill!.GetFirstChild<A.Blip>()!.Embed!.Value;
+    drPart.DrawingsPart.DeletePart(orphan);   // drop shareDup's now-unreferenced own part
+    dr.RemovePicture(shareSrc);               // shareDup survives, sharing shareSrc's old part
 
     // ---------- Panes ----------
     var pa = wb.AddSheet("Panes");
@@ -468,8 +496,15 @@ static void AssertKitchen(string path, bool loResave)
     Check.Eq("vi.mailto", vi["D3"].GetHyperlink(), "mailto:team@example.com");
 
     var dr = wb["Drawing"];
-    Check.Eq("dr.pictures", dr.Pictures.Count, 3);
+    // 3 originals + the shared-image survivor (its sibling was removed; the
+    // throwaway shape/connector/chart were added-and-removed, net zero).
+    Check.Eq("dr.pictures", dr.Pictures.Count, 4);
     Check.Eq("dr.connectors", dr.Connectors.Count, 1);
+    // I-91 slice 2: every surviving picture still carries its bytes — proving
+    // the shared image part was NOT deleted when its sibling was removed
+    // (refcount), holding in a second engine after the LO resave.
+    Check.True("dr.sharedImageSurvives", dr.Pictures.All(p => p.Data.Length > 0),
+        "a picture lost its bytes — shared-image-part refcount failed");
     // I-89 inverted the theme lottery: the kitchen output embeds the default
     // Office theme, and LO PRESERVES an existing theme part on resave (it
     // only substituted its own when none existed — the pre-I-89 R-8

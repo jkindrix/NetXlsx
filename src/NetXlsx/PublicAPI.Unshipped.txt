@@ -13,6 +13,10 @@ NetXlsx.ICell.RemoveComment() -> NetXlsx.ICell!
 NetXlsx.ICell.RemoveHyperlink() -> NetXlsx.ICell!
 NetXlsx.IPicture.Border.get -> NetXlsx.PictureBorder?
 NetXlsx.IPicture.Border.set -> void
+NetXlsx.ISheet.RemoveChart(NetXlsx.IChart! chart) -> void
+NetXlsx.ISheet.RemoveConnector(NetXlsx.IConnector! connector) -> void
+NetXlsx.ISheet.RemovePicture(NetXlsx.IPicture! picture) -> void
+NetXlsx.ISheet.RemoveShape(NetXlsx.IShape! shape) -> void
 NetXlsx.ISheet.Rename(string! newName) -> void
 NetXlsx.ISheet.RemoveValidation(string! a1Range) -> void
 NetXlsx.IWorkbook.MoveSheet(NetXlsx.ISheet! sheet, int newIndex) -> void

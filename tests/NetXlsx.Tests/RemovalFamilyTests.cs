@@ -21,6 +21,7 @@ using AwesomeAssertions;
 using DocumentFormat.OpenXml.Packaging;
 using Xunit;
 using S = DocumentFormat.OpenXml.Spreadsheet;
+using A = DocumentFormat.OpenXml.Drawing;
 using X14 = DocumentFormat.OpenXml.Office2010.Excel;
 using Xne = DocumentFormat.OpenXml.Office.Excel;
 
@@ -582,5 +583,367 @@ public class RemovalFamilyTests
         // Disposal is checked first, so a live-but-disposed handle (never
         // removed) raises ObjectDisposedException.
         table.Invoking(t => { var _ = t.Name; }).Should().Throw<ObjectDisposedException>();
+    }
+
+    // ==================================================================
+    //  Drawing layer (I-91 slice 2): RemovePicture / RemoveChart /
+    //  RemoveShape / RemoveConnector — anchor + shared-media refcount +
+    //  drawing-part teardown + foreign / stale / removed-handle semantics.
+    // ==================================================================
+
+    private static readonly XNamespace Xdr =
+        "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing";
+
+    // 8-byte PNG signature: enough for the explicit-format embed path (the
+    // engine writes the bytes verbatim and falls back to a 1x1 extent).
+    private static readonly byte[] Png = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A };
+
+    private static XDocument? DrawingXml(byte[] bytes, int n = 1)
+    {
+        using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        var entry = zip.GetEntry($"xl/drawings/drawing{n}.xml");
+        return entry is null ? null : XDocument.Load(entry.Open());
+    }
+
+    private static int AnchorCount(XDocument? drawing)
+        => drawing is null ? 0
+           : drawing.Root!.Elements()
+               .Count(e => e.Name == Xdr + "twoCellAnchor" || e.Name == Xdr + "oneCellAnchor");
+
+    private static int MediaPartCount(byte[] bytes)
+        => ZipNames(bytes).Count(n => n.StartsWith("xl/media/", StringComparison.OrdinalIgnoreCase));
+
+    // ---- RemovePicture --------------------------------------------------
+
+    [Fact]
+    public void RemovePicture_Last_Drops_Anchor_Image_Part_And_Drawing()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var pic = s.AddPicture("A1", Png, ImageFormat.Png);
+
+        MediaPartCount(SavedBytes(wb)).Should().Be(1, "sanity: the image part is present before removal");
+
+        s.RemovePicture(pic);
+
+        var bytes = SavedBytes(wb);
+        MediaPartCount(bytes).Should().Be(0, "the only image part goes with the last picture");
+        ZipNames(bytes).Should().NotContain(n => n.Contains("xl/drawings/drawing", StringComparison.OrdinalIgnoreCase),
+            "the empty drawing part is dropped");
+        SheetRoot(wb).Element(SavedOoxml.Main + "drawing").Should().BeNull(
+            "the worksheet <drawing> rel is removed with the part");
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    [Fact]
+    public void RemovePicture_Keeps_Other_Picture_And_Drawing()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var pic1 = s.AddPicture("A1", Png, ImageFormat.Png);
+        s.AddPicture("C3", Png, ImageFormat.Png);
+
+        // AddPicture does not dedup: two pictures => two distinct image parts.
+        MediaPartCount(SavedBytes(wb)).Should().Be(2);
+
+        s.RemovePicture(pic1);
+
+        var bytes = SavedBytes(wb);
+        AnchorCount(DrawingXml(bytes)).Should().Be(1, "the surviving picture keeps its anchor");
+        MediaPartCount(bytes).Should().Be(1, "only the removed picture's (unshared) image part goes");
+        s.Pictures.Should().ContainSingle();
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    // The headline of this slice [A-2026-06-11]: two pictures sharing ONE image
+    // part. AddPicture doesn't dedup, so the shared rel is crafted via the
+    // Underlying hatch (point pic2's blip @r:embed at pic1's image rel, then
+    // drop pic2's now-orphaned own part). Removing one keeps the part alive for
+    // the other; removing both deletes it.
+    [Fact]
+    public void RemovePicture_RefCounts_Shared_Image_Part()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var pic1 = s.AddPicture("A1", Png, ImageFormat.Png);
+        var pic2 = s.AddPicture("C3", Png, ImageFormat.Png);
+
+        var dp = wb.Underlying.WorkbookPart!.WorksheetParts.First()
+            .GetPartsOfType<DrawingsPart>().First();
+        var blip1 = pic1.Underlying.BlipFill!.GetFirstChild<A.Blip>()!;
+        var blip2 = pic2.Underlying.BlipFill!.GetFirstChild<A.Blip>()!;
+        string pic1Embed = blip1.Embed!.Value!;
+        var orphan = (ImagePart)dp.GetPartById(blip2.Embed!.Value!);
+        blip2.Embed = pic1Embed;     // pic2 now shares pic1's image part
+        dp.DeletePart(orphan);       // drop pic2's own (now-unreferenced) part
+
+        MediaPartCount(SavedBytes(wb)).Should().Be(1, "sanity: the two pictures now share one image part");
+
+        // Remove one consumer — the shared part SURVIVES, the other picture stays.
+        s.RemovePicture(pic1);
+        var afterOne = SavedBytes(wb);
+        MediaPartCount(afterOne).Should().Be(1, "the image part survives while another anchor references it");
+        AnchorCount(DrawingXml(afterOne)).Should().Be(1, "the second picture still renders");
+        AssertNoOrphanPartsOrRels(afterOne);
+
+        // Remove the last consumer — now the shared part GOES.
+        s.RemovePicture(pic2);
+        var afterBoth = SavedBytes(wb);
+        MediaPartCount(afterBoth).Should().Be(0, "the shared image part goes once its last anchor leaves");
+        ZipNames(afterBoth).Should().NotContain(n => n.Contains("xl/drawings/drawing", StringComparison.OrdinalIgnoreCase));
+        AssertNoOrphanPartsOrRels(afterBoth);
+    }
+
+    [Fact]
+    public void RemovePicture_Foreign_Handle_Throws()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        s.AddPicture("A1", Png, ImageFormat.Png);
+
+        Action act = () => s.RemovePicture(new ForeignPicture());
+        act.Should().Throw<ArgumentException>("a non-Ooxml picture is foreign")
+            .And.ParamName.Should().Be("picture");
+    }
+
+    [Fact]
+    public void RemovePicture_Stale_Handle_DoubleRemove_Throws()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var pic = s.AddPicture("A1", Png, ImageFormat.Png);
+        s.RemovePicture(pic);
+
+        Action act = () => s.RemovePicture(pic);
+        act.Should().Throw<ArgumentException>("a second removal finds no anchor (stale)")
+            .And.ParamName.Should().Be("picture");
+    }
+
+    [Fact]
+    public void RemovePicture_Throws_On_Null()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        Action act = () => s.RemovePicture(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void RemovedPicture_Handle_Members_Throw_InvalidOperation()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var pic = s.AddPicture("A1", Png, ImageFormat.Png);
+
+        s.RemovePicture(pic);
+
+        // Our explicit guard (message pinned), distinct from the disposed-workbook
+        // ObjectDisposedException and from an incidental SDK deleted-part throw.
+        pic.Invoking(p => { var _ = p.Sheet; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        pic.Invoking(p => { var _ = p.Format; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        pic.Invoking(p => { var _ = p.FromCell; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        pic.Invoking(p => { var _ = p.Data; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        pic.Invoking(p => { var _ = p.Border; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        pic.Invoking(p => { var _ = p.Underlying; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+    }
+
+    // ---- RemoveChart ----------------------------------------------------
+
+    [Fact]
+    public void RemoveChart_Last_Drops_Anchor_Chart_Part_And_Drawing()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var chart = s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5");
+
+        ZipNames(SavedBytes(wb)).Should().Contain(n => n.Contains("charts/chart", StringComparison.OrdinalIgnoreCase));
+
+        s.RemoveChart(chart);
+
+        var bytes = SavedBytes(wb);
+        ZipNames(bytes).Should().NotContain(n => n.Contains("charts/", StringComparison.OrdinalIgnoreCase),
+            "the chart part goes with its anchor (charts are not shared)");
+        ZipNames(bytes).Should().NotContain(n => n.Contains("xl/drawings/drawing", StringComparison.OrdinalIgnoreCase),
+            "the empty drawing part is dropped");
+        SheetRoot(wb).Element(SavedOoxml.Main + "drawing").Should().BeNull();
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    [Fact]
+    public void RemoveChart_Foreign_Handle_Throws()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5");
+
+        Action act = () => s.RemoveChart(new ForeignChart());
+        act.Should().Throw<ArgumentException>().And.ParamName.Should().Be("chart");
+    }
+
+    [Fact]
+    public void RemoveChart_Stale_Handle_DoubleRemove_Throws()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var chart = s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5");
+        s.RemoveChart(chart);
+
+        Action act = () => s.RemoveChart(chart);
+        act.Should().Throw<ArgumentException>().And.ParamName.Should().Be("chart");
+    }
+
+    [Fact]
+    public void RemovedChart_Handle_Members_Throw_InvalidOperation()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var chart = s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5");
+
+        s.RemoveChart(chart);
+
+        chart.Invoking(c => { var _ = c.Sheet; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        chart.Invoking(c => { var _ = c.Type; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        chart.Invoking(c => c.SetTitle("x")).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        chart.Invoking(c => { var _ = c.Underlying; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+    }
+
+    // ---- RemoveShape ----------------------------------------------------
+
+    [Fact]
+    public void RemoveShape_Last_Drops_Anchor_And_Drawing()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var shape = s.AddShape(ShapeType.Rectangle, "A1", "C3");
+
+        s.RemoveShape(shape);
+
+        var bytes = SavedBytes(wb);
+        ZipNames(bytes).Should().NotContain(n => n.Contains("xl/drawings/drawing", StringComparison.OrdinalIgnoreCase),
+            "a shape owns no part; the empty drawing is dropped");
+        SheetRoot(wb).Element(SavedOoxml.Main + "drawing").Should().BeNull();
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    [Fact]
+    public void RemoveShape_Keeps_Other_Shape()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var shape1 = s.AddShape(ShapeType.Rectangle, "A1", "B2");
+        s.AddShape(ShapeType.Ellipse, "C3", "D4");
+
+        s.RemoveShape(shape1);
+
+        var bytes = SavedBytes(wb);
+        AnchorCount(DrawingXml(bytes)).Should().Be(1, "the second shape keeps its anchor");
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    [Fact]
+    public void RemoveShape_Foreign_Handle_Throws()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        s.AddShape(ShapeType.Rectangle, "A1", "C3");
+
+        Action act = () => s.RemoveShape(new ForeignShape());
+        act.Should().Throw<ArgumentException>().And.ParamName.Should().Be("shape");
+    }
+
+    [Fact]
+    public void RemovedShape_Handle_Members_Throw_InvalidOperation()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var shape = s.AddShape(ShapeType.Rectangle, "A1", "C3");
+
+        s.RemoveShape(shape);
+
+        shape.Invoking(sh => { var _ = sh.Sheet; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        shape.Invoking(sh => { var _ = sh.Type; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        shape.Invoking(sh => { var _ = sh.Underlying; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+    }
+
+    // ---- RemoveConnector ------------------------------------------------
+
+    [Fact]
+    public void RemoveConnector_Last_Drops_Anchor_And_Drawing()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var connector = s.AddConnector(ConnectorType.Straight, "A1", "C3");
+
+        s.RemoveConnector(connector);
+
+        var bytes = SavedBytes(wb);
+        ZipNames(bytes).Should().NotContain(n => n.Contains("xl/drawings/drawing", StringComparison.OrdinalIgnoreCase),
+            "a connector owns no part; the empty drawing is dropped");
+        SheetRoot(wb).Element(SavedOoxml.Main + "drawing").Should().BeNull();
+        s.Connectors.Should().BeEmpty();
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    [Fact]
+    public void RemoveConnector_Keeps_Other_Connector()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var connector1 = s.AddConnector(ConnectorType.Straight, "A1", "B2");
+        s.AddConnector(ConnectorType.Bent, "C3", "D4");
+
+        s.RemoveConnector(connector1);
+
+        var bytes = SavedBytes(wb);
+        AnchorCount(DrawingXml(bytes)).Should().Be(1, "the second connector keeps its anchor");
+        s.Connectors.Should().ContainSingle();
+        AssertNoOrphanPartsOrRels(bytes);
+    }
+
+    [Fact]
+    public void RemoveConnector_Foreign_Handle_Throws()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        s.AddConnector(ConnectorType.Straight, "A1", "C3");
+
+        Action act = () => s.RemoveConnector(new ForeignConnector());
+        act.Should().Throw<ArgumentException>().And.ParamName.Should().Be("connector");
+    }
+
+    [Fact]
+    public void RemovedConnector_Handle_Members_Throw_InvalidOperation()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var connector = s.AddConnector(ConnectorType.Straight, "A1", "C3");
+
+        s.RemoveConnector(connector);
+
+        connector.Invoking(c => { var _ = c.Sheet; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        connector.Invoking(c => { var _ = c.Type; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        connector.Invoking(c => { var _ = c.FromCell; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+        connector.Invoking(c => { var _ = c.Underlying; }).Should().Throw<InvalidOperationException>().WithMessage("*removed*");
+    }
+
+    // ---- Mixed: removing one drawing kind leaves the others -------------
+
+    [Fact]
+    public void RemovePicture_Leaves_Coexisting_Chart_And_Shape()
+    {
+        using var wb = Workbook.Create();
+        var s = wb.AddSheet("S");
+        var pic = s.AddPicture("A1", Png, ImageFormat.Png);
+        s.AddChart(ChartType.Line, "D1", "K15", "A1:A5", "B1:B5");
+        s.AddShape(ShapeType.Rectangle, "M1", "N4");
+
+        s.RemovePicture(pic);
+
+        var bytes = SavedBytes(wb);
+        AnchorCount(DrawingXml(bytes)).Should().Be(2, "the chart and shape anchors remain");
+        MediaPartCount(bytes).Should().Be(0, "the picture's image part goes");
+        ZipNames(bytes).Should().Contain(n => n.Contains("charts/chart", StringComparison.OrdinalIgnoreCase),
+            "the chart part survives");
+        AssertNoOrphanPartsOrRels(bytes);
     }
 }

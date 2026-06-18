@@ -73,6 +73,32 @@ changes (decision I19).
 
 ### Added
 
+- **Removal family — drawing layer (I-91 slice 2 of 2, R-11; completes I-91).**
+  Symmetric removal for the four drawing handles that previously had only an add
+  path: `ISheet.RemovePicture(IPicture)`, `RemoveChart(IChart)`,
+  `RemoveShape(IShape)`, and `RemoveConnector(IConnector)`. Handle-based with
+  `RemoveTable` semantics exactly — a foreign handle (not one of ours) or a stale
+  one (its anchor no longer in this sheet's drawing, which covers double-remove)
+  throws `ArgumentException`. Each deletes the handle's drawing **anchor**
+  (matched by its live element / chart part, never by coordinates — two drawings
+  can share a cell), and the `DrawingsPart` plus its worksheet `<drawing>`
+  relationship are dropped once the last anchor leaves (no empty drawing
+  artifact). **Shared media is reference-counted:** a picture's image part is
+  deleted only when no other surviving anchor's blip still resolves to it — so
+  removing one of two pictures that share an image part keeps the part alive for
+  the other, and removing both deletes it. `AddPicture` doesn't dedup image parts
+  today, but the guard stays anyway: it is cheap and it protects opened
+  third-party files that *do* share media, exceeding the ecosystem (no surveyed
+  library refcounts media). A chart's part is not shared, so it goes with its
+  anchor — through `DeletePart`, so its relationship leaves too; shapes and
+  connectors own no separate part. A removed handle becomes stale: its members
+  throw `InvalidOperationException` (distinct from the disposed-workbook
+  `ObjectDisposedException`), via the removed-handle guard now retrofitted onto
+  `OoxmlPicture`/`OoxmlChart`/`OoxmlShape`/`OoxmlConnector` (the same pattern S13
+  built for `OoxmlSheet` and S14 for `OoxmlTable`). This **completes I-91**; the
+  shared-image survivor is proven by the LibreOffice 26.2 resave (the other
+  picture still renders) and the full local interop gauntlet stays green.
+
 - **Removal family — cell/workbook level (I-91 slice 1 of 2, R-11; folds in
   R-10).** Symmetric removal for the surfaces that previously had only an add
   path: `ICell.RemoveHyperlink()` and `ICell.RemoveComment()` (fluent,

@@ -2595,6 +2595,114 @@ quoted new name; delete: the `#REF!` literal survives the resave, lowercased to
 rewrite); openpyxl opens both results cleanly; the saved package carries no
 orphaned parts or dangling relationships (zip-level assert).
 
+### 6.12.3 Removal family: symmetric removal — I-91 (folds in R-10)
+
+**I-91 (proposed 2026-06-10, signed off as amended 2026-06-11, landed in two
+slices — cell/workbook S14, drawing layer S15):** full shape and amendment
+history in `docs/s2-design-proposals-2026-06-10.md#i-91`. The surface had an
+add path for hyperlinks, comments, pictures, charts, shapes, connectors, named
+ranges, and validations but no matching removal, while `UnmergeCells` /
+`Unprotect` / `RemoveTable` / `RemoveConditionalFormatting` / `ClearAutoFilter`
+already existed. A 2-slice issue because the drawing layer (anchor cleanup +
+shared-media reference counting) is materially riskier than the element/rel
+half.
+
+**Naming rule (codified):** `Remove<Thing>` for discrete added objects (keyed by
+handle or unique key), `Clear*` for singleton sheet state, `Un*` only for the
+two grandfathered legacy verbs (merge/protect — not extended). The shipped
+shapes:
+
+```csharp
+// ICell — fluent, idempotent (no-op when absent), returns ICell
+ICell RemoveHyperlink();
+ICell RemoveComment();
+
+// ISheet — handle-based, RemoveTable semantics (ArgumentException on a foreign
+// or stale handle)
+void RemovePicture(IPicture picture);
+void RemoveChart(IChart chart);
+void RemoveShape(IShape shape);
+void RemoveConnector(IConnector connector);
+
+// ISheet — key-based, exact-range match (ArgumentException when absent)
+void RemoveValidation(string a1Range);
+
+// IWorkbook — key-based, names unique case-insensitive (ArgumentException when absent)
+void RemoveNamedRange(string name);
+```
+
+**Two removal idioms, deliberately split.** The cell-level pair is *idempotent*
+(a no-op returning the cell when nothing is attached) because that is the fluent
+contract `Hyperlink`/`Comment` already established. The key-based and
+handle-based members *throw* on an absent key / foreign or stale handle — the
+`RemoveTable`/`RemoveNamedRange` contract — deliberately **not** the silent
+no-op of the grandfathered `UnmergeCells` ([A-2026-06-11] the originally cited
+"UnmergeCells semantics" was a mischaracterization corrected at sign-off; that
+silent no-op stays grandfathered and is not to be harmonized toward).
+
+**Slice 1 — cell/workbook (S14, `@98cac83`).** Each removal carries the
+`RemoveTable` part/rel discipline: `RemoveHyperlink` drops the `<hyperlink>`
+element + (external) reference relationship and the `<hyperlinks>` container
+when empty; `RemoveComment` removes the comment with author re-indexing
+(no orphaned author lingers) and the legacy VML popup shape, dropping the
+comments part with the last comment — but **[A-2026-06-11] the VML part is
+deleted only when it holds no non-comment shapes** (opened third-party files
+keep form controls there; wholesale delete is a documented corruption bug,
+PhpSpreadsheet #4105 / ClosedXML #1285); `RemoveValidation` matches by canonical
+range across **both** the plain `<dataValidations>` container and the
+**[A-2026-06-11] x14 `<extLst>` dual storage** (cross-sheet list sources),
+removing an emptied x14 container *with* its `<ext>` wrapper (an
+emptied-but-present ext triggers Excel repair, ClosedXML #2594);
+`RemoveNamedRange` drops `<definedNames>` when empty. **R-10 fold-in:**
+`ICell.Hyperlink`/`SetString` XML docs now state the keep-link-on-text-edit
+semantics (Excel parity) and point at `RemoveHyperlink` as the way off — the
+defect was the missing exit + missing docs, both closed here.
+
+**Slice 2 — drawing layer (S15).** Handle-based, `RemoveTable` semantics
+exactly: a foreign handle (not an `Ooxml*` of ours) or a stale one (its anchor
+no longer in this sheet's drawing — covers double-remove) throws
+`ArgumentException`. Each removal deletes the handle's **anchor** (the
+`oneCellAnchor`/`twoCellAnchor` wrapping the `xdr:pic` / `xdr:sp` / `xdr:cxnSp` /
+`xdr:graphicFrame`), matched by the handle's **live element** (ReferenceEquals
+on the stored XDR element, or the chart's `ChartPart`) — never by coordinates,
+since two drawings can share a cell. **[A-2026-06-11] shared-media reference
+counting:** a picture's image part is deleted only when no other surviving
+anchor's blip still resolves to it (ReferenceEquals on the part, so distinct
+rel ids pointing at one shared part both keep it alive). `AddPicture` does
+**not** dedup image parts today (`EmbedImage` calls `AddImagePart` fresh each
+call), but the refcount guard stays anyway — it is cheap, it protects opened
+third-party files that *do* share media, and no surveyed library refcounts
+media parts, so this exceeds the ecosystem. A chart's `ChartPart` is not shared,
+so it goes with its anchor (its colors/style sub-parts, if any, drop as
+unreachable through the clone-based `Save`) — but still through `DeletePart`, so
+the relationship leaves too. Shapes and connectors own no separate part. The
+`DrawingsPart` and the worksheet `<drawing>` relationship are dropped once the
+last anchor leaves (the no-empty-artifact discipline, the same family as S13's
+`RemoveSheet` part teardown and S14's `RemoveComment` VML-part guard).
+
+**Stale-handle pattern.** After a handle-based removal the handle's members
+throw `InvalidOperationException` (distinct from the disposed-workbook
+`ObjectDisposedException`), routed through a per-handle `ThrowIfUnusable()`
+guard that checks disposal then a one-way `_removed` flag.
+**[A-2026-06-11]** the cited `RemoveTable` precedent was aspirational —
+`OoxmlTable` members only checked workbook *disposal* before slice 1 retrofitted
+the flag onto it; slice 2 mirrors the now-real pattern onto
+`OoxmlPicture`/`OoxmlChart`/`OoxmlShape`/`OoxmlConnector`. The four drawing
+handles previously guarded only `_workbook.ThrowIfDisposed()`; every public
+member now routes through `ThrowIfUnusable()` (the bare disposal call survives
+only inside that guard's body). `IRow`/`IRange`/`IColumn` stay out of scope
+(the memo named cells + the explicitly-removed handles).
+
+**Streaming engine: out of scope** — `IStreamingWorkbook` is forward-only.
+
+Oracle results at landing: the saved package carries no orphaned parts or
+dangling relationships after any removal (zip-level assert); the shared-image
+refcount is proven at the part level (remove one of two sharers → the part
+survives, remove both → it goes) and at the second-consumer level by the
+LibreOffice 26.2 resave (the surviving picture still renders); the full local
+interop gauntlet (generate → assert-self → LO resave → assert-lo → streaming →
+openpyxl 3.1.5) is green.
+
 ### 6.13 Exception hierarchy
 
 ```csharp

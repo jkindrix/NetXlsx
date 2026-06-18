@@ -25,12 +25,36 @@ internal sealed class OoxmlShape : IShape
         _shape = shape;
     }
 
-    public ISheet Sheet { get { _workbook.ThrowIfDisposed(); return _sheet; } }
-    public ShapeType Type { get { _workbook.ThrowIfDisposed(); return _type; } }
+    // ---- Removed-handle access guard (I-91 slice 2) -----------------------
+    // The drawing-layer twin of the OoxmlTable retrofit (S14): after
+    // OoxmlSheet.RemoveShape detaches this shape's anchor, every public member
+    // throws InvalidOperationException — distinct from the disposed-workbook
+    // ObjectDisposedException. The flag is one-way.
+    private bool _removed;
+
+    internal void MarkRemoved() => _removed = true;
+
+    // The live xdr:sp element, for RemoveShape's anchor match (no liveness
+    // guard — internal engine use only).
+    internal XDR.Shape ShapeElement => _shape;
+
+    // Disposal first so a disposed workbook still surfaces
+    // ObjectDisposedException; a live workbook with this shape removed surfaces
+    // InvalidOperationException.
+    internal void ThrowIfUnusable()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_removed)
+            throw new InvalidOperationException(
+                "this shape has been removed from its sheet.");
+    }
+
+    public ISheet Sheet { get { ThrowIfUnusable(); return _sheet; } }
+    public ShapeType Type { get { ThrowIfUnusable(); return _type; } }
 
     // Escape hatch (#32 / I-82): the live xdr:sp element. Disposal first.
     public XDR.Shape Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _shape; }
+        get { ThrowIfUnusable(); return _shape; }
     }
 }
