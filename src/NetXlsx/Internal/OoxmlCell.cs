@@ -43,15 +43,15 @@ internal sealed class OoxmlCell : ICell
     // The backing <c> element, or null when the address has never been written.
     private S.Cell? Element => _sheet.FindCell(_row, _col);
 
-    public string Address { get { Wb.ThrowIfDisposed(); return CellAddress.Format(_row, _col); } }
-    public int RowIndex { get { Wb.ThrowIfDisposed(); return _row; } }
-    public int ColumnIndex { get { Wb.ThrowIfDisposed(); return _col; } }
+    public string Address { get { _sheet.ThrowIfUnusable(); return CellAddress.Format(_row, _col); } }
+    public int RowIndex { get { _sheet.ThrowIfUnusable(); return _row; } }
+    public int ColumnIndex { get { _sheet.ThrowIfUnusable(); return _col; } }
 
     public CellKind Kind
     {
         get
         {
-            Wb.ThrowIfDisposed();
+            _sheet.ThrowIfUnusable();
             var c = Element;
             var k = KindOf(c);
             // A numeric cell with a date/time number format is a Date (parity
@@ -105,7 +105,7 @@ internal sealed class OoxmlCell : ICell
 
     public void SetString(string value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(value);
         int limit = Wb.Options.MaxCellTextLength;
         if (value.Length > limit)
@@ -124,26 +124,26 @@ internal sealed class OoxmlCell : ICell
 
     public void SetNumber(double value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         WriteNumber(value);
     }
 
     public void SetNumber(decimal value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         // Decision I3.6 / §7.4: stored as IEEE-754 double; precision loss possible.
         WriteNumber((double)value);
     }
 
     public void SetNumber(int value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         WriteNumber(value);
     }
 
     public void SetNumber(long value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         // Values > 2^53 lose precision when stored as IEEE-754 double.
         WriteNumber(value);
     }
@@ -161,7 +161,7 @@ internal sealed class OoxmlCell : ICell
 
     public void SetBool(bool value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = _sheet.GetOrCreateCell(_row, _col);
         c.RemoveAllChildren();
         c.CellFormula = null;
@@ -171,7 +171,7 @@ internal sealed class OoxmlCell : ICell
 
     public void Clear()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         if (c is null) return;
         c.RemoveAllChildren();
@@ -183,7 +183,7 @@ internal sealed class OoxmlCell : ICell
 
     public string GetString()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         // EffectiveKindOf (not KindOf): a formula cell's cached result reads
         // through the same arms as a plain cell of that kind (design I7).
@@ -218,7 +218,7 @@ internal sealed class OoxmlCell : ICell
 
     public double? GetNumber()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         return EffectiveKindOf(c) switch
         {
@@ -230,14 +230,14 @@ internal sealed class OoxmlCell : ICell
 
     public bool? GetBool()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         return EffectiveKindOf(c) == CellKind.Bool ? ReadBool(c!) : null;
     }
 
     public DateTime? GetDate()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         if (EffectiveKindOf(c) != CellKind.Number || !IsDateFormatted(c)) return null;
         // Result kind is always Unspecified (decision I17 — no timezone math).
@@ -288,7 +288,7 @@ internal sealed class OoxmlCell : ICell
     // formula cells from opened files alike.
     public string? GetFormula()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var body = Element?.CellFormula?.Text;
         return string.IsNullOrEmpty(body) ? null : "=" + body;
     }
@@ -299,7 +299,7 @@ internal sealed class OoxmlCell : ICell
     // same shape here). Decision #49 mapping mirrored from the NPOI engine.
     public CellError? GetError()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         if (c?.DataType?.Value is not { } t || t != S.CellValues.Error) return null;
         return MapErrorLiteral(c.CellValue?.Text);
@@ -431,27 +431,27 @@ internal sealed class OoxmlCell : ICell
 
     public void SetDate(DateTime value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         // Decision I17: stored verbatim; no timezone conversion.
         WriteSerial(Wb.ToSerial(value), OoxmlWorkbook.DateTimeStyleSpec);
     }
 
     public void SetDate(DateOnly value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         WriteSerial(Wb.ToSerial(value.ToDateTime(TimeOnly.MinValue)), OoxmlWorkbook.DateStyleSpec);
     }
 
     public void SetTime(TimeOnly value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         // Fraction-of-day; no epoch involved (§7.9).
         WriteSerial(value.ToTimeSpan().TotalDays, OoxmlWorkbook.TimeStyleSpec);
     }
 
     public void SetDuration(TimeSpan value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         if (value < TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(
                 nameof(value), value,
@@ -484,7 +484,7 @@ internal sealed class OoxmlCell : ICell
 
     public void SetRichText(RichText value)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(value);
 
         var plain = value.PlainText;
@@ -526,7 +526,7 @@ internal sealed class OoxmlCell : ICell
 
     public RichText? GetRichText()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         var c = Element;
         // Only string cells can carry formatting runs; everything else is null.
         if (KindOf(c) != CellKind.String) return null;
@@ -574,7 +574,7 @@ internal sealed class OoxmlCell : ICell
 
     public ICell Style(CellStyle style)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(style);
 
         // Merge: non-null axes in `style` overlay the cell's current style; null
@@ -597,21 +597,21 @@ internal sealed class OoxmlCell : ICell
 
     public ICell NumberFormat(string format)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(format);
         return Style(new CellStyle { NumberFormat = format });
     }
 
     public ICell ApplyNamedStyle(string name)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(name);
         return Style(Wb.ResolveNamedStyleOrThrow(name));
     }
 
     public CellStyle GetStyle()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         return Wb.StylePool.ReadStyle(Element?.StyleIndex?.Value ?? 0);
     }
 
@@ -637,7 +637,7 @@ internal sealed class OoxmlCell : ICell
 
     public void SetFormula(string formula)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(formula);
 
         // Strip an optional leading '=' so callers can write either "=A1+B1"
@@ -712,7 +712,7 @@ internal sealed class OoxmlCell : ICell
 
     public ICell Comment(string text, string? author = null)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(text);
         _sheet.SetComment(_row, _col, text, author);
         return this;
@@ -720,13 +720,13 @@ internal sealed class OoxmlCell : ICell
 
     public string? GetComment()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         return _sheet.GetComment(_row, _col);
     }
 
     public string? GetCommentAuthor()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         return _sheet.GetCommentAuthor(_row, _col);
     }
 
@@ -738,7 +738,7 @@ internal sealed class OoxmlCell : ICell
 
     public ICell Hyperlink(string target, string? display = null)
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(target);
         if (target.Length == 0)
             throw new ArgumentException("target cannot be empty", nameof(target));
@@ -752,7 +752,7 @@ internal sealed class OoxmlCell : ICell
 
     public string? GetHyperlink()
     {
-        Wb.ThrowIfDisposed();
+        _sheet.ThrowIfUnusable();
         return _sheet.GetHyperlink(_row, _col);
     }
 
@@ -765,7 +765,7 @@ internal sealed class OoxmlCell : ICell
     {
         get
         {
-            Wb.ThrowIfDisposed();
+            _sheet.ThrowIfUnusable();
             var cell = _sheet.GetOrCreateCell(_row, _col);
             Wb.InvalidateRowCaches();
             return cell;

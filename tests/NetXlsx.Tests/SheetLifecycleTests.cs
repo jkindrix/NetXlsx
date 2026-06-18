@@ -11,6 +11,7 @@
 // the rewrite is exercised against an OPENED file, per the memo's tests.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -695,5 +696,370 @@ public class SheetLifecycleTests
         reopened[1].Name.Should().Be("Data 2026");
         reopened["Calc"]["A1"].GetFormula().Should().Be("=SUM('Data 2026'!A1)*2");
         reopened.NamedRanges.Single(n => n.Name == "T").Formula.Should().Be("'Data 2026'!$A$1");
+    }
+
+    // ======================================================================
+    // RemoveSheet (I-90 slice 2 / R-12) — delete contract
+    // ======================================================================
+
+    private static byte[] SavedBytes(IWorkbook wb)
+    {
+        using var ms = new MemoryStream();
+        wb.Save(ms);
+        return ms.ToArray();
+    }
+
+    private static List<string> ZipNames(byte[] bytes)
+    {
+        using var zip = new ZipArchive(new MemoryStream(bytes), ZipArchiveMode.Read);
+        return zip.Entries.Select(e => e.FullName).ToList();
+    }
+
+    /// <summary>
+    /// Verifies the memo's zip-level "no orphaned parts or rels" invariant on
+    /// a saved package: (a) every internal relationship resolves to an existing
+    /// part, and (b) every content part is reachable from the document's
+    /// relationship graph (a created-then-edited workbook carries no at-open
+    /// orphans, so reachable == all content parts).
+    /// </summary>
+    private static void AssertNoOrphanPartsOrRels(byte[] bytes)
+    {
+        using (var ms = new MemoryStream(bytes, writable: false))
+        using (var pkg = System.IO.Packaging.Package.Open(ms, FileMode.Open, FileAccess.Read))
+        {
+            foreach (var part in pkg.GetParts())
+            {
+                // The .rels parts are infrastructure and cannot themselves
+                // carry relationships — skip them.
+                if (part.ContentType == "application/vnd.openxmlformats-package.relationships+xml")
+                    continue;
+                foreach (var rel in part.GetRelationships())
+                {
+                    if (rel.TargetMode != System.IO.Packaging.TargetMode.Internal) continue;
+                    var target = System.IO.Packaging.PackUriHelper.ResolvePartUri(part.Uri, rel.TargetUri);
+                    pkg.PartExists(target).Should().BeTrue(
+                        $"{part.Uri} relationship {rel.Id} → {rel.TargetUri} must resolve to an existing part");
+                }
+            }
+        }
+
+        using (var ms = new MemoryStream(bytes, writable: false))
+        using (var doc = SpreadsheetDocument.Open(ms, false))
+        {
+            var reachable = new HashSet<string>(
+                doc.GetAllParts().Select(p => p.Uri.ToString()), StringComparer.OrdinalIgnoreCase);
+            foreach (var name in ZipNames(bytes))
+            {
+                if (name.Equals("[Content_Types].xml", StringComparison.OrdinalIgnoreCase)) continue;
+                if (name.EndsWith(".rels", StringComparison.OrdinalIgnoreCase)) continue;
+                reachable.Should().Contain("/" + name,
+                    $"saved part '{name}' must be reachable from the relationship graph (no orphan)");
+            }
+        }
+    }
+
+    // ---- RemoveSheet: lookups / order / guards ---------------------------
+
+    [Fact]
+    public void RemoveSheet_Drops_Sheet_From_Lookups_Order_And_Saved_Entry()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("A");
+        var b = wb.AddSheet("B");
+        wb.AddSheet("C");
+        b["A1"].SetString("gone");
+
+        wb.RemoveSheet(b);
+
+        wb.SheetCount.Should().Be(2);
+        Enumerable.Range(0, 2).Select(i => wb[i].Name).Should().Equal("A", "C");
+        wb.TryGetSheet("B", out _).Should().BeFalse();
+
+        var names = SavedOoxml.WorkbookXml(wb).Root!
+            .Element(SavedOoxml.Main + "sheets")!
+            .Elements(SavedOoxml.Main + "sheet")
+            .Select(e => (string?)e.Attribute("name"));
+        names.Should().Equal("A", "C");
+    }
+
+    [Fact]
+    public void RemoveSheet_Of_The_Only_Sheet_Throws_InvalidOperation()
+    {
+        using var wb = Workbook.Create();
+        var only = wb.AddSheet("Only");
+
+        wb.Invoking(w => w.RemoveSheet(only)).Should().Throw<InvalidOperationException>();
+        wb.SheetCount.Should().Be(1, "the rejected removal left the workbook unchanged");
+    }
+
+    [Fact]
+    public void RemoveSheet_Last_Visible_Throws_But_A_Hidden_Sheet_Is_Removable()
+    {
+        using var wb = Workbook.Create();
+        var visible = wb.AddSheet("Visible");
+        var hidden = wb.AddSheet("Hidden");
+        hidden.Hidden = true;
+
+        // The last VISIBLE sheet cannot be removed even though a hidden one
+        // would remain (a workbook needs >=1 visible sheet).
+        wb.Invoking(w => w.RemoveSheet(visible)).Should().Throw<InvalidOperationException>();
+
+        // The hidden sheet can go — a visible one remains.
+        wb.RemoveSheet(hidden);
+        wb.SheetCount.Should().Be(1);
+        wb[0].Should().BeSameAs(visible);
+    }
+
+    [Fact]
+    public void RemoveSheet_Null_Throws_ArgumentNullException()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("A");
+        wb.AddSheet("B");
+
+        wb.Invoking(w => w.RemoveSheet(null!)).Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void RemoveSheet_Foreign_Sheet_Throws_ArgumentException()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("Mine");
+        wb.AddSheet("Mine2");
+        using var other = Workbook.Create();
+        var foreign = other.AddSheet("Theirs");
+
+        wb.Invoking(w => w.RemoveSheet(foreign)).Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void RemoveSheet_Twice_Throws_ArgumentException_On_The_Stale_Handle()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("Keep");
+        var doomed = wb.AddSheet("Doomed");
+
+        wb.RemoveSheet(doomed);
+
+        wb.Invoking(w => w.RemoveSheet(doomed))
+            .Should().Throw<ArgumentException>("a removed handle is stale, like RemoveTable's precedent");
+    }
+
+    // ---- RemoveSheet: removed-wrapper access -----------------------------
+
+    [Fact]
+    public void Removed_Sheet_And_Its_Cells_Throw_InvalidOperation_Distinct_From_Disposed()
+    {
+        using var wb = Workbook.Create();
+        var doomed = wb.AddSheet("Doomed");
+        wb.AddSheet("Keep");
+        var cell = doomed["A1"];
+        cell.SetString("x"); // materialize before removal
+
+        wb.RemoveSheet(doomed);
+
+        // The workbook is alive — distinct exception class from a disposed one.
+        AssertThrowsRemoved(() => { var _ = doomed.Name; });
+        AssertThrowsRemoved(() => { var _ = doomed["B2"]; });
+        AssertThrowsRemoved(() => doomed.AppendRow());
+        AssertThrowsRemoved(() => doomed.Rename("Whatever"));
+
+        // Cell handles obtained before removal are tombstones too.
+        AssertThrowsRemoved(() => { var _ = cell.Address; });
+        AssertThrowsRemoved(() => cell.SetString("y"));
+        AssertThrowsRemoved(() => { var _ = cell.GetString(); });
+
+        // The surviving sheet is unaffected.
+        wb["Keep"]["A1"].SetString("ok");
+        wb["Keep"]["A1"].GetString().Should().Be("ok");
+    }
+
+    private static void AssertThrowsRemoved(Action act)
+        => act.Should().Throw<InvalidOperationException>()
+            .Which.Should().NotBeOfType<ObjectDisposedException>(
+                "a removed sheet throws InvalidOperationException, not ObjectDisposedException");
+
+    // ---- RemoveSheet: #REF! rewrite --------------------------------------
+
+    [Fact]
+    public void RemoveSheet_Rewrites_Bare_And_Quoted_CrossSheet_References_To_RefError()
+    {
+        using var wb = Workbook.Create();
+        var data = wb.AddSheet("Data");
+        var calc = wb.AddSheet("Calc");
+        var other = wb.AddSheet("Other");
+        data["A1"].SetNumber(5);
+        calc["A1"].SetFormula("=SUM(Data!A1:A3)*2");   // bare
+        calc["A2"].SetFormula("=SUM('Data'!A1)");      // quoted
+        calc["A3"].SetFormula("=Other!A1+Data!B1");    // Other survives, Data does not
+        other["A1"].SetNumber(9);
+
+        wb.RemoveSheet(data);
+
+        calc["A1"].GetFormula().Should().Be("=SUM(#REF!A1:A3)*2");
+        calc["A2"].GetFormula().Should().Be("=SUM(#REF!A1)");
+        calc["A3"].GetFormula().Should().Be("=Other!A1+#REF!B1");
+    }
+
+    [Fact]
+    public void RemoveSheet_Rewrites_Internal_Hyperlink_Locations_To_RefError()
+    {
+        using var wb = Workbook.Create();
+        var data = wb.AddSheet("Data");
+        var nav = wb.AddSheet("Nav");
+        data["A1"].SetString("target");
+        nav["A1"].Hyperlink("#Data!A1", display: "jump");
+        nav["A2"].Hyperlink("https://example.com/Data!A1", display: "ext");
+
+        wb.RemoveSheet(data);
+
+        nav["A1"].GetHyperlink().Should().Be("#REF!A1",
+            "internal locations to a removed sheet rewrite to #REF! (consistent with rename touching them)");
+        nav["A2"].GetHyperlink().Should().Be("https://example.com/Data!A1",
+            "external URLs are not sheet references");
+    }
+
+    // ---- RemoveSheet: defined names --------------------------------------
+
+    [Fact]
+    public void RemoveSheet_Purges_Scoped_Names_Reindexes_Later_Scopes_And_RefErrors_Bodies()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("A");
+        var data = wb.AddSheet("Data");
+        wb.AddSheet("C");
+        wb.AddNamedRange("Total", "Data!$A$1:$A$3");                 // workbook-scoped body
+        wb.AddNamedRange("ScopedToData", "Data!$B$2", sheetScope: "Data");
+        wb.AddNamedRange("ScopedToC", "C!$A$1", sheetScope: "C");
+
+        wb.RemoveSheet(data);
+
+        var names = wb.NamedRanges.ToDictionary(n => n.Name, n => n);
+        names.Should().NotContainKey("ScopedToData", "names scoped to the removed sheet are deleted");
+        names["ScopedToC"].SheetScope.Should().Be("C", "later sheet-scopes re-index positionally");
+        names["Total"].Formula.Should().Be("#REF!$A$1:$A$3", "a body referencing the removed sheet is #REF!'d");
+
+        // C was at index 2 (A=0, Data=1, C=2); after the shrink it is index 1.
+        var saved = SavedOoxml.WorkbookXml(wb).Root!
+            .Element(SavedOoxml.Main + "definedNames")!
+            .Elements(SavedOoxml.Main + "definedName")
+            .ToDictionary(e => e.Attribute("name")!.Value, e => (string?)e.Attribute("localSheetId"));
+        saved["ScopedToC"].Should().Be("1");
+    }
+
+    // ---- RemoveSheet: activeTab clamp ------------------------------------
+
+    [Fact]
+    public void RemoveSheet_Clamps_ActiveTab_Into_The_Shrunken_Range()
+    {
+        using var wb = Workbook.Create();
+        wb.AddSheet("A");
+        wb.AddSheet("B");
+        var c = wb.AddSheet("C");
+        var wbRoot = wb.Underlying.WorkbookPart!.Workbook!;
+        wbRoot.InsertBefore(
+            new S.BookViews(new S.WorkbookView { ActiveTab = 2U }),
+            wbRoot.GetFirstChild<S.Sheets>());
+
+        wb.RemoveSheet(c); // tab 2 now out of range -> clamped to 1
+
+        ((string?)SavedOoxml.WorkbookXml(wb).Root!
+            .Element(SavedOoxml.Main + "bookViews")!
+            .Element(SavedOoxml.Main + "workbookView")!
+            .Attribute("activeTab")).Should().Be("1");
+    }
+
+    // ---- RemoveSheet: part cleanup ---------------------------------------
+
+    [Fact]
+    public void RemoveSheet_Cleans_Descendant_Parts_With_No_Orphans_Or_Dangling_Rels()
+    {
+        using var wb = Workbook.Create();
+        var rich = wb.AddSheet("Rich");
+        wb.AddSheet("Keep");
+        rich["A1"].SetString("Cat"); rich["B1"].SetString("Val"); // string headers (AddTable requires them)
+        for (int r = 2; r <= 4; r++) { rich[r, 1].SetString($"Q{r}"); rich[r, 2].SetNumber(r * 10); }
+        rich.AddChart(ChartType.Column, "D1", "K15", "A2:A4", "B2:B4", "Rev"); // drawing + chart parts
+        rich["A1"].Comment("note");                                            // comments part
+        rich.AddTable("A1:B4", "Tbl");                                         // table part
+
+        var before = ZipNames(SavedBytes(wb));
+        before.Should().Contain(n => n.Contains("drawings/", StringComparison.OrdinalIgnoreCase));
+        before.Should().Contain(n => n.Contains("tables/", StringComparison.OrdinalIgnoreCase));
+
+        wb.RemoveSheet(rich);
+
+        var after = SavedBytes(wb);
+        AssertNoOrphanPartsOrRels(after);
+        ZipNames(after).Should().NotContain(n => n.Contains("tables/", StringComparison.OrdinalIgnoreCase),
+            "the removed sheet's table part is gone");
+    }
+
+    [Fact]
+    public void RemoveSheet_Drops_CalcChain_Wholesale()
+    {
+        using var wb = Workbook.Create();
+        var a = wb.AddSheet("A");
+        var b = wb.AddSheet("B");
+        a["A1"].SetNumber(1);
+
+        // The engine never authors calcChain; craft one an opened file carries.
+        var wbPart = wb.Underlying.WorkbookPart!;
+        var ccPart = wbPart.AddNewPart<CalculationChainPart>();
+        ccPart.CalculationChain = new S.CalculationChain(
+            new S.CalculationCell { CellReference = "A1", SheetId = 1 });
+
+        ZipNames(SavedBytes(wb)).Should().Contain(n => n.Contains("calcChain", StringComparison.OrdinalIgnoreCase),
+            "the crafted calcChain is present before removal");
+
+        wb.RemoveSheet(b);
+
+        ZipNames(SavedBytes(wb)).Should().NotContain(n => n.Contains("calcChain", StringComparison.OrdinalIgnoreCase),
+            "calcChain is dropped wholesale on removal (c/@i is a sheetId, not a position)");
+    }
+
+    [Fact]
+    public void RemoveSheet_Removes_PivotCaches_Sourced_From_It_On_Opened_File()
+    {
+        var wb = Workbook.Create();
+        var data = wb.AddSheet("Data");
+        wb.AddSheet("Keep");
+        data["A1"].SetString("k"); data["B1"].SetString("v");
+        data["A2"].SetString("a"); data["B2"].SetNumber(1);
+
+        var wbPart = wb.Underlying.WorkbookPart!;
+        var cachePart = wbPart.AddNewPart<PivotTableCacheDefinitionPart>();
+        cachePart.PivotCacheDefinition = new S.PivotCacheDefinition(
+            new S.CacheSource(new S.WorksheetSource { Sheet = "Data", Reference = "A1:B2" })
+            {
+                Type = S.SourceValues.Worksheet,
+            },
+            new S.CacheFields { Count = 0U });
+
+        using var reopened = SaveAndReopen(wb);
+        reopened.RemoveSheet(reopened["Data"]);
+
+        var after = SavedBytes(reopened);
+        ZipNames(after).Should().NotContain(
+            n => n.Contains("pivotCacheDefinition", StringComparison.OrdinalIgnoreCase),
+            "a cache sourced from the removed sheet is deleted, not left dangling");
+        AssertNoOrphanPartsOrRels(after);
+    }
+
+    [Fact]
+    public void RemoveSheet_Survives_Save_And_Reopen()
+    {
+        var wb = Workbook.Create();
+        var data = wb.AddSheet("Data");
+        var calc = wb.AddSheet("Calc");
+        data["A1"].SetNumber(7);
+        calc["A1"].SetFormula("=Data!A1+1");
+
+        wb.RemoveSheet(data);
+
+        using var reopened = SaveAndReopen(wb);
+        reopened.SheetCount.Should().Be(1);
+        reopened.TryGetSheet("Data", out _).Should().BeFalse();
+        reopened["Calc"]["A1"].GetFormula().Should().Be("=#REF!A1+1");
     }
 }

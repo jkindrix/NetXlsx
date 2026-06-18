@@ -33,12 +33,12 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public string Name
     {
-        get { _workbook.ThrowIfDisposed(); return _name; }
+        get { ThrowIfUnusable(); return _name; }
     }
 
     public IWorkbook Workbook
     {
-        get { _workbook.ThrowIfDisposed(); return _workbook; }
+        get { ThrowIfUnusable(); return _workbook; }
     }
 
     internal OoxmlWorkbook WorkbookInternal => _workbook;
@@ -375,7 +375,7 @@ internal sealed partial class OoxmlSheet : ISheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var (row, col) = CellAddress.Parse(a1);
             return new OoxmlCell(this, row, col);
         }
@@ -385,7 +385,7 @@ internal sealed partial class OoxmlSheet : ISheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             ValidateGridCoordinate(row, column);
             return new OoxmlCell(this, row, column);
         }
@@ -413,7 +413,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public IRange Range(string a1Range)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
         return new OoxmlRange(this, r1, c1, r2, c2);
@@ -421,7 +421,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public IRange Range(int row1, int col1, int row2, int col2)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ValidateGridCoordinate(row1, col1);
         ValidateGridCoordinate(row2, col2);
         return new OoxmlRange(this, row1, col1, row2, col2);
@@ -429,7 +429,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public IRow AppendRow()
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         int next = MaxRowIndex() + 1;
         int rowCap = EffectiveMaxRow;
         if (next > rowCap)
@@ -441,7 +441,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public IRow Row(int index)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         int rowCap = EffectiveMaxRow;
         if (index < 1 || index > rowCap)
             throw new ArgumentOutOfRangeException(nameof(index), index, $"row index must be in [1, {rowCap}]");
@@ -536,7 +536,7 @@ internal sealed partial class OoxmlSheet : ISheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             // Decision I-85: last row containing >=1 cell element. A row
             // materialized with no cells (Row(int)/AppendRow on an untouched
             // index) does not count; Clear() keeps the <c> node, so a cleared
@@ -554,7 +554,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public IColumn Column(int index)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         int colCap = EffectiveMaxColumn;
         if (index < 1 || index > colCap)
             throw new ArgumentOutOfRangeException(nameof(index), index, $"column index must be in [1, {colCap}]");
@@ -563,7 +563,7 @@ internal sealed partial class OoxmlSheet : ISheet
 
     public IColumn Column(string letter)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         return new OoxmlColumn(this, CellAddress.ParseColumn(letter));
     }
 
@@ -612,7 +612,7 @@ internal sealed partial class OoxmlSheet : ISheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             _workbook.InvalidateRowCaches();
             return Worksheet;
         }

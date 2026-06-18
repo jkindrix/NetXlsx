@@ -47,7 +47,7 @@ internal sealed partial class OoxmlSheet
     public IShape AddShape(ShapeType type, string startCell, string endCell,
         Color? fillColor = null, Color? lineColor = null)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(startCell);
         ArgumentNullException.ThrowIfNull(endCell);
 
@@ -96,7 +96,7 @@ internal sealed partial class OoxmlSheet
         ConnectorEnd headEnd = ConnectorEnd.None, ConnectorEnd tailEnd = ConnectorEnd.None,
         double? lineWidthPoints = null)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(startCell);
         ArgumentNullException.ThrowIfNull(endCell);
 
@@ -162,7 +162,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var result = new List<IConnector>();
             var drawingEl = Worksheet.GetFirstChild<S.Drawing>();
             if (drawingEl?.Id?.Value is not string rid) return result;

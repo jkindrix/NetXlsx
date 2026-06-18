@@ -30,7 +30,7 @@ internal sealed partial class OoxmlSheet
 {
     public void MergeCells(string a1Range)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         // ParseRange already normalizes corners (r1<=r2, c1<=c2).
         var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
@@ -58,7 +58,7 @@ internal sealed partial class OoxmlSheet
 
     public void MergeCellsStyled(string a1Range, CellStyle style)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         ArgumentNullException.ThrowIfNull(style);
         var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
@@ -73,7 +73,7 @@ internal sealed partial class OoxmlSheet
 
     public void UnmergeCells(string a1Range)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
 
@@ -101,7 +101,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var merges = Worksheet.GetFirstChild<S.MergeCells>();
             if (merges is null) return Array.Empty<string>();
             var list = new List<string>();

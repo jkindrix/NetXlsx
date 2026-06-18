@@ -62,7 +62,7 @@ internal sealed partial class OoxmlSheet
     public IChart AddChart(ChartType type, string startCell, string endCell,
         string categoryRange, string valueRange, string? title = null)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(startCell);
         ArgumentNullException.ThrowIfNull(endCell);
         ArgumentNullException.ThrowIfNull(categoryRange);

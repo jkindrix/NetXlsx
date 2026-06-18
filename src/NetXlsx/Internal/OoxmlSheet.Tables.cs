@@ -28,7 +28,7 @@ internal sealed partial class OoxmlSheet
 {
     public ITable AddTable(string a1Range, string name, string? style = null)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         ArgumentNullException.ThrowIfNull(name);
 
@@ -103,7 +103,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             // Enumerate via the <tableParts> children (document order) rather
             // than the part collection (arbitrary order).
             var container = Worksheet.GetFirstChild<S.TableParts>();
@@ -124,7 +124,7 @@ internal sealed partial class OoxmlSheet
 
     public bool TryGetTable(string name, [MaybeNullWhen(false)] out ITable table)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(name);
         foreach (var t in Tables)
         {
@@ -140,7 +140,7 @@ internal sealed partial class OoxmlSheet
 
     public void RemoveTable(ITable table)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(table);
         if (table is not OoxmlTable ot)
         {

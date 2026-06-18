@@ -31,7 +31,7 @@ internal sealed partial class OoxmlSheet
 {
     public void SetAutoFilter(string a1Range)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         var (r1, c1, r2, c2) = CellAddress.ParseRange(a1Range);
 
@@ -47,7 +47,7 @@ internal sealed partial class OoxmlSheet
 
     public void ClearAutoFilter()
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         // The auxiliary _FilterDatabase built-in name is left in place — Excel
         // tolerates a stale name pointing at an absent autoFilter (NPOI parity).
         Worksheet.GetFirstChild<S.AutoFilter>()?.Remove();
@@ -57,7 +57,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             return Worksheet.GetFirstChild<S.AutoFilter>() is not null;
         }
     }
@@ -66,7 +66,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             return Worksheet.GetFirstChild<S.AutoFilter>()?.Reference?.Value;
         }
     }
@@ -75,7 +75,7 @@ internal sealed partial class OoxmlSheet
 
     public void SetAutoFilterColumn(int columnOffset, FilterCriteria criteria)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(criteria);
 
         var af = Worksheet.GetFirstChild<S.AutoFilter>()
@@ -100,7 +100,7 @@ internal sealed partial class OoxmlSheet
 
     public void ClearAutoFilterColumn(int columnOffset)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         var af = Worksheet.GetFirstChild<S.AutoFilter>();
         if (af is null) return;
         RemoveFilterColumns(af, columnOffset);

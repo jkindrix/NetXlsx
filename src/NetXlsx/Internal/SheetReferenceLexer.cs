@@ -9,6 +9,11 @@
 // formulas, defined-name bodies, CF/DV formulas, chart c:f, sparkline xm:f,
 // table column formulas, and internal hyperlink @location values.
 //
+// Two modes share one scan (RewriteCore): Rewrite substitutes a renamed
+// sheet's references with the new (normalized-quoted) name; RewriteToRefError
+// (I-90 slice 2) substitutes a removed sheet's references with Excel's
+// dangling-reference literal "#REF" (keeping the trailing "!" and cell ref).
+//
 // Matching is case-insensitive (sheet-name semantics, the engine-wide
 // OrdinalIgnoreCase rule). Output quoting is normalized per the memo: the
 // new name is quoted iff it needs quoting, with embedded apostrophes
@@ -44,6 +49,26 @@ internal static class SheetReferenceLexer
     /// can skip the DOM write via reference equality.
     /// </summary>
     internal static string Rewrite(string text, string oldName, string newName)
+        => RewriteCore(text, oldName, Format(newName));
+
+    /// <summary>
+    /// The delete-side counterpart (I-90 slice 2): rewrites every reference to
+    /// a now-removed sheet into Excel's dangling-reference literal, emitting
+    /// <c>#REF</c> in place of the name while keeping the trailing <c>!</c> and
+    /// cell ref — <c>Data!A1</c> → <c>#REF!A1</c>, <c>SUM('Data'!A1:A3)</c> →
+    /// <c>SUM(#REF!A1:A3)</c>. Excel parity, and honest where leaving the old
+    /// name would silently corrupt. The predecessor guards (<c>#</c>, <c>]</c>,
+    /// <c>:</c>, <c>!</c>) carry over unchanged, so an existing <c>#REF!</c>, an
+    /// external <c>[n]Sheet!</c> ref, or a 3D-span endpoint is never matched.
+    /// </summary>
+    internal static string RewriteToRefError(string text, string oldName)
+        => RewriteCore(text, oldName, "#REF");
+
+    // Shared scan for both modes: rename passes the normalized-quoted new name,
+    // delete passes the literal "#REF". The replacement is precomputed once and
+    // substituted at every match in place of the matched sheet-name prefix
+    // (the '!' and trailing reference are preserved by `copied` bookkeeping).
+    private static string RewriteCore(string text, string oldName, string replacement)
     {
         StringBuilder? sb = null;
         int copied = 0;
@@ -67,7 +92,7 @@ internal static class SheetReferenceLexer
                 {
                     sb ??= new StringBuilder(n + 16);
                     sb.Append(text, copied, i - copied);
-                    sb.Append(Format(newName));
+                    sb.Append(replacement);
                     copied = after; // keep the '!' and everything after
                 }
                 i = after;
@@ -84,7 +109,7 @@ internal static class SheetReferenceLexer
                 {
                     sb ??= new StringBuilder(n + 16);
                     sb.Append(text, copied, start - copied);
-                    sb.Append(Format(newName));
+                    sb.Append(replacement);
                     copied = i;
                 }
                 continue;

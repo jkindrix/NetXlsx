@@ -109,6 +109,31 @@ changes (decision I19).
   the result cleanly (the interop-nightly kitchen now carries the
   scenario).
 
+- **Sheet delete (I-90 slice 2 of 2, R-12 — completes I-90).**
+  `IWorkbook.RemoveSheet(sheet)` removes a sheet and keeps the rest of the
+  workbook honest. It follows the `RemoveTable` precedent
+  (`ArgumentException` on a foreign or already-removed handle) and throws
+  `InvalidOperationException` if removal would leave the workbook with no
+  **visible** sheet (a valid workbook needs at least one; hidden sheets do
+  not count). The worksheet and its owned drawings, comments, and tables are
+  deleted along with the `<sheet>` tab entry and relationship; the calcChain
+  is dropped **wholesale** (Excel rebuilds it, and its `c/@i` is a sheetId,
+  not a position, so a re-index would be wrong); and pivot caches sourced
+  from the sheet are removed. Defined names scoped to the sheet are deleted
+  and later sheet-scopes re-index; cross-sheet formula, defined-name, CF/DV,
+  chart, and internal-hyperlink references to the removed sheet are rewritten
+  to Excel's **`#REF!`** dangling-reference literal via the same lexer
+  (honest where leaving the dead name would silently corrupt); and
+  `bookViews/@activeTab` is clamped back into range. After removal the sheet
+  handle — and any cell handle obtained from it — is a tombstone: its members
+  throw `InvalidOperationException` (distinct from the
+  `ObjectDisposedException` a disposed workbook raises). The streaming engine
+  is out of scope. Oracle-verified vs LibreOffice 26.2 (the `#REF!` literal
+  survives its resave) and openpyxl (the result opens cleanly); the saved
+  package carries no orphaned parts or dangling relationships (zip-level
+  assert). The interop-nightly kitchen now carries a self-contained remove
+  scenario.
+
 - **Theme cluster: lazy default-theme embed + theme-color styling symmetry
   (I-89, R-8).** Theme-indexed styling is no longer a consumer lottery.
   The first time a theme-indexed color is written into a workbook that has

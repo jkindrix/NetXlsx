@@ -34,19 +34,19 @@ internal sealed partial class OoxmlSheet
 
     public void FreezeRows(int rows)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         FreezePane(rows, 0);
     }
 
     public void FreezeColumns(int cols)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         FreezePane(0, cols);
     }
 
     public void FreezePane(int rows, int cols)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         if (rows < 0) throw new ArgumentOutOfRangeException(nameof(rows), rows, "must be >= 0");
         if (cols < 0) throw new ArgumentOutOfRangeException(nameof(cols), cols, "must be >= 0");
 
@@ -89,7 +89,7 @@ internal sealed partial class OoxmlSheet
 
     public void CreateSplitPane(int xSplitTwips, int ySplitTwips)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         if (xSplitTwips < 0) throw new ArgumentOutOfRangeException(nameof(xSplitTwips), xSplitTwips, "must be >= 0");
         if (ySplitTwips < 0) throw new ArgumentOutOfRangeException(nameof(ySplitTwips), ySplitTwips, "must be >= 0");
 
@@ -119,13 +119,13 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             // Absent @showGridLines means shown — Excel's default is true.
             return FindDefaultSheetView()?.ShowGridLines?.Value ?? true;
         }
         set
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var view = GetOrCreateDefaultSheetView();
             // true is the default — clear the attribute rather than emit noise.
             view.ShowGridLines = value ? null : false;
@@ -138,17 +138,28 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
-            var state = _workbook.SheetElementFor(_worksheetPart).State?.Value;
-            // Mirrors NPOI: both Hidden and VeryHidden read as hidden.
-            return state == S.SheetStateValues.Hidden || state == S.SheetStateValues.VeryHidden;
+            ThrowIfUnusable();
+            return IsHiddenInternal;
         }
         set
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var sheet = _workbook.SheetElementFor(_worksheetPart);
             // Visible is the default — clear the attribute when un-hiding.
             sheet.State = value ? S.SheetStateValues.Hidden : null;
+        }
+    }
+
+    // Non-throwing visibility read for workbook-side lifecycle code (the
+    // last-visible-sheet guard in RemoveSheet counts visible sheets without
+    // tripping any disposal/removed guard). Mirrors NPOI: both Hidden and
+    // VeryHidden read as hidden.
+    internal bool IsHiddenInternal
+    {
+        get
+        {
+            var state = _workbook.SheetElementFor(_worksheetPart).State?.Value;
+            return state == S.SheetStateValues.Hidden || state == S.SheetStateValues.VeryHidden;
         }
     }
 
@@ -158,14 +169,14 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var w = Worksheet.GetFirstChild<S.SheetFormatProperties>()?.DefaultColumnWidth?.Value;
             // NPOI treats an absent/zero width as "unset" (Excel derives from fonts).
             return w is null or 0 ? null : w;
         }
         set
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             // null (or a non-positive value) clears the attribute so Excel derives
             // the width from the Normal style's font metrics (lesson #3 / I-78).
             if (value is null || value.Value <= 0)
@@ -184,7 +195,7 @@ internal sealed partial class OoxmlSheet
 
     public void GroupRows(int startRow, int endRow)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ValidateRange(startRow, endRow, nameof(startRow), nameof(endRow));
         for (int r = startRow; r <= endRow; r++)
         {
@@ -196,7 +207,7 @@ internal sealed partial class OoxmlSheet
 
     public void UngroupRows(int startRow, int endRow)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ValidateRange(startRow, endRow, nameof(startRow), nameof(endRow));
         for (int r = startRow; r <= endRow; r++)
         {
@@ -211,7 +222,7 @@ internal sealed partial class OoxmlSheet
 
     public void GroupColumns(int startCol, int endCol)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ValidateRange(startCol, endCol, nameof(startCol), nameof(endCol));
         for (int c = startCol; c <= endCol; c++)
         {
@@ -223,7 +234,7 @@ internal sealed partial class OoxmlSheet
 
     public void UngroupColumns(int startCol, int endCol)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ValidateRange(startCol, endCol, nameof(startCol), nameof(endCol));
         for (int c = startCol; c <= endCol; c++)
         {
@@ -238,7 +249,7 @@ internal sealed partial class OoxmlSheet
 
     public void SetRowGroupCollapsed(int row, bool collapsed)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         if (row < 1) throw new ArgumentOutOfRangeException(nameof(row), row, "must be >= 1");
         if (collapsed) CollapseRowGroup(row);
         else ExpandRowGroup(row);

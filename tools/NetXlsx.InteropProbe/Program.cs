@@ -227,6 +227,18 @@ static void BuildKitchen(string path)
     rn.Rename("Renamed 1");
     wb.MoveSheet(rn, 1);
 
+    // ---------- I-90 slice 2: sheet remove ----------
+    // A self-contained throwaway sheet referenced by ONE helper cell on a
+    // surviving sheet, then removed. The surviving formula must read back
+    // Excel's #REF! dangling-reference literal and survive an LO resave;
+    // openpyxl opens the result clean. Kept isolated so it doesn't perturb
+    // the rename/move/theme asserts. Net sheet count is unchanged (added then
+    // removed), so the kitchen still ends with 10 sheets.
+    var rm = wb.AddSheet("RemoveMe");
+    rm["A1"].SetNumber(99);
+    sc["G3"].SetFormula("=RemoveMe!A1+1");
+    wb.RemoveSheet(rm);
+
     // ---------- Hidden sheet + workbook protection ----------
     var hi = wb.AddSheet("HiddenSheet");
     hi["A1"].SetString("you can't see me");
@@ -391,6 +403,17 @@ static void AssertKitchen(string path, bool loResave)
     Check.True("ren.formula", g1f.Contains("'Renamed 1'!A1"), $"formula was '{g1f}'");
     var g2l = sc["G2"].GetHyperlink() ?? "";
     Check.True("ren.hyperlink", g2l.Contains("Renamed 1"), $"location was '{g2l}'");
+
+    // I-90 slice 2 (remove): the throwaway sheet is gone and the surviving
+    // helper formula reads back Excel's #REF! dangling-reference literal —
+    // both on our own round-trip and after an LO resave.
+    Check.True("rm.sheetGone", !wb.TryGetSheet("RemoveMe", out _), "removed sheet still resolves");
+    // Case-insensitive: our own output is canonical "#REF!" (the self leg
+    // pins that); LO lowercases the whole formula to "#ref!a1+1" on resave,
+    // the same normalization family as its SUM(A2:A2) -> SUM(A2) rewrite.
+    var g3f = sc["G3"].GetFormula() ?? "";
+    Check.True("rm.refError", g3f.Contains("#REF!", StringComparison.OrdinalIgnoreCase), $"formula was '{g3f}'");
+
     if (loResave)
     {
         // LO calculated on load and cached the result (R-7): 42 proves the

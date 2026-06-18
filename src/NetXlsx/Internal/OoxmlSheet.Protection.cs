@@ -23,7 +23,7 @@ internal sealed partial class OoxmlSheet
 {
     public void Protect(string? password = null, SheetProtection? options = null)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         var opts = options ?? SheetProtection.Default;
 
         var sp = GetOrCreateSheetProtection();
@@ -51,7 +51,7 @@ internal sealed partial class OoxmlSheet
 
     public void Unprotect()
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         // Mirrors NPOI's ProtectSheet(null): remove the element entirely rather
         // than leave a @sheet=false stub.
         Worksheet.GetFirstChild<S.SheetProtection>()?.Remove();
@@ -61,7 +61,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             return Worksheet.GetFirstChild<S.SheetProtection>()?.Sheet?.Value ?? false;
         }
     }

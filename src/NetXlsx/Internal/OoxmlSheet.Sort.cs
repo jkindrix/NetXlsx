@@ -27,7 +27,7 @@ internal sealed partial class OoxmlSheet
 {
     public void SortRange(string a1Range, params SortKey[] keys)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         ArgumentNullException.ThrowIfNull(keys);
         if (keys.Length == 0) throw new ArgumentException("At least one sort key is required.", nameof(keys));

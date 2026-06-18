@@ -36,7 +36,7 @@ internal sealed partial class OoxmlSheet
 {
     public void AddConditionalFormatting(string a1Range, params ConditionalFormat[] rules)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         ArgumentNullException.ThrowIfNull(rules);
         if (rules.Length == 0) throw new ArgumentException("At least one rule is required.", nameof(rules));
@@ -61,14 +61,14 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             return Worksheet.Elements<S.ConditionalFormatting>().Count();
         }
     }
 
     public void RemoveConditionalFormatting(int index)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         // ElementAt throws ArgumentOutOfRangeException for a bad index — the
         // NPOI engine's list removal fails loud on a bad index too. Any dxf
         // the removed rules referenced stays in styles.xml (NPOI parity;

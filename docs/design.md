@@ -192,19 +192,30 @@ public enum DateSystem { Excel1900, Excel1904 }
 
 ### 6.2 Workbook
 
+> **Sketch reconciliation (I-90 / 2026-06-17).** This block was the
+> 2026-05-14 initial sketch. The sheet-lifecycle members shipped under I-90
+> with different (handle-based) shapes — corrected below and detailed in
+> §6.12.2. Three members in the original sketch never shipped and are left
+> in place, flagged `PENDING`, for an operator doc-truth pass to decide
+> (build or drop): the `AddSheet(name, index)` insert-at-index overload,
+> `IAsyncDisposable`, and the `IReadOnlyList<ISheet> Sheets` property.
+
 ```csharp
-public interface IWorkbook : IDisposable, IAsyncDisposable
+public interface IWorkbook : IDisposable   // PENDING: IAsyncDisposable (sketched, never built)
 {
     ISheet AddSheet(string name);
-    ISheet AddSheet(string name, int index);
+    // PENDING: ISheet AddSheet(string name, int index);  // insert-at-index overload — sketched, never built
     ISheet this[string name] { get; }
     ISheet this[int index] { get; }
     bool TryGetSheet(string name, [MaybeNullWhen(false)] out ISheet sheet);
-    void RemoveSheet(string name);
-    void RenameSheet(string oldName, string newName);
-    void MoveSheet(string name, int newIndex);
 
-    IReadOnlyList<ISheet> Sheets { get; }
+    // I-90 sheet lifecycle — SHIPPED shapes (handle-based, not name-based).
+    // Rename lives on ISheet (it validates + rewrites references document-wide;
+    // see §6.12.2). The workbook owns reorder and delete.
+    void MoveSheet(ISheet sheet, int newIndex);   // 1-based resulting position
+    void RemoveSheet(ISheet sheet);
+
+    // PENDING: IReadOnlyList<ISheet> Sheets { get; }  // sketched, never built (use this[int] + SheetCount)
 
     void Save(string path);
     void Save(Stream stream, bool leaveOpen = true);
@@ -214,7 +225,8 @@ public interface IWorkbook : IDisposable, IAsyncDisposable
     INamedRange AddNamedRange(string name, string formula, string? sheetScope = null);
     IReadOnlyList<INamedRange> NamedRanges { get; }
 
-    NPOI.XSSF.UserModel.XSSFWorkbook Underlying { get; }
+    // v2.0.0 (I-82): the escape hatch now returns the Open XML SDK document.
+    DocumentFormat.OpenXml.Packaging.SpreadsheetDocument Underlying { get; }
 }
 
 public interface INamedRange
@@ -2505,6 +2517,83 @@ attribute and attribute-value normalization silently mutates them.
 Oracle results at landing: LibreOffice 26.2 preserves the escapes through
 its own resave (lossless both ways); openpyxl surfaces literal escape
 text (documented on `ICell.SetString`).
+
+### 6.12.2 Sheet lifecycle: rename / move / delete — I-90
+
+**I-90 (proposed 2026-06-10, signed off as amended 2026-06-11, landed in two
+slices — rename+move S12, delete S13):** full shape and amendment history in
+`docs/s2-design-proposals-2026-06-10.md#i-90`. A 2-slice issue because the
+delete surface (part cleanup; orphaned rels are a proven Excel-repair trigger)
+deserved its own verification pass. The shipped shapes are handle-based — they
+supersede the 2026-05-14 name-based §6.2 sketch:
+
+```csharp
+// ISheet
+void Rename(string newName);                   // SheetNameException on invalid/duplicate
+
+// IWorkbook
+void MoveSheet(ISheet sheet, int newIndex);    // 1-based resulting position
+void RemoveSheet(ISheet sheet);
+```
+
+**Rename is a method, not a `Name` setter** (rejected): it validates (the
+`AddSheet` rules, incl. R-9's tightened set and I-88's control-char fail-fast),
+can throw `SheetNameException`, and rewrites references document-wide — side
+effects a property setter would hide. The rewrite uses a **sheet-reference
+lexer** (`Internal/SheetReferenceLexer.cs`), not a formula parser: recognizing
+`'Quoted'!`/`Bare!` prefixes outside string literals only needs the two-literal
+model `SetFormula`'s structural validator already lexes. It rewrites the old
+name (case-insensitive) across cell formulas (incl. shared-formula masters) on
+**every** sheet, defined-name bodies **including `_xlnm.*` built-ins** (print
+areas/titles are just defined names), CF/DV formulas, chart `c:f`, sparkline
+`xm:f`, table column formulas, pivot-cache `worksheetSource/@sheet`, and
+internal hyperlink `@location` (the last **deliberately exceeds Excel**, which
+lets location strings break on rename). Output quoting is normalized (quote the
+new name iff needed; double embedded apostrophes). Documented residuals, both
+pinned by tests: string arguments (`INDIRECT("Old!A1")`) are not rewritten
+(Excel parity), and 3D-span references (`Sheet1:Sheet3!`, `'First:Last'!`) are
+not rewritten (a deliberate divergence — the `:` guard keeps a bare 3D endpoint
+from becoming the malformed `First:'New Name'!` shape).
+
+**Move (`MoveSheet`)** takes the 1-based **resulting** position
+(remove-then-insert). `localSheetId` on sheet-scoped defined names is a
+zero-based sheet *position* (not a `sheetId`), so every move re-indexes it;
+`bookViews/@activeTab` **follows** the sheet that was active (clamping a
+malformed out-of-range value first). `calcChain` is deliberately untouched —
+its `c/@i` is a `sheetId`, stable across reorder.
+
+**Delete (`RemoveSheet`)** follows the `RemoveTable` precedent
+(`ArgumentException` on a foreign or already-removed handle) plus the full
+delete contract: it throws `InvalidOperationException` if removal would leave
+zero **visible** sheets (hidden sheets do not count); deletes the
+`WorksheetPart` and its owned descendants (the clone-based `Save` drops the
+now-unreachable subtree, and those descendants are reachable-at-open so the
+orphan-preservation pass never resurrects them), the `<sheet>` entry and its
+relationship, the `calcChain` **wholesale** (we never author one; Excel rebuilds
+it — and its `c/@i` is a `sheetId`, so a re-index is neither needed nor
+correct), and pivot caches sourced from the sheet. Defined names scoped to the
+sheet are purged and later scopes re-indexed (purge-then-reindex, so a name at
+the vanished position resolves to `IndexOf == -1` rather than re-pointing).
+Cross-sheet references to the sheet rewrite to **`#REF!`** via the same lexer
+(an Excel-parity dangling-reference literal — honest where silence would
+corrupt), and `@activeTab` is **clamped** into the shrunken range (delete
+clamps; only move follows). The removed sheet's wrapper — and any cell handle
+obtained from it — becomes a tombstone whose members throw
+`InvalidOperationException` (distinct from the `ObjectDisposedException` a
+disposed workbook raises), routed through a unified `ThrowIfUnusable()` guard
+that checks disposal then removal. `IRow`/`IRange`/`IColumn`/`IPicture` handles
+are out of that scope (the memo named ISheet + cells); cell-level operations
+through them still throw via the cell guard.
+
+**Streaming engine: out of scope** — `IStreamingWorkbook` is forward-only;
+these members are not added there.
+
+Oracle results at landing: LibreOffice 26.2 resolves the rewritten references
+in a second engine (rename: the formula's cached value reads back through the
+quoted new name; delete: the `#REF!` literal survives the resave, lowercased to
+`#ref!` — an LO normalization, the same family as its `SUM(A2:A2)→SUM(A2)`
+rewrite); openpyxl opens both results cleanly; the saved package carries no
+orphaned parts or dangling relationships (zip-level assert).
 
 ### 6.13 Exception hierarchy
 

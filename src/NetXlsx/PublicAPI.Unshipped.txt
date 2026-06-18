@@ -13,6 +13,7 @@ NetXlsx.IPicture.Border.get -> NetXlsx.PictureBorder?
 NetXlsx.IPicture.Border.set -> void
 NetXlsx.ISheet.Rename(string! newName) -> void
 NetXlsx.IWorkbook.MoveSheet(NetXlsx.ISheet! sheet, int newIndex) -> void
+NetXlsx.IWorkbook.RemoveSheet(NetXlsx.ISheet! sheet) -> void
 NetXlsx.PictureBorder
 NetXlsx.PictureBorder.Color.get -> NetXlsx.Color?
 NetXlsx.PictureBorder.Color.init -> void

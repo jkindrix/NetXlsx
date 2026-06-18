@@ -29,7 +29,7 @@ internal sealed partial class OoxmlSheet
 {
     public void AddValidation(string a1Range, DataValidation validation)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Range);
         ArgumentNullException.ThrowIfNull(validation);
 

@@ -55,6 +55,34 @@ public interface IWorkbook : IDisposable
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="newIndex"/> is outside <c>[1, SheetCount]</c>.</exception>
     void MoveSheet(ISheet sheet, int newIndex);
 
+    /// <summary>
+    /// Removes <paramref name="sheet"/> from the workbook (decision I-90).
+    /// The worksheet and its owned drawings, comments, and tables are deleted;
+    /// the sheet's tab entry and relationship are dropped.
+    /// <para>
+    /// References elsewhere in the workbook are kept honest: cross-sheet
+    /// formula, defined-name, conditional-formatting, data-validation, chart,
+    /// and internal-hyperlink references to the removed sheet are rewritten to
+    /// Excel's <c>#REF!</c> error (matching what Excel shows for a deleted
+    /// sheet). Defined names scoped to the removed sheet are deleted, the
+    /// scopes of later sheets re-index, pivot caches sourced from the sheet are
+    /// removed, and the active tab is clamped back into range.
+    /// </para>
+    /// <para>
+    /// A workbook must always contain at least one visible sheet, so removing
+    /// the last visible sheet throws <see cref="InvalidOperationException"/>
+    /// (hidden sheets do not count). After removal the
+    /// <paramref name="sheet"/> handle — and any cell handles obtained from it
+    /// — are tombstones: their members throw
+    /// <see cref="InvalidOperationException"/> (distinct from the
+    /// <see cref="ObjectDisposedException"/> a disposed workbook raises).
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="sheet"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="sheet"/> does not belong to this workbook (foreign or already-removed handle).</exception>
+    /// <exception cref="InvalidOperationException">Removing <paramref name="sheet"/> would leave the workbook with no visible sheet.</exception>
+    void RemoveSheet(ISheet sheet);
+
     /// <summary>Non-throwing sheet lookup.</summary>
     bool TryGetSheet(string name, [MaybeNullWhen(false)] out ISheet sheet);
 

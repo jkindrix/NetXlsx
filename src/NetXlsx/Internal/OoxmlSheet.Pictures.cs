@@ -38,7 +38,7 @@ internal sealed partial class OoxmlSheet
 
     public IPicture AddPicture(string a1Cell, byte[] data, ImageFormat format)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Cell);
         ArgumentNullException.ThrowIfNull(data);
 
@@ -62,7 +62,7 @@ internal sealed partial class OoxmlSheet
 
     public IPicture AddPicture(string a1Cell, byte[] data)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(a1Cell);
         ArgumentNullException.ThrowIfNull(data);
         return AddPicture(a1Cell, data, DetectImageFormat(data));
@@ -73,7 +73,7 @@ internal sealed partial class OoxmlSheet
 
     public IPicture AddPicture(string startCell, string endCell, byte[] data)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(startCell);
         ArgumentNullException.ThrowIfNull(endCell);
         ArgumentNullException.ThrowIfNull(data);
@@ -83,7 +83,7 @@ internal sealed partial class OoxmlSheet
     public IPicture AddPicture(string startCell, string endCell, byte[] data, ImageFormat format,
         int dx1, int dy1, int dx2, int dy2)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(startCell);
         ArgumentNullException.ThrowIfNull(endCell);
         ArgumentNullException.ThrowIfNull(data);
@@ -113,7 +113,7 @@ internal sealed partial class OoxmlSheet
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var result = new List<IPicture>();
             var drawingEl = Worksheet.GetFirstChild<S.Drawing>();
             if (drawingEl?.Id?.Value is not string rid) return result;
