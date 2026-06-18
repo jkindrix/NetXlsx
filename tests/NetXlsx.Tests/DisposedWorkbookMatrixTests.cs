@@ -31,6 +31,9 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Save(path)", (Action<IWorkbook>)(wb => wb.Save(Path.Combine(Path.GetTempPath(), "x.xlsx"))) };
         yield return new object[] { "Underlying", (Action<IWorkbook>)(wb => { var _ = wb.Underlying; }) };
         yield return new object[] { "AddNamedRange", (Action<IWorkbook>)(wb => wb.AddNamedRange("X", "S!$A$1")) };
+        // RemoveNamedRange checks disposal before its key lookup, so the benign
+        // (absent) key never reaches ArgumentException here.
+        yield return new object[] { "RemoveNamedRange", (Action<IWorkbook>)(wb => wb.RemoveNamedRange("X")) };
         yield return new object[] { "NamedRanges", (Action<IWorkbook>)(wb => { var _ = wb.NamedRanges; }) };
         yield return new object[] { "Protect", (Action<IWorkbook>)(wb => wb.Protect()) };
         yield return new object[] { "ProtectWithPassword", (Action<IWorkbook>)(wb => wb.ProtectWithPassword("p")) };
@@ -100,6 +103,9 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Unprotect", (Action<ISheet>)(s => s.Unprotect()) };
         yield return new object[] { "IsProtected", (Action<ISheet>)(s => { var _ = s.IsProtected; }) };
         yield return new object[] { "AddValidation", (Action<ISheet>)(s => s.AddValidation("A1:A5", DataValidation.IntegerBetween(1, 10))) };
+        // RemoveValidation checks disposal before its key lookup, so the benign
+        // (absent) range never reaches ArgumentException here.
+        yield return new object[] { "RemoveValidation", (Action<ISheet>)(s => s.RemoveValidation("A1:A5")) };
         yield return new object[] { "SetAutoFilter", (Action<ISheet>)(s => s.SetAutoFilter("A1:B5")) };
         yield return new object[] { "ClearAutoFilter", (Action<ISheet>)(s => s.ClearAutoFilter()) };
         yield return new object[] { "HasAutoFilter", (Action<ISheet>)(s => { var _ = s.HasAutoFilter; }) };
@@ -214,8 +220,10 @@ public class DisposedWorkbookMatrixTests
         yield return new object[] { "Comment", (Action<ICell>)(c => c.Comment("x")) };
         yield return new object[] { "GetComment", (Action<ICell>)(c => c.GetComment()) };
         yield return new object[] { "GetCommentAuthor", (Action<ICell>)(c => c.GetCommentAuthor()) };
+        yield return new object[] { "RemoveComment", (Action<ICell>)(c => c.RemoveComment()) };
         yield return new object[] { "Hyperlink", (Action<ICell>)(c => c.Hyperlink("https://example.com")) };
         yield return new object[] { "GetHyperlink", (Action<ICell>)(c => c.GetHyperlink()) };
+        yield return new object[] { "RemoveHyperlink", (Action<ICell>)(c => c.RemoveHyperlink()) };
         yield return new object[] { "Style", (Action<ICell>)(c => c.Style(CellStyle.Default)) };
         yield return new object[] { "NumberFormat", (Action<ICell>)(c => c.NumberFormat("0.00")) };
         yield return new object[] { "GetStyle", (Action<ICell>)(c => c.GetStyle()) };

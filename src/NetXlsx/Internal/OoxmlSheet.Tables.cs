@@ -172,6 +172,10 @@ internal sealed partial class OoxmlSheet
 
         // Drop the package relationship + part.
         _worksheetPart.DeletePart(ot.Part);
+
+        // The wrapper becomes a tombstone: every public OoxmlTable member throws
+        // InvalidOperationException hereafter (I-91 stale-handle retrofit).
+        ot.MarkRemoved();
     }
 
     // ---- Internal helpers ---------------------------------------------

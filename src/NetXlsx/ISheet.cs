@@ -463,6 +463,19 @@ public interface ISheet
     void AddValidation(string a1Range, DataValidation validation);
 
     /// <summary>
+    /// Removes the data validation whose range is exactly
+    /// <paramref name="a1Range"/> (the same key it was added under;
+    /// matching is by canonical range, so <c>"A1"</c> and <c>"A1:A1"</c>
+    /// are equivalent). The <c>&lt;dataValidations&gt;</c> container is
+    /// dropped when its last rule goes; cross-sheet list-source rules an
+    /// opened file stores in the <c>x14</c> extension list are matched too.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="a1Range"/> is null.</exception>
+    /// <exception cref="InvalidCellAddressException"><paramref name="a1Range"/> is not a valid A1 range.</exception>
+    /// <exception cref="ArgumentException">No validation has that exact range.</exception>
+    void RemoveValidation(string a1Range);
+
+    /// <summary>
     /// Embeds <paramref name="data"/> as an image anchored at
     /// <paramref name="a1Cell"/> (its top-left corner). The image is
     /// rendered at its natural pixel size; resize through

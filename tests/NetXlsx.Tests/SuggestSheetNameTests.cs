@@ -143,6 +143,7 @@ internal sealed class AlwaysCollidingWorkbook : IWorkbook
     public Task SaveAsync(string path, CancellationToken ct = default) => throw new NotImplementedException();
 
     public INamedRange AddNamedRange(string name, string formula, string? sheetScope = null) => throw new NotImplementedException();
+    public void RemoveNamedRange(string name) => throw new NotImplementedException();
     public IReadOnlyList<INamedRange> NamedRanges => throw new NotImplementedException();
 
     public void Protect(WorkbookProtection? options = null) => throw new NotImplementedException();

@@ -36,17 +36,42 @@ internal sealed class OoxmlTable : ITable
     // TableDefinitionPart.Table is annotated nullable; AddTable always sets it.
     private S.Table Table => _part.Table!;
 
+    // ---- Removed-handle access guard (I-91 slice 1) -----------------------
+    // Mirrors the OoxmlSheet removed-handle pattern S13 established: after
+    // OoxmlSheet.RemoveTable detaches this table's part, every public member
+    // must throw InvalidOperationException — distinct from the disposed-workbook
+    // ObjectDisposedException. Before this retrofit OoxmlTable only checked
+    // workbook disposal, so the design's "RemoveTable precedent" for stale
+    // handles was aspirational ([A-2026-06-11]); this makes it real, so the
+    // drawing handles in slice 2 follow a precedent that actually exists. The
+    // flag is one-way: a removed table never returns to the sheet.
+
+    private bool _removed;
+
+    internal void MarkRemoved() => _removed = true;
+
+    // Disposal is checked first so a disposed workbook still surfaces
+    // ObjectDisposedException; a live workbook with this table removed surfaces
+    // InvalidOperationException.
+    internal void ThrowIfUnusable()
+    {
+        _workbook.ThrowIfDisposed();
+        if (_removed)
+            throw new InvalidOperationException(
+                "this table has been removed from its sheet.");
+    }
+
     public string Name
     {
-        get { _workbook.ThrowIfDisposed(); return Table.Name?.Value ?? string.Empty; }
+        get { ThrowIfUnusable(); return Table.Name?.Value ?? string.Empty; }
     }
 
     public string DisplayName
     {
-        get { _workbook.ThrowIfDisposed(); return Table.DisplayName?.Value ?? string.Empty; }
+        get { ThrowIfUnusable(); return Table.DisplayName?.Value ?? string.Empty; }
         set
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             ArgumentNullException.ThrowIfNull(value);
             Table.DisplayName = value;
         }
@@ -56,7 +81,7 @@ internal sealed class OoxmlTable : ITable
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var (r1, c1, r2, c2) = ParseReference();
             return CellAddress.FormatRange(r1, c1, r2, c2);
         }
@@ -64,14 +89,14 @@ internal sealed class OoxmlTable : ITable
 
     public ISheet Sheet
     {
-        get { _workbook.ThrowIfDisposed(); return _sheet; }
+        get { ThrowIfUnusable(); return _sheet; }
     }
 
     public IReadOnlyList<string> ColumnNames
     {
         get
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             // Refresh from the header row, mirroring NPOI's UpdateHeaders: a
             // non-empty string header cell renames its column; otherwise the
             // stored name stands.
@@ -89,15 +114,15 @@ internal sealed class OoxmlTable : ITable
 
     public bool HasTotalsRow
     {
-        get { _workbook.ThrowIfDisposed(); return (Table.TotalsRowCount?.Value ?? 0) > 0; }
+        get { ThrowIfUnusable(); return (Table.TotalsRowCount?.Value ?? 0) > 0; }
     }
 
     public string? StyleName
     {
-        get { _workbook.ThrowIfDisposed(); return Table.TableStyleInfo?.Name?.Value; }
+        get { ThrowIfUnusable(); return Table.TableStyleInfo?.Name?.Value; }
         set
         {
-            _workbook.ThrowIfDisposed();
+            ThrowIfUnusable();
             var info = Table.TableStyleInfo;
             if (value is null)
             {
@@ -116,17 +141,17 @@ internal sealed class OoxmlTable : ITable
         }
     }
 
-    // Escape hatch (#32 / I-82): the table's own OPC part. Disposal first.
+    // Escape hatch (#32 / I-82): the table's own OPC part. Liveness-guarded.
     public TableDefinitionPart Underlying
     {
-        get { _workbook.ThrowIfDisposed(); return _part; }
+        get { ThrowIfUnusable(); return _part; }
     }
 
     // ---- Totals row (decision I-64) -----------------------------------
 
     public void AddTotalsRow()
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         if (HasTotalsRow) return;
 
         var (r1, c1, r2, c2) = ParseReference();
@@ -139,7 +164,7 @@ internal sealed class OoxmlTable : ITable
 
     public void RemoveTotalsRow()
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         if (!HasTotalsRow) return;
 
         Table.TotalsRowCount = null;   // absent == 0 (the schema default)
@@ -162,7 +187,7 @@ internal sealed class OoxmlTable : ITable
 
     public void SetColumnTotal(string columnName, TotalsRowFunction function)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(columnName);
         if (function == TotalsRowFunction.Custom)
         {
@@ -192,7 +217,7 @@ internal sealed class OoxmlTable : ITable
 
     public void SetColumnTotal(string columnName, string customFormula)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(columnName);
         ArgumentNullException.ThrowIfNull(customFormula);
         EnsureTotalsRow();
@@ -211,7 +236,7 @@ internal sealed class OoxmlTable : ITable
 
     public void SetColumnTotalLabel(string columnName, string label)
     {
-        _workbook.ThrowIfDisposed();
+        ThrowIfUnusable();
         ArgumentNullException.ThrowIfNull(columnName);
         ArgumentNullException.ThrowIfNull(label);
         EnsureTotalsRow();

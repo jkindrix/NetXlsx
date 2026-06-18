@@ -730,6 +730,13 @@ internal sealed class OoxmlCell : ICell
         return _sheet.GetCommentAuthor(_row, _col);
     }
 
+    public ICell RemoveComment()
+    {
+        _sheet.ThrowIfUnusable();
+        _sheet.RemoveComment(_row, _col);
+        return this;
+    }
+
     // ---- Hyperlinks (formulas/comments/hyperlinks slice) --------------------
     // The sheet partial owns the <hyperlink> element + package relationship
     // (OoxmlSheet.Hyperlinks.cs); the cell owns the display-text semantics —
@@ -754,6 +761,15 @@ internal sealed class OoxmlCell : ICell
     {
         _sheet.ThrowIfUnusable();
         return _sheet.GetHyperlink(_row, _col);
+    }
+
+    // The link binds to the cell, not its text — RemoveHyperlink is the only
+    // way off (R-10). The display text is deliberately left as-is.
+    public ICell RemoveHyperlink()
+    {
+        _sheet.ThrowIfUnusable();
+        _sheet.RemoveHyperlink(_row, _col);
+        return this;
     }
 
     // Escape hatch (#32 / I-82): the cell element. Reaching for the raw node

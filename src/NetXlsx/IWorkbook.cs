@@ -113,6 +113,15 @@ public interface IWorkbook : IDisposable
     /// <exception cref="SheetNameException"><paramref name="sheetScope"/> is non-null and does not match an existing sheet.</exception>
     INamedRange AddNamedRange(string name, string formula, string? sheetScope = null);
 
+    /// <summary>
+    /// Removes the named range called <paramref name="name"/> (case-insensitive,
+    /// since names are unique workbook-wide per decision I9). The
+    /// <c>&lt;definedNames&gt;</c> container is dropped when its last name goes.
+    /// </summary>
+    /// <exception cref="ArgumentNullException"><paramref name="name"/> is null.</exception>
+    /// <exception cref="ArgumentException">No named range with that name exists.</exception>
+    void RemoveNamedRange(string name);
+
     /// <summary>The named ranges currently defined on the workbook (scope-agnostic).</summary>
     System.Collections.Generic.IReadOnlyList<INamedRange> NamedRanges { get; }
 

@@ -9,10 +9,14 @@ NetXlsx.CellBorders.TopColorTheme.get -> NetXlsx.ThemeColor?
 NetXlsx.CellBorders.TopColorTheme.init -> void
 NetXlsx.CellStyle.FontColorTheme.get -> NetXlsx.ThemeColor?
 NetXlsx.CellStyle.FontColorTheme.init -> void
+NetXlsx.ICell.RemoveComment() -> NetXlsx.ICell!
+NetXlsx.ICell.RemoveHyperlink() -> NetXlsx.ICell!
 NetXlsx.IPicture.Border.get -> NetXlsx.PictureBorder?
 NetXlsx.IPicture.Border.set -> void
 NetXlsx.ISheet.Rename(string! newName) -> void
+NetXlsx.ISheet.RemoveValidation(string! a1Range) -> void
 NetXlsx.IWorkbook.MoveSheet(NetXlsx.ISheet! sheet, int newIndex) -> void
+NetXlsx.IWorkbook.RemoveNamedRange(string! name) -> void
 NetXlsx.IWorkbook.RemoveSheet(NetXlsx.ISheet! sheet) -> void
 NetXlsx.PictureBorder
 NetXlsx.PictureBorder.Color.get -> NetXlsx.Color?

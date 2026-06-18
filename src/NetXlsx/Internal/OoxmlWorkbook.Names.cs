@@ -81,6 +81,29 @@ internal sealed partial class OoxmlWorkbook
         return new OoxmlNamedRange(this, defined);
     }
 
+    public void RemoveNamedRange(string name)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(name);
+
+        using var _ = EnterMutation();
+
+        var container = DefinedNamesContainer();
+        // Names are unique workbook-wide (case-insensitive, I-9); match the
+        // first <definedName> with this name and drop it.
+        var match = container?.Elements<S.DefinedName>()
+            .FirstOrDefault(d => string.Equals(d.Name?.Value, name, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            // Key-based, RemoveTable semantics: an absent key throws.
+            throw new ArgumentException(
+                $"no named range '{name}' exists in the workbook.", nameof(name));
+        }
+
+        match.Remove();
+        if (!container!.Elements<S.DefinedName>().Any()) container.Remove();
+    }
+
     public IReadOnlyList<INamedRange> NamedRanges
     {
         get

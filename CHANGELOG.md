@@ -73,6 +73,48 @@ changes (decision I19).
 
 ### Added
 
+- **Removal family — cell/workbook level (I-91 slice 1 of 2, R-11; folds in
+  R-10).** Symmetric removal for the surfaces that previously had only an add
+  path: `ICell.RemoveHyperlink()` and `ICell.RemoveComment()` (fluent,
+  idempotent no-ops that return the cell when nothing is attached),
+  `ISheet.RemoveValidation(string a1Range)` and
+  `IWorkbook.RemoveNamedRange(string name)` (key-based — they throw
+  `ArgumentException` when the key is absent, matching `RemoveTable`/the
+  not-found contract; deliberately **not** the silent no-op of the
+  grandfathered `Un*` verbs). The naming rule is now law: `Remove<Thing>` for
+  discrete added objects, `Clear*` for singleton sheet state, `Un*` only for
+  the two shipped legacy verbs (merge/protect). Each removal cleans up after
+  itself with the `RemoveTable` part/rel discipline: `RemoveHyperlink` drops
+  the `<hyperlink>` element and, for an external target, its reference
+  relationship, and drops the `<hyperlinks>` container when empty;
+  `RemoveComment` removes the comment (re-indexing author bookkeeping so no
+  orphaned author lingers) and its legacy VML popup shape, and drops the
+  comments part entirely with the last comment (no empty zero-index artifact);
+  `RemoveValidation` matches by canonical range and drops the
+  `<dataValidations>` container + fixes `@count` when empty;
+  `RemoveNamedRange` drops the `<definedNames>` container when empty. Two
+  opened-file hazards are handled: the legacy VML part is deleted **only** when
+  it holds no non-comment shapes — form controls and other shapes that
+  third-party files keep in the same part survive, with just the comment's
+  `v:shape` removed (PhpSpreadsheet #4105, ClosedXML #1285); and
+  `RemoveValidation` checks **both** the plain container NetXlsx authors and
+  the `x14:dataValidations` form inside `<extLst>` that opened files use for
+  cross-sheet list sources, removing an emptied `x14` container together with
+  its `<ext>` wrapper (an emptied-but-present `ext` triggers Excel repair —
+  ClosedXML #2594). The R-10 defect closes here: `ICell.Hyperlink`/`SetString`
+  now document that editing cell text keeps the link bound (Excel parity) and
+  point at `RemoveHyperlink` as the way off; the regression
+  (`Hyperlink` → `RemoveHyperlink` → `SetString` leaves no element and no rel)
+  is pinned. The drawing layer (pictures/charts/shapes/connectors, shared-media
+  refcounting) lands in slice 2. The full local LibreOffice 26.2 + openpyxl
+  gauntlet stays green (no regression).
+  - *Internal*: `OoxmlTable` gained the removed-handle guard S13 built for
+    `OoxmlSheet` — a one-way `_removed` flag + `ThrowIfUnusable()` routing
+    every public member, set by `RemoveTable`. A removed table handle now
+    throws `InvalidOperationException` (distinct from the disposed-workbook
+    `ObjectDisposedException`), making the "RemoveTable precedent" the slice-2
+    drawing handles follow an actual one rather than aspirational.
+
 - **Sheet rename + reorder (I-90 slice 1 of 2, R-12).**
   `ISheet.Rename(string)` renames a sheet and rewrites every reference to
   the old name across the document. It is a method, not a `Name` setter,

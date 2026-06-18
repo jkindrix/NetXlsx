@@ -107,6 +107,126 @@ internal sealed partial class OoxmlSheet
         return authors[(int)id].Text;
     }
 
+    // ---- removal (I-91 removal family) --------------------------------------
+
+    // Removes the cell's comment: the <comment> entry (with orphaned-author
+    // bookkeeping), the legacy VML popup v:shape, and — when it was the last
+    // comment on the sheet — the comments part entirely (no empty zero-index
+    // artifact, mirroring the add path's no-empty-author discipline).
+    // Idempotent: a no-op when the cell carries no comment.
+    internal void RemoveComment(int row, int col)
+    {
+        var commentsPart = CommentsPart;
+        var comments = commentsPart?.Comments;
+        if (comments is null) return;
+        var comment = FindComment(row, col);
+        if (comment is null) return;
+
+        uint? removedAuthorId = comment.AuthorId?.Value;
+        comment.Remove();
+        if (removedAuthorId is uint authorId)
+            PruneOrphanAuthor(comments, authorId);
+
+        bool lastComment = comments.CommentList?.Elements<S.Comment>().Any() != true;
+
+        RemoveVmlCommentShape(row, col, deletePartWhenCommentsGone: lastComment);
+
+        // No empty zero-index artifact: the whole comments part goes with the
+        // last comment.
+        if (lastComment) _worksheetPart.DeletePart(commentsPart!);
+    }
+
+    // Removes an author the just-removed comment was the last user of, then
+    // re-indexes the survivors' authorIds — the inverse of GetOrAddAuthor, so
+    // no stale author entry lingers. A single removal can orphan at most one
+    // author.
+    private static void PruneOrphanAuthor(S.Comments comments, uint authorId)
+    {
+        var list = comments.CommentList;
+        if (list is null) return;
+        if (list.Elements<S.Comment>().Any(c => c.AuthorId?.Value == authorId))
+            return; // another comment still references this author
+
+        var author = comments.Authors?.Elements<S.Author>().ElementAtOrDefault((int)authorId);
+        if (author is null) return;
+        author.Remove();
+
+        // authorId is a 0-based index into <authors>; every survivor above the
+        // removed slot shifts down by one.
+        foreach (var c in list.Elements<S.Comment>())
+            if (c.AuthorId?.Value is uint id && id > authorId)
+                c.AuthorId = id - 1;
+    }
+
+    // Removes the cell's legacy VML popup v:shape and, when the last comment is
+    // gone, the VML part itself — but only when that part holds no non-comment
+    // shapes. [A-2026-06-11] VML safety guard: opened third-party files keep
+    // form controls and other shapes in the same legacy VML part, and a
+    // wholesale delete destroys them (PhpSpreadsheet #4105, ClosedXML #1285).
+    private void RemoveVmlCommentShape(int row, int col, bool deletePartWhenCommentsGone)
+    {
+        var vmlPart = LocateVmlDrawingPart();
+        if (vmlPart is null) return;
+
+        XDocument doc;
+        using (var read = vmlPart.GetStream(FileMode.Open, FileAccess.Read))
+            doc = XDocument.Load(read);
+
+        int r = row - 1, c = col - 1;
+        doc.Root?.Elements(VmlNs + "shape")
+            .FirstOrDefault(sh => IsCommentShapeFor(sh, r, c))
+            ?.Remove();
+
+        bool hasNonCommentShape = doc.Root?.Elements(VmlNs + "shape").Any(sh => !IsNoteShape(sh)) ?? false;
+
+        if (deletePartWhenCommentsGone && !hasNonCommentShape)
+        {
+            DeleteVmlDrawingPart(vmlPart);
+            return;
+        }
+
+        using var write = vmlPart.GetStream(FileMode.Create, FileAccess.Write);
+        doc.Save(write);
+    }
+
+    // The VML part this sheet's comments use: prefer the part the live
+    // <legacyDrawing r:id> wires (mirrors GetOrCreateVmlDrawingPart), falling
+    // back to the part collection.
+    private VmlDrawingPart? LocateVmlDrawingPart()
+    {
+        var legacy = Worksheet.GetFirstChild<S.LegacyDrawing>();
+        if (legacy?.Id?.Value is { } relId
+            && _worksheetPart.GetPartById(relId) is VmlDrawingPart wired)
+            return wired;
+        return _worksheetPart.GetPartsOfType<VmlDrawingPart>().FirstOrDefault();
+    }
+
+    // Drops the VML part and the <legacyDrawing> element wiring it, so no
+    // dangling r:id is left behind.
+    private void DeleteVmlDrawingPart(VmlDrawingPart vmlPart)
+    {
+        var legacy = Worksheet.GetFirstChild<S.LegacyDrawing>();
+        if (legacy?.Id?.Value is { } relId
+            && _worksheetPart.GetPartById(relId) is VmlDrawingPart wired
+            && ReferenceEquals(wired, vmlPart))
+            legacy.Remove();
+        _worksheetPart.DeletePart(vmlPart);
+    }
+
+    private static bool IsCommentShapeFor(XElement shape, int r, int c)
+    {
+        var cd = shape.Element(ExcelNs + "ClientData");
+        if (cd is null || (string?)cd.Attribute("ObjectType") != "Note") return false;
+        return (string?)cd.Element(ExcelNs + "Row") == r.ToString(CultureInfo.InvariantCulture)
+            && (string?)cd.Element(ExcelNs + "Column") == c.ToString(CultureInfo.InvariantCulture);
+    }
+
+    // A comment popup carries <x:ClientData ObjectType="Note">; anything else
+    // (form controls, drop-downs, drawings) is a non-comment shape the guard
+    // protects.
+    private static bool IsNoteShape(XElement shape)
+        => (string?)shape.Element(ExcelNs + "ClientData")?.Attribute("ObjectType") == "Note";
+
     // ---- comments part -------------------------------------------------------
 
     private WorksheetCommentsPart? CommentsPart

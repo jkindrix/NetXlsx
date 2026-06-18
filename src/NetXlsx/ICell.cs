@@ -89,6 +89,13 @@ public interface ICell
     /// calamine) surface the literal escape text such as <c>_x0007_</c>
     /// instead.
     /// </para>
+    /// <para>
+    /// Editing the cell text does <b>not</b> remove an attached hyperlink:
+    /// after <see cref="Hyperlink(string, string?)"/>, a later
+    /// <c>SetString</c> changes the displayed text but the link (and its
+    /// relationship for an external target) stays bound to the cell — Excel
+    /// behaves identically. Call <see cref="RemoveHyperlink"/> to drop it.
+    /// </para>
     /// </summary>
     void SetString(string value);
 
@@ -313,6 +320,15 @@ public interface ICell
     string? GetCommentAuthor();
 
     /// <summary>
+    /// Removes the comment attached to the cell (its text, the legacy VML
+    /// popup shape, and — when it was the last comment on the sheet — the
+    /// comments part itself, leaving no empty artifact). Idempotent: a no-op
+    /// returning the cell unchanged when the cell carries no comment.
+    /// Returns the cell for chaining.
+    /// </summary>
+    ICell RemoveComment();
+
+    /// <summary>
     /// Attaches a hyperlink to the cell. <paramref name="target"/> is
     /// scheme-sniffed (decision I13): supported schemes are
     /// <c>http://</c>, <c>https://</c>, <c>mailto:</c>, <c>file://</c>,
@@ -325,6 +341,13 @@ public interface ICell
     /// empty, the cell's displayed value is set to
     /// <paramref name="target"/>.
     /// </para>
+    /// <para>
+    /// The link binds to the cell, not to its text: a later
+    /// <see cref="SetString(string)"/> (or any value edit) changes the
+    /// displayed value while the hyperlink — and, for an external target,
+    /// its relationship — remains attached, matching Excel. Use
+    /// <see cref="RemoveHyperlink"/> to detach it.
+    /// </para>
     /// </summary>
     /// <exception cref="ArgumentNullException"><paramref name="target"/> is null.</exception>
     /// <exception cref="ArgumentException">Target uses an unsupported scheme.</exception>
@@ -332,6 +355,15 @@ public interface ICell
 
     /// <summary>The cell's hyperlink target, or <c>null</c> when no hyperlink is attached.</summary>
     string? GetHyperlink();
+
+    /// <summary>
+    /// Removes the hyperlink attached to the cell: the <c>&lt;hyperlink&gt;</c>
+    /// element and, for an external target, its reference relationship. The
+    /// cell's displayed text is left untouched. Idempotent: a no-op returning
+    /// the cell unchanged when no hyperlink is attached. Returns the cell for
+    /// chaining.
+    /// </summary>
+    ICell RemoveHyperlink();
 
     /// <summary>
     /// Returns the cell's Excel error code if it is an error cell (or a

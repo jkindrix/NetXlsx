@@ -70,6 +70,30 @@ internal sealed partial class OoxmlSheet
         links.AppendChild(link);
     }
 
+    // Removes the cell's <hyperlink> element (I-91 removal family). Reuses
+    // SetHyperlink's replace-cleanup discipline: an external link's reference
+    // relationship goes with the element (no orphaned .rels entry), and the
+    // <hyperlinks> container is dropped once its last child leaves (SDK-quirk
+    // #7 — Excel is friendlier with it absent). Idempotent: a no-op when the
+    // cell carries no hyperlink. The cell's display text is left untouched
+    // (R-10 — removal is the explicit way off; editing text keeps the link).
+    internal void RemoveHyperlink(int row, int col)
+    {
+        var reference = CellAddress.Format(row, col);
+        var links = Worksheet.GetFirstChild<S.Hyperlinks>();
+        var link = links?.Elements<S.Hyperlink>().FirstOrDefault(h => h.Reference?.Value == reference);
+        if (link is null) return;
+
+        if (link.Id?.Value is { } relId)
+        {
+            var rel = _worksheetPart.HyperlinkRelationships.FirstOrDefault(r => r.Id == relId);
+            if (rel is not null) _worksheetPart.DeleteReferenceRelationship(rel);
+        }
+        link.Remove();
+
+        if (!links!.Elements<S.Hyperlink>().Any()) links.Remove();
+    }
+
     // The cell's hyperlink target, or null when none is attached. External
     // links resolve their r:id to the package relationship and report the
     // verbatim target; internal links report @location (the '#'-stripped body,
