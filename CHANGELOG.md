@@ -75,6 +75,34 @@ changes (decision I19).
   unconvertible to a raw-NPOI equivalent" corrected to the Open XML SDK
   reality (`IWorkbook.Underlying` returns `SpreadsheetDocument` since the
   I-82 swap); fixed a pre-existing "uncovertible" typo.
+- **De-NPOI doc-mechanics pass — `design.md` §6.2.x feature cluster.** The
+  engine swap (I-82) made the *implementation-mechanics* prose in several
+  `§6.2.x` feature sections factually wrong: it still described how the
+  features work today in NPOI terms (`StylesTable.PutCellStyleXf` via
+  reflection, `CryptoFunctions.CreateXorVerifier1`, `XSSFWorkbook.IsMacroEnabled`,
+  "delegates to NPOI's `GroupRow`", "exposes NPOI's `SheetConditionalFormatting`",
+  "shares one underlying NPOI `ICellStyle`", `XSSFChart Underlying`, etc.)
+  even though the behavioral claims were correct. Each was rewritten to the
+  actual Open XML SDK mechanics, verified against the shipped code: the style
+  pool dedups to a single `cellXfs` `CellFormat` (`OoxmlStylePool`); named
+  styles round-trip through `WriteNamedStyle`/`ReadNamedStyles` over the
+  typed `CellStyleFormats`/`CellStyles` elements (no reflection); the workbook
+  password verifier is the internal `LegacyPasswordHash` written to the
+  `<workbookProtection>` `workbookPassword` attribute (and `Unprotect` removes
+  the whole element); `.xlsm` uses `SpreadsheetDocumentType.MacroEnabledWorkbook`
+  and `IsMacroEnabled` reads `DocumentType`; grouping writes `Row`/`Column`
+  `OutlineLevel`; conditional formatting builds `ConditionalFormatting`/`<dxf>`
+  (font color unsupported by the dxf builder, not by "NPOI's `IFontFormatting`");
+  charts build a `Drawing.Charts` DOM in a `ChartPart` (also the `IChart.Underlying`
+  type); the Normal `<cellStyle>` and suppressed `@defaultColWidth` come from
+  the engine's default stylesheet; `IRow.HeightInPoints` sets `Row.Height`/`CustomHeight`.
+  Affects `§4` (date/time default styles, decision S29), `§6.2.2` (I-57),
+  `§6.2.6` (I-67), `§6.2.7` (I-69), `§6.2.8` (I-71), `§6.2.9` (I-73),
+  `§6.2.10` (I-75), `§6.2.11` (I-78), `§6.2.12` (I-76), and the I-65 workbook
+  password section. The historical record (the `§3` decision table, the I1/I2/I23
+  toolchain rows, the `§6.2.15` I-82 swap narrative) is untouched. The later
+  `§6.2.13+`/`§6.4.x` feature sections still carry NPOI-era mechanics prose and
+  are tracked as a follow-up.
 
 ### Samples / cookbook
 

@@ -124,7 +124,7 @@ These are below the API contract but above implementation discretion. They are d
 >
 > **The "raw NPOI without dedup" baseline does not exist.** NPOI hits its ~60,000-style cap on any workbook with > ~60k styled cells when each cell gets a fresh `ICellStyle`. Style dedup is therefore the only viable path; the original "<10% / <30% overhead" framing was measuring a phantom and has been replaced with absolute capacity + throughput targets (above).
 >
-> **Interim style cache (date/time slice, decision S29).** Until the full style-pool dedup arrives with the styling API slice, `XssfWorkbook` keeps four lazily-allocated `ICellStyle` instances for the date/time-default format strings. These four styles will register as dedup entries once the full pool exists; they don't compete with it. Style allocations from `SetDate`/`SetTime`/`SetDuration` are therefore O(1) per workbook regardless of cell count, even in the interim.
+> **Date/time default styles (decision S29).** The four date/time-default format strings are exposed as static immutable `CellStyle` specs on `OoxmlWorkbook` (`DateStyleSpec`, `DateTimeStyleSpec`, `TimeStyleSpec`, `DurationStyleSpec`) and resolved through the shared `OoxmlStylePool` like any other style. Each spec dedups to a single `cellXfs` entry on first use and is a pool hit thereafter, so style allocations from `SetDate`/`SetTime`/`SetDuration` are O(1) per workbook regardless of cell count. (S29 originally described an interim cache of four format-only `ICellStyle` instances on the NPOI engine, held separately until the then-future style pool landed; the SDK engine's `OoxmlStylePool` *is* that full dedup pool, so no separate interim cache exists.)
 
 ## 5. Quality gates
 
@@ -281,7 +281,7 @@ ICell ApplyNamedStyle(string name);
 IRange ApplyNamedStyle(string name);
 ```
 
-**I-57 (added 2026-05-22):** A workbook-scoped name registry for `CellStyle` values. Register once with a name; apply by name on cells or ranges. Backed by the existing style-pool dedup (decision #4) — equal `CellStyle` instances still share one underlying NPOI `ICellStyle`, so naming is purely a caller-side convenience.
+**I-57 (added 2026-05-22):** A workbook-scoped name registry for `CellStyle` values. Register once with a name; apply by name on cells or ranges. Backed by the existing style-pool dedup (decision #4) — equal `CellStyle` values still map to a single deduped `cellXfs` entry (one `CellFormat`) in the SDK style pool (`OoxmlStylePool`), so naming is purely a caller-side convenience.
 
 **Named styles round-trip as of I-67 (v1.3) — §6.2.6 is the current behavior; this paragraph records the original I-57 surface.** The v1.1 shape was an in-process-only convenience: when a workbook was saved and reopened via `Workbook.Open`, the per-cell style was preserved (via style-pool dedup) but the name → style map was not rehydrated. I-67 closed that loop — `RegisterStyle` now writes an OOXML `<cellStyle>` entry and `Workbook.Open` rehydrates the names (see §6.2.6, including the one carried-forward nuance: cells get an equivalent explicit style, not an `xfId` back-reference to the named-style entry).
 
@@ -337,9 +337,9 @@ void Protect(WorkbookProtection? options = null);                          // v1
 void ProtectWithPassword(string password, WorkbookProtection? options = null);  // v1.2 (I-65)
 ```
 
-**I-65 (added 2026-05-22):** v1.1 slice 5 (decision I-54) shipped workbook-level structure / windows / revision locks without password support — NPOI 2.7.3 did not expose a workbook-level password helper. v1.2 closes the gap by writing the 16-bit XOR verifier directly into `CT_WorkbookProtection.workbookPassword`.
+**I-65 (added 2026-05-22):** v1.1 slice 5 (decision I-54) shipped workbook-level structure / windows / revision locks without password support — at the time, the NPOI engine exposed no workbook-level password helper. v1.2 closes the gap by writing a 16-bit XOR verifier into the `<workbookProtection>` element's `workbookPassword` attribute (the SDK `WorkbookProtection.WorkbookPassword`).
 
-The verifier is computed via NPOI's `CryptoFunctions.CreateXorVerifier1(password)` (the public legacy-hash helper) and encoded as a 2-byte big-endian array. The OOXML `byte[]` field serializes via `XmlHelper.WriteAttribute(byte[])` as a hex string — matching Excel's expected format.
+The verifier is computed by the internal `LegacyPasswordHash` helper (the classic Excel 16-bit XOR hash, shared with sheet protection — §6.4.3) and formatted as a four-hex-digit `ST_UnsignedShortHex` string wrapped in a `HexBinaryValue`, which the SDK serializes directly to the `workbookPassword` attribute — matching Excel's expected format.
 
 **Method-naming decision:** v1.2 uses a separate method (`ProtectWithPassword`) rather than an overload of `Protect`. Adding a second optional parameter to `Protect(WorkbookProtection? options = null)` would create a call-site ambiguity that the C# compiler refuses to resolve (both overloads would match `wb.Protect()`), and adding an overload without defaults would violate `RS0027` (the Roslyn "API with optional parameter(s) should have the most parameters amongst its public overloads" rule). A separately-named method is also more self-documenting at the call site:
 
@@ -351,7 +351,7 @@ wb.ProtectWithPassword("hunter2", LockAll);    // explicit options + password
 
 **Security caveat repeated from I-54:** the XOR-verifier algorithm is widely known to be brute-forceable. This is a UX guard ("Excel rejects the unprotect attempt if the password doesn't hash to the same verifier"), not real security.
 
-`Unprotect` clears the structure / windows / revision flags but does **not** clear the `workbookPassword` byte array — once cleared of lock flags, the password is effectively dormant since no protected state references it. A subsequent `Protect` or `ProtectWithPassword` overwrites it.
+`Unprotect` removes the entire `<workbookProtection>` element — the lock flags and the `workbookPassword` verifier together. (A passwordless `Protect` likewise clears any prior verifier by setting `workbookPassword` to null.)
 
 ### 6.2.6 OOXML named-style table integration — I-67 (v1.3)
 
@@ -359,25 +359,27 @@ wb.ProtectWithPassword("hunter2", LockAll);    // explicit options + password
 
 **Write side (`RegisterStyle`):**
 
-1. Allocate the visual style via the existing `CellStylePool.GetOrCreate` — gives a regular `cellXfs` entry whose font / fill / border indices we then mirror.
-2. Build a fresh `CT_Xf` for `cellStyleXfs` referencing the same indices. `applyFont` / `applyFill` / `applyBorder` are set when the corresponding index is non-zero.
-3. Append the `CT_Xf` to NPOI's internal `styleXfs` list via reflection (`StylesTable.PutCellStyleXf` is `internal` upstream — centralized in `NpoiInternals`). Direct manipulation of `CT_Stylesheet.cellStyleXfs.xf` fails because NPOI's save path overwrites that list with its internal copy at line 887 of `StylesTable.cs`.
-4. Add (or update) a `CT_CellStyle` entry to `CT_Stylesheet.cellStyles.cellStyle` with `name` + `xfId` pointing at the new cellStyleXfs index.
+The write path is `OoxmlStylePool.WriteNamedStyle`:
 
-**Read side (lazy on first access of `NamedStyles`):**
+1. Resolve the visual style via the pool's `GetOrCreate` — gives a regular `cellXfs` entry (a `CellFormat`) whose number-format / font / fill / border ids we then mirror.
+2. Build a fresh `CellFormat` for the `cellStyleXfs` (`CellStyleFormats`) table referencing those same ids, with `ApplyNumberFormat` / `ApplyFont` / `ApplyFill` / `ApplyBorder` set when the corresponding id is non-zero and a cloned `Alignment`.
+3. Append it to `CellStyleFormats` (created via `GetOrCreateCellStyleFormats`) and take its index as the `xfId`. No reflection is involved — these are typed `DocumentFormat.OpenXml.Spreadsheet` elements the engine owns and serializes directly.
+4. Upsert a `CellStyle` (`<cellStyle name=… xfId=…>`) into the `CellStyles` table (`GetOrCreateCellStyles`); re-registering an existing name repoints its `FormatId` and orphans the superseded `cellStyleXfs` entry. User entries carry no `builtinId` (a deliberate divergence from the NPOI witness, which stamped `builtinId="0"`).
 
-1. Walk `CT_Stylesheet.cellStyles.cellStyle`.
-2. Skip the built-in `"Normal"` entry (Excel always creates one; surfacing it as a registered name would be noisy) and any entry with null/empty name.
-3. For each entry, get the corresponding `CT_Xf` via `NpoiInternals.GetCellStyleXfAt`.
-4. Materialize the CT_Xf as a regular `cellXfs` entry via `StylesTable.PutCellXf` (also `internal`; centralized in NpoiInternals). Wrap with `XSSFCellStyle`. Pass to the existing `CellStylePool.ReadFromNpoi(ICellStyle)` to produce a `CellStyle` value.
-5. Populate the in-process `_namedStyles` dictionary directly (no re-write of the OOXML entry — it's already there).
+**Read side (lazy on first access of `NamedStyles`, via the pool's `ReadNamedStyles`):**
+
+1. Walk the `CellStyles` table.
+2. Skip the built-in `"Normal"` entry (Excel always creates one; surfacing it as a registered name would be noisy) and any entry with a null/empty name.
+3. For each entry, resolve its `FormatId` into the `CellStyleFormats` table.
+4. Reconstruct a `CellStyle` value from that `CellFormat` via the pool's `ReadXf` (the same reader used for ordinary cell styles).
+5. Populate the in-process `_namedStyles` dictionary directly (the OOXML entry is already present — nothing is re-written).
 
 Rehydration is triggered lazily from the `NamedStyles` property getter, which `GetRegisteredStyle` / `RegisteredStyleNames` / `RegisterStyle` all flow through.
 
 **Limitations carried forward:**
 
 - Excel's "Cell Styles" panel will show the named styles after open. Cells styled via `ApplyNamedStyle` do **not** carry a `xfId` reference to the named-style XF — they get an explicit cellXfs entry instead. The visual outcome is identical; the UI distinction (whether the cell shows as "Header" in the Cell Styles ribbon group) is not preserved across round-trip. Closing that gap fully would require the cellXfs entry to carry an `xfId` attribute pointing at the cellStyleXfs entry — deferred to a future slice if a user surfaces it as a need.
-- Materializing the cellStyleXfs entry as a cellXfs entry at read time produces one duplicate cellXfs row per named style. Cost is bounded (one per named style, not one per styled cell); acceptable.
+- Re-registering an existing name leaves the superseded `cellStyleXfs` entry orphaned (its `FormatId` is repointed, not reused). Cost is bounded (one stale XF per re-registration, not one per styled cell); acceptable. (On the SDK engine the read side reconstructs `CellStyle` *values* from the `cellStyleXfs` table directly — it no longer materializes a duplicate `cellXfs` row per named style the way the NPOI read path did.)
 
 ### 6.2.7 `.xlsm` macro-enabled passthrough — I-69
 
@@ -391,11 +393,11 @@ bool IsMacroEnabled { get; }
 
 **I-69 (added 2026-05-26):** NetXlsx is `.xlsx`-focused (decision #6) but many real-world workbooks carry VBA macros (`.xlsm`). The passthrough feature adds:
 
-1. **`Workbook.CreateMacroEnabled(options?)`** — creates an `XSSFWorkbook(XSSFWorkbookType.XLSM)`. The resulting workbook uses the macro-enabled OOXML content type (`application/vnd.ms-excel.sheet.macroEnabled.main+xml`) so that VBA project parts can be added through `.Underlying` and survive round-trip.
-2. **`IWorkbook.IsMacroEnabled`** — read-only boolean, delegates to NPOI's `XSSFWorkbook.IsMacroEnabled()`. True for workbooks created via `CreateMacroEnabled` or opened from `.xlsm` files.
-3. **`Workbook.Open` transparently handles `.xlsm`.** No code change needed — NPOI's `XSSFWorkbook(Stream)` constructor detects the OOXML content type and preserves it. The open-path error messages were updated to mention `.xlsm` alongside `.xlsx`.
+1. **`Workbook.CreateMacroEnabled(options?)`** — creates the document with `SpreadsheetDocumentType.MacroEnabledWorkbook` (the same SDK factory `Create` uses, with the macro document type). The resulting workbook uses the macro-enabled OOXML content type (`application/vnd.ms-excel.sheet.macroEnabled.main+xml`) so that VBA project parts can be added through `.Underlying` and survive round-trip.
+2. **`IWorkbook.IsMacroEnabled`** — read-only boolean; reads the SDK `SpreadsheetDocument.DocumentType` and is `true` when it equals `SpreadsheetDocumentType.MacroEnabledWorkbook`. True for workbooks created via `CreateMacroEnabled` or opened from `.xlsm` files.
+3. **`Workbook.Open` transparently handles `.xlsm`.** No code change needed — `SpreadsheetDocument.Open` reads the package content type itself and sets `DocumentType` accordingly, so the same path opens both `.xlsx` and `.xlsm`. The open-path error messages mention both extensions.
 
-**What this is NOT:** NetXlsx does not read, write, inspect, or execute VBA. The macro content is passthrough only — VBA project parts survive `Open → Save` untouched via NPOI's OPC-part preservation (decision #44). Callers who need to inject or extract VBA reach through `.Underlying` or use a dedicated VBA library.
+**What this is NOT:** NetXlsx does not read, write, inspect, or execute VBA. The macro content is passthrough only — VBA project parts survive `Open → Save` untouched via the engine's OPC-part preservation (decision #44). Callers who need to inject or extract VBA reach through `.Underlying` or use a dedicated VBA library.
 
 ### 6.2.8 Grouping / outlining — I-71
 
@@ -408,11 +410,11 @@ void UngroupColumns(int startCol, int endCol);
 void SetRowGroupCollapsed(int row, bool collapsed);
 ```
 
-**I-71 (added 2026-05-26):** Row and column grouping (Excel's "Group" / outline feature). Delegates to NPOI's `GroupRow`, `UngroupRow`, `GroupColumn`, `UngroupColumn`, and `SetRowGroupCollapsed`. All indices are 1-based per NetXlsx convention (converted to 0-based for NPOI).
+**I-71 (added 2026-05-26):** Row and column grouping (Excel's "Group" / outline feature), implemented directly against the SDK DOM: `GroupRows`/`UngroupRows` increment/decrement each `Row.OutlineLevel`, `GroupColumns`/`UngroupColumns` do the same on `Column.OutlineLevel`, and the deepest level is tracked in `<sheetFormatPr>` (`OutlineLevelRow` / `OutlineLevelColumn`). All indices are 1-based per NetXlsx convention; grouping operates in that 1-based row/column space throughout.
 
-Nested groups are supported — NPOI increments the outline level on each nested `GroupRow`/`GroupColumn` call, up to Excel's 7-level limit. `SetRowGroupCollapsed` toggles the collapsed state of a group whose summary row is at the given index.
+Nested groups are supported — each nested call increments the outline level; Excel honors up to 7 levels. `SetRowGroupCollapsed` toggles the collapsed state of a group whose summary row is at the given index (setting `<row>` `@hidden` across the contiguous block and `@collapsed` on the boundary row).
 
-**Column collapse** is not surfaced as a dedicated method in v1 — NPOI's column collapse behavior is less predictable than row collapse. Callers needing column collapse reach through `ISheet.Underlying`.
+**Column collapse** is not surfaced as a dedicated method — column collapse behavior is less predictable than row collapse. Callers needing column collapse reach through `ISheet.Underlying`.
 
 ### 6.2.9 Conditional formatting — I-73
 
@@ -440,11 +442,11 @@ int ConditionalFormattingCount { get; }
 void RemoveConditionalFormatting(int index);
 ```
 
-**I-73 (added 2026-05-26):** Exposes NPOI's `SheetConditionalFormatting` through a factory-based API matching the established `DataValidation` and `FilterCriteria` patterns. Three rule types:
+**I-73 (added 2026-05-26):** A factory-based API matching the established `DataValidation` and `FilterCriteria` patterns, building the SDK `ConditionalFormatting` / `ConditionalFormattingRule` DOM directly. Three rule types:
 
-1. **Cell-value conditions** — highlight cells based on comparison operators. The `style` parameter applies bold/italic font formatting and/or fill background. Font color in CF rules is limited by NPOI 2.7.3's `IFontFormatting` surface; callers needing full color control reach through `ISheet.Underlying.SheetConditionalFormatting`.
+1. **Cell-value conditions** — highlight cells based on comparison operators. The `style` parameter is materialized as a differential format (`<dxf>`, referenced by `@dxfId`). The dxf builder models only bold/italic and a solid background fill (decision I-73 scope), so font color in CF rules is not supported through the facade; callers needing full color control reach through `ISheet.Underlying` to author the `<conditionalFormatting>` DOM directly.
 2. **Formula-based** — highlight cells where an arbitrary formula evaluates to TRUE.
-3. **Color scale** — 2-color or 3-color gradient. Colors set via XSSF's RGB path.
+3. **Color scale** — 2-color or 3-color gradient, emitted as a `ColorScale` with its `Color` values written as 8-digit ARGB.
 
 Multiple rules per `AddConditionalFormatting` call are applied in order; Excel evaluates top-to-bottom. Multiple calls produce separate CF groups.
 
@@ -460,7 +462,7 @@ public interface IChart
     ISheet Sheet { get; }
     ChartType Type { get; }
     void SetTitle(string title);
-    XSSFChart Underlying { get; }
+    ChartPart Underlying { get; }
 }
 
 // On ISheet:
@@ -468,9 +470,9 @@ IChart AddChart(ChartType type, string startCell, string endCell,
     string categoryRange, string valueRange, string? title = null);
 ```
 
-**I-75 (added 2026-05-26):** Single-series chart facade covering the six chart types NPOI 2.7.3 exposes via `IChartDataFactory`: line, bar, column, pie, scatter, area. The chart is anchored between two cells, with data sourced from a category range (labels/X-axis) and a value range (Y-axis).
+**I-75 (added 2026-05-26):** Single-series chart facade covering six chart types — line, bar, column, pie, scatter, area — built directly as a `DocumentFormat.OpenXml.Drawing.Charts` DOM in a `ChartPart`. The chart is anchored between two cells, with data sourced from a category range (labels/X-axis) and a value range (Y-axis).
 
-**Multi-series charts** are not directly supported — the single-series facade covers the most-common use case. Callers needing multiple series, secondary axes, custom formatting, or chart-type combinations reach through `IChart.Underlying` to access the full `XSSFChart` / `CT_ChartSpace` API.
+**Multi-series charts** are not directly supported — the single-series facade covers the most-common use case. Callers needing multiple series, secondary axes, custom formatting, or chart-type combinations reach through `IChart.Underlying` (the `ChartPart`) and its `ChartSpace` DOM.
 
 **Scatter charts** use `FromNumericCellRange` for both axes (X must be numeric); all other chart types use `FromStringCellRange` for categories.
 
@@ -483,9 +485,9 @@ double? DefaultColumnWidth { get; set; }
 
 **I-78 (added 2026-05-27):** Two internal fixes to match Excel's native workbook output, plus a new public property:
 
-1. **Normal cellStyle entry.** NPOI 2.7.3 omits `<cellStyle name="Normal" builtinId="0"/>` from styles.xml. Without it, Excel cannot resolve the Normal style → font index 0 → Maximum Digit Width chain, causing default column widths to display incorrectly. `Workbook.Create()` now ensures this entry exists via `NpoiInternals.GetStylesheet()`.
+1. **Normal cellStyle entry.** Excel needs `<cellStyle name="Normal" builtinId="0"/>` in styles.xml to resolve the Normal style → font index 0 → Maximum Digit Width chain; without it, default column widths display incorrectly. The engine emits this entry as part of its default stylesheet (`OoxmlStylePool.BuildDefaultStylesheet`) and re-seeds it at index 0 when opening a file that lacks it.
 
-2. **Suppress `defaultColWidth`.** NPOI writes `defaultColWidth="8.43"` into `<sheetFormatPr>`, but Excel-authored files omit it. When present, Excel uses the literal float value (which rounds differently than the font-derived value), displaying columns at 7.71 instead of 8.43. `AddSheet()` now sets `defaultColWidth = 0` on new sheets, which NPOI serializes as absent.
+2. **Suppress `defaultColWidth`.** Excel-authored files omit `@defaultColWidth` from `<sheetFormatPr>`; when present, Excel uses the literal float value (which rounds differently than the font-derived value), displaying columns at 7.71 instead of 8.43. The engine leaves `SheetFormatProperties.DefaultColumnWidth` null (and the `ISheet.DefaultColumnWidth` setter clears it for null or non-positive values), which the SDK serializes as an absent attribute.
 
 3. **`ISheet.DefaultColumnWidth`** — nullable double property. `null` (default) means "omit from XML, let Excel derive from font." Non-null writes the attribute explicitly.
 
@@ -502,7 +504,7 @@ IPicture AddPicture(string startCell, string endCell, byte[] data);
 
 **I-76 (added 2026-05-27):** Two gaps closed for form-layout reproduction:
 
-1. **`IRow.HeightInPoints`** — get/set row height in points. Delegates to NPOI's `IRow.HeightInPoints`. Enables precise vertical layout control for form-style sheets where different rows have different heights.
+1. **`IRow.HeightInPoints`** — get/set row height in points. The setter writes `Row.Height` and sets `Row.CustomHeight` (`<row ht=… customHeight="1">`); the getter returns the stored height or Excel's 15 pt default. Enables precise vertical layout control for form-style sheets where different rows have different heights.
 
 2. **Two-cell `AddPicture` overload** — anchors an image between `startCell` (top-left) and `endCell` (bottom-right), stretching to fill the anchor region. Unlike the single-cell overload (I-52) which renders at natural pixel size, this variant gives layout control when the anchor position matters more than pixel fidelity.
 
