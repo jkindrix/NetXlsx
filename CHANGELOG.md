@@ -11,6 +11,28 @@ changes (decision I19).
 
 ### CI / packaging
 
+- **Comparative performance benchmarks (R-29).** The "compares against
+  NPOI direct, EPPlus, ClosedXML" line in `docs/design.md §4` had stood
+  unbacked through v2.0.1 — `benchmarks/` only ever measured NetXlsx in
+  isolation against the absolute §4 targets. R-29 builds the real thing:
+  `benchmarks/NetXlsx.Benchmarks/Comparative.cs` measures NetXlsx against
+  **SpreadCheetah** (the streaming/source-gen/AOT/MIT analog, on the
+  streaming-write path) and **ClosedXML** (the breadth comparator, on the
+  buffered-write and read paths). Both are bench-project-only dependencies
+  (pinned in `Directory.Packages.props`; they never ship in the package),
+  and the classes live in the `NetXlsx.Comparative` namespace so the
+  bench.yml `--filter "*Benchmarks*"` regression gate never runs or
+  compares them — a competitor's variance can't red our own absolute-number
+  gate. **The honest result, stated plainly:** NetXlsx is slower than both
+  reference points on every measured path (~26× vs SpreadCheetah on
+  streaming write with ~255× more allocation; ~2.4× vs ClosedXML buffered;
+  ~1.35× vs ClosedXML read). The absolute §4 targets still hold on
+  extrapolation; what the data retires is any "thin ⇒ fast" assumption —
+  NetXlsx's edge is architectural, not raw throughput. Full table,
+  methodology, and the streaming-write allocation flag (raised for operator
+  triage) are in `benchmarks/README.md → Comparative results (R-29)`, and
+  `docs/design.md §4` is amended to match.
+
 - **Nightly deep fuzz (R-26).** The roadmap's "long-running on a nightly
   cadence" promise is real now: `fuzz-nightly.yml` runs the same harness
   with environment-scaled depth (20k random-sweep iterations + a

@@ -66,6 +66,23 @@
 
   <ItemGroup Label="Benchmarks">
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+
+    <!-- Comparative-benchmark oracles (ledger R-29). BENCH-PROJECT ONLY —
+         referenced solely by benchmarks/NetXlsx.Benchmarks to measure NetXlsx
+         against the two 2026 reference points. They never ship in the NetXlsx
+         package (same pattern as the bench-only NPOI pin above).
+           * SpreadCheetah — the streaming/source-gen/AOT/MIT analog; the
+             headline comparator on the streaming-write path (its README's
+             100k×10 ≈ 33 ms reference point). MIT-licensed.
+           * ClosedXML — the breadth comparator (DOM read+write); compared on
+             the buffered-write and read paths. MIT-licensed. Pulls a
+             transitive closure (DocumentFormat.OpenXml, SixLabors.Fonts,
+             ExcelNumberFormat, RBush) — all confined to this non-shipping
+             project; CentralPackageTransitivePinningEnabled keeps them
+             reproducible. No advisories on either pin at adoption
+             (2026-06-18); both held at the latest stable. -->
+    <PackageVersion Include="SpreadCheetah" Version="1.27.0" />
+    <PackageVersion Include="ClosedXML" Version="0.105.0" />
   </ItemGroup>
 
   <ItemGroup Label="SourceGenAndAnalyzers">

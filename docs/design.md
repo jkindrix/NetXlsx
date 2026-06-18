@@ -116,7 +116,9 @@ These are below the API contract but above implementation discretion. They are d
 | Styled-write throughput (small palette)   | > 500k styled cells/s |
 | Styled-write throughput (1k-palette)      | > 400k styled cells/s |
 
-~~Benchmark suite under `benchmarks/` compares against NPOI direct, EPPlus, ClosedXML.~~ **Amended 2026-06-11 (ledger R-20 decision):** the comparative suite was never built — `benchmarks/` measures NetXlsx against the absolute targets above only (plus the I-87 CI regression gate against committed baselines). The sentence stood as an unbacked claim through v2.0.1. Decision: amend this doc to truth now; an actual comparative suite (SpreadCheetah as the closest analog, ClosedXML as the breadth comparator — NPOI-direct is moot post-I-82) is the remediation ledger's R-29, scheduled, with test-side-only dependencies.
+~~Benchmark suite under `benchmarks/` compares against NPOI direct, EPPlus, ClosedXML.~~ **Amended 2026-06-11 (ledger R-20 decision); comparative suite built 2026-06-18 (ledger R-29):** the comparative suite was an unbacked claim through v2.0.1 — `benchmarks/` measured NetXlsx against the absolute targets above only (plus the I-87 CI regression gate against committed baselines). R-29 built the real thing: `benchmarks/NetXlsx.Benchmarks/Comparative.cs` (test-side-only deps, kept out of the CI gate by namespace), comparing NetXlsx against **SpreadCheetah** (the closest analog — streaming write) and **ClosedXML** (the breadth comparator — buffered write + read; NPOI-direct is moot post-I-82). Full table and methodology: `benchmarks/README.md → Comparative results (R-29)`.
+
+> **Comparative reality (R-29, measured 2026-06-18).** On the workloads measured, **NetXlsx is slower than both reference points on every path:** ~26× slower than SpreadCheetah on streaming write (and ~255× more allocation — SpreadCheetah's forward-only source-generated writer vs NetXlsx's `OpenXmlWriter` churn), ~2.4× slower than ClosedXML on buffered write, ~1.35× slower than ClosedXML on read. The **absolute targets in the table above still hold** when these scaled workloads are extrapolated, so they are unchanged — what this data retires is any implicit "thin ⇒ fast" assumption. NetXlsx's differentiation is *architectural* (thinness over the SDK, the raw-SDK escape hatch, compile-time typed mapping, the dedup style pool, preservation fidelity), **not raw throughput**; the README positions it that way already (streaming write is claimed as a *capability*, never as *faster than* a competitor). The streaming-write allocation profile is flagged for operator triage as a candidate roadmap perf item (outside R-29's measurement-only scope).
 
 > **Spike-measured numbers.** The in-memory row-count target (30k) and the style throughput targets above are spike-derived (spike 1 + spike 2, 2026-05-15) — not optimistic guesses. The original "100k rows in-memory" target was missed by ~2×; the threshold was lowered to a value that holds. Callers needing more than ~30k rows should use the streaming entry point (`Workbook.CreateStreaming()`), which sustained a flat ~70 MB ΔGC at 500k rows × 20 cols in spike 2.
 >
@@ -2875,7 +2877,7 @@ NetXlsx/
 │  ├─ NetXlsx.GoldenFiles/      # reference workbooks + round-trip tests
 │  └─ NetXlsx.PublicApi/        # public-API snapshot tests
 ├─ benchmarks/
-│  └─ NetXlsx.Benchmarks/       # BenchmarkDotNet vs the §4 absolute targets (comparative suite = R-29, planned)
+│  └─ NetXlsx.Benchmarks/       # BenchmarkDotNet vs the §4 absolute targets; comparative suite (R-29) in Comparative.cs (NetXlsx.Comparative ns, out of the CI gate)
 ├─ samples/
 │  └─ NetXlsx.Cookbook/         # runnable recipes (see §8.1)
 ├─ docs/
@@ -3010,6 +3012,6 @@ Everything else is decided.
 - Code that's a pleasure to read.
 - Abstractions that make complex things (style management, typed mapping) simple.
 - Error messages that help the caller recover (`InvalidCellAddressException` says *why* the address was invalid, what was expected, and what they passed).
-- Performance per the targets in §4 — `< 10%` overhead vs raw NPOI on typical workloads (≤ 100 distinct cell styles); `< 30%` in worst-case style-dedup-heavy scenarios. The two-tier target reflects honest measurement, not handwaving.
+- Performance per the **absolute** targets in §4 (the old "`< 10%` / `< 30%` overhead vs raw NPOI" two-tier framing was retired with the NPOI engine at the I-82 cutover — §4 explains why that phantom baseline never existed, and R-29's comparative data, 2026-06-18, confirms raw throughput is *not* where NetXlsx wins). The bar here is: the §4 absolute numbers hold, measured, not handwaved.
 - Documentation that clarifies rather than restates.
 - The escape hatch is honest: nothing the facade does is uncovertible to a raw-NPOI equivalent.

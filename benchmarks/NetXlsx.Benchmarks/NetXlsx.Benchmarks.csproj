@@ -17,6 +17,12 @@
          measured historical evidence for decisions #4/#5 and the
          streaming threshold. It never ships in the NetXlsx package. -->
     <PackageReference Include="NPOI" />
+    <!-- Comparative-benchmark oracles (ledger R-29): SpreadCheetah (streaming
+         analog) + ClosedXML (breadth comparator). Bench-project-only; see the
+         Benchmarks label in Directory.Packages.props for the rationale and pin
+         discipline. Versions are managed centrally. -->
+    <PackageReference Include="SpreadCheetah" />
+    <PackageReference Include="ClosedXML" />
   </ItemGroup>
 
   <ItemGroup>
