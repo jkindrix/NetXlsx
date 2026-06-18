@@ -9,6 +9,29 @@ changes (decision I19).
 
 ## [Unreleased]
 
+### Samples / cookbook
+
+- **Post-v1.1 cookbook recipes (R-23).** The cookbook shipped recipes for
+  the v1.0 and v1.1 surface only; everything added between v1.2 and v2.0
+  had no worked example, and the README's "tracked on the roadmap" caveat
+  was stale (the features had landed). R-23 adds eleven recipes, each
+  doubling as a golden-file test (`tests/NetXlsx.GoldenFiles/Recipes/PostV11RecipeSmoke.cs`):
+  `conditional-formatting` (I-73), `charts` (I-75), `sorting-ranges`
+  (I-72), `split-and-freeze-panes` (I-70), `row-and-column-grouping`
+  (I-71), `shapes-and-connectors` (I-74/I-80), `picture-borders` (I-86),
+  `totals-rows` (I-64), `autofilter-criteria` (I-66/I-68),
+  `named-style-integration` (I-67), and `macro-enabled-passthrough`
+  (I-69). The smoke tests assert via the public read-back API where one
+  exists (conditional-format count, sorted values, picture border,
+  `IsMacroEnabled`, rehydrated style names) and via the persisted OOXML
+  part otherwise (chart graphic frames, pane state, outline levels,
+  connectors, autofilter columns, totals-row functions).
+- **No-drift fix in README cookbook claims.** The two hand-maintained
+  recipe counts ("20 worked recipes — 13 v1.0 + 7 v1.1") and the now-false
+  "post-v1.1 recipes are tracked on the roadmap" sentence are replaced with
+  the directory + `cookbook --help` as the live tally, matching the
+  no-exact-count discipline already used for test and decision counts.
+
 ### CI / packaging
 
 - **Comparative performance benchmarks (R-29).** The "compares against

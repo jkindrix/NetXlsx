@@ -35,6 +35,18 @@ public static class Program
         ("validated-input-form", ValidatedInputForm.Run),
         ("branded-styles", BrandedStyles.Run),
         ("custom-list-converter", CustomListConverter.Run),
+        // ---- post-v1.1 recipes (v1.2–v2.0 surface; decisions I-64 through I-86) ----
+        ("conditional-formatting", ConditionalFormatting.Run),
+        ("charts", Charts.Run),
+        ("sorting-ranges", SortingRanges.Run),
+        ("split-and-freeze-panes", SplitAndFreezePanes.Run),
+        ("row-and-column-grouping", RowAndColumnGrouping.Run),
+        ("shapes-and-connectors", ShapesAndConnectors.Run),
+        ("picture-borders", PictureBorders.Run),
+        ("totals-rows", TotalsRows.Run),
+        ("autofilter-criteria", AutoFilterCriteria.Run),
+        ("named-style-integration", NamedStyleIntegration.Run),
+        ("macro-enabled-passthrough", MacroEnabledPassthrough.Run),
     };
 
     public static async Task<int> Main(string[] args)

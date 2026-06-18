@@ -197,7 +197,7 @@ ChartPart           chart = myChart.Underlying;   // chart/table content lives i
 
 This is by design (#1, #32 / I-82) — the facade is *additive over the OOXML document*, not a sandbox around it. (The streaming surface has no hatch: rows stream forward-only and the package exists only at `Save`.)
 
-See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes (13 v1.0 + 7 v1.1) covering the v1.0/v1.1 surface; each recipe doubles as a golden-file test. Recipes for the post-v1.1 surface (conditional formatting, charts, sorting, panes, grouping, shapes) are tracked on the roadmap.
+See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for worked recipes spanning the v1.0 through v2.0 public surface — from hello-world and typed import/export through conditional formatting, charts, sorting, panes, grouping, shapes/connectors, picture borders, totals rows, AutoFilter criteria, named-style integration, and `.xlsm` passthrough. Each recipe doubles as a golden-file test (an exact count isn't quoted here, for the same no-drift reason as test counts — the directory and `cookbook --help` are the live tally).
 
 ## Documentation
 
@@ -216,7 +216,7 @@ See [`samples/NetXlsx.Cookbook`](samples/NetXlsx.Cookbook) for 20 worked recipes
 src/         NetXlsx, NetXlsx.SourceGen
 tests/       NetXlsx.Tests, NetXlsx.GoldenFiles, NetXlsx.Fuzz, NetXlsx.PublicApi
 benchmarks/  NetXlsx.Benchmarks (BenchmarkDotNet)
-samples/     NetXlsx.Cookbook (20 worked recipes — 13 v1.0 + 7 v1.1)
+samples/     NetXlsx.Cookbook (worked recipes — v1.0 through v2.0 surface; each a golden test)
 spikes/      NetXlsx.AotSpike + Spike{1,2,3} harnesses + results/
 build/       build.sh / build.ps1 (local + CI entry points)
 docs/        design, roadmap, implementation-notes, scheduled-spikes,
