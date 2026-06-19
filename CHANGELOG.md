@@ -100,9 +100,28 @@ changes (decision I19).
   `§6.2.6` (I-67), `§6.2.7` (I-69), `§6.2.8` (I-71), `§6.2.9` (I-73),
   `§6.2.10` (I-75), `§6.2.11` (I-78), `§6.2.12` (I-76), and the I-65 workbook
   password section. The historical record (the `§3` decision table, the I1/I2/I23
-  toolchain rows, the `§6.2.15` I-82 swap narrative) is untouched. The later
-  `§6.2.13+`/`§6.4.x` feature sections still carry NPOI-era mechanics prose and
-  are tracked as a follow-up.
+  toolchain rows, the `§6.2.15` I-82 swap narrative) is untouched.
+- **De-NPOI doc-mechanics pass — later feature sections (S23).** Completes the
+  sweep, covering the remaining present-tense NPOI-mechanics prose in
+  `§6.2.13`/`§6.4.x` and the §6.8/§7 notes, each rewritten to the shipped SDK
+  reality and verified against code: the connector/shape/picture/cell/row/sheet/
+  table escape-hatch return types (`XSSFConnector`/`XSSFSimpleShape`/`XSSFPicture`/
+  `XSSFCell`/`XSSFRow`/`XSSFSheet`/`XSSFTable` → `ConnectionShape`/`Shape`/`Picture`/
+  `Cell`/`Row`/`Worksheet`/`TableDefinitionPart`); the streaming interfaces no
+  longer advertise an `Underlying` member (they have none); the split-pane and
+  exotic-shape/picture escape routes point at the SDK `DrawingsPart` / `<pane>`
+  DOM rather than NPOI's `CreateSplitPane` / `CreateDrawingPatriarch`; sheet
+  protection, data validation, autofilter, `AddTable`, `RemoveTable`, and the
+  per-column filter builder are described in `S.SheetProtection` /
+  `S.DataValidation` / `S.AutoFilter` / `TableDefinitionPart` / `DeletePart` /
+  `S.CustomFilters` terms (no reflection, no NPOI "surprises"); rich-text
+  streaming, async, and the formula-evaluator notes drop their NPOI framing; and
+  the fuzz §6.9 exception contract is restated against the actual
+  `IsAcceptableOpenException` / `IsKnownMalformedOpenException` sets. Genuinely
+  historical content is left intact (the I-79/I-80 connector and I-51/I-63
+  deferral history, the I14 stream-on-open rationale, the I-68 filter deferral,
+  and the supporting-decisions table). With the §6.2.x pass this clears the
+  carried de-NPOI doc-mechanics flag.
 
 ### Samples / cookbook
 

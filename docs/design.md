@@ -1624,7 +1624,7 @@ public interface IConnector
 {
     ISheet Sheet { get; }
     ConnectorType Type { get; }
-    XSSFConnector Underlying { get; }
+    ConnectionShape Underlying { get; }
 }
 
 // On ISheet:
@@ -1646,7 +1646,7 @@ IConnector AddConnector(ConnectorType type, string startCell, string endCell,
 
 3. **No arrowheads / flip / width.** A "Straight **Arrow** Connector" needs a `tailEnd`/`headEnd` decoration; direction is encoded as `flipH`/`flipV` in the transform; weight comes from the theme line-style ref (e.g. `lnRef idx="2"` ≈ 2 pt). I-80 surfaces `headEnd`/`tailEnd` (`ConnectorEnd`), `flipH`/`flipV`, and `lineWidthPoints` so the generated code stays pure NetXlsx — no reaching through `.Underlying`.
 
-The return type is now the `IConnector` facade (consistent with `IShape`/`IPicture`/`IChart`); the raw `XSSFConnector` remains reachable via `.Underlying`. Theme-based line *color* is left to the caller — `lineColor` sets an explicit `solidFill` which Excel renders over the style `lnRef` color.
+The return type is now the `IConnector` facade (consistent with `IShape`/`IPicture`/`IChart`); the live SDK `ConnectionShape` remains reachable via `.Underlying`. Theme-based line *color* is left to the caller — `lineColor` sets an explicit `solidFill` which Excel renders over the style `lnRef` color.
 
 ### 6.2.12 Drawings / shapes — I-74
 
@@ -1661,7 +1661,7 @@ public interface IShape
 {
     ISheet Sheet { get; }
     ShapeType Type { get; }
-    XSSFSimpleShape Underlying { get; }
+    Shape Underlying { get; }
 }
 
 // On ISheet:
@@ -1671,7 +1671,7 @@ IShape AddShape(ShapeType type, string startCell, string endCell,
 
 **I-74 (added 2026-05-26):** Minimal shape facade — covers the six most common shapes (rectangle, rounded rectangle, ellipse, line, triangle, diamond). Anchored between two cells. Fill and line colors are optional; no-fill is the default. Advanced shape properties (rotation, line width, gradient, text, etc.) reach through `IShape.Underlying`.
 
-Exotic shapes (arrows, callouts, stars, connectors, freeforms) are accessible via `ISheet.Underlying.CreateDrawingPatriarch()` which returns the `XSSFDrawing`.
+Exotic shapes (arrows, callouts, stars, connectors, freeforms) are authored by reaching through `ISheet.Underlying` to the sheet's `DrawingsPart` and its `WorksheetDrawing` root.
 
 ### 6.2.11 Sorting helpers — I-72
 
@@ -1701,9 +1701,9 @@ Implementation snapshots all cell values/styles in the range, sorts the snapshot
 void CreateSplitPane(int xSplitTwips, int ySplitTwips);
 ```
 
-**I-70 (added 2026-05-26):** Complements the existing `FreezePane` (decision §6.4) with a draggable split. Unlike freeze panes, split panes allow the user to resize the split interactively in Excel. Parameters are in twips (1/20th of a point), matching NPOI's `CreateSplitPane` and the OOXML `<pane>` element's coordinate system.
+**I-70 (added 2026-05-26):** Complements the existing `FreezePane` (decision §6.4) with a draggable split. Unlike freeze panes, split panes allow the user to resize the split interactively in Excel. Parameters are in twips (1/20th of a point), matching the OOXML `<pane>` element's coordinate system.
 
-`CreateSplitPane` replaces any prior freeze or split on the sheet. The active pane defaults to `LowerRight`. Callers needing a specific active pane or the leftmostColumn / topRow hints reach through `ISheet.Underlying.CreateSplitPane(x, y, leftCol, topRow, activePane)`.
+`CreateSplitPane` replaces any prior freeze or split on the sheet. The active pane defaults to `LowerRight`. Callers needing a specific active pane or the top-left-cell hint reach through `ISheet.Underlying` to set the `<pane>` element's `ActivePane` / `TopLeftCell` directly.
 
 ### 6.3 Streaming workbook (write-only)
 
@@ -1718,8 +1718,6 @@ public interface IStreamingWorkbook : IDisposable, IAsyncDisposable
     void Save(Stream stream, bool leaveOpen = true);
     Task SaveAsync(string path, CancellationToken ct = default);
     Task SaveAsync(Stream stream, bool leaveOpen = true, CancellationToken ct = default);
-
-    NPOI.XSSF.Streaming.SXSSFWorkbook Underlying { get; }
 }
 
 public interface IStreamingSheet
@@ -1728,8 +1726,6 @@ public interface IStreamingSheet
     IStreamingWorkbook Workbook { get; }
     IStreamingRow AppendRow();                    // creates next row; previous rows may be flushed
     IStreamingRow AppendRow(int index);           // explicit index; must be > last index written
-
-    NPOI.XSSF.Streaming.SXSSFSheet Underlying { get; }
 }
 
 public interface IStreamingRow
@@ -1744,11 +1740,11 @@ public interface IStreamingRow
 }
 
 // I-49 (added 2026-05-16): IStreamingRow.Cell returns IStreamingCell,
-// not ICell. NPOI's SXSSFCell does not inherit from XSSFCell, so the
-// ICell.Underlying contract (returns XSSFCell) cannot be honored on
-// streaming cells. IStreamingCell is the narrower surface — value
-// setters + Style/NumberFormat + Kind — with the escape hatch on
-// IStreamingSheet.Underlying instead of per-cell.
+// not ICell. Streaming rows are forward-only and serialized straight to the
+// part stream (via OpenXmlWriter) before the package exists, so there is no
+// live cell object to hand back through an Underlying escape hatch.
+// IStreamingCell is the narrower surface — value setters + Style/NumberFormat
+// + Kind — and the streaming interfaces deliberately carry no Underlying.
 public interface IStreamingCell
 {
     string Address { get; }
@@ -1812,7 +1808,7 @@ public interface ISheet
     int FirstRow { get; }
     int LastRow { get; }
 
-    NPOI.XSSF.UserModel.XSSFSheet Underlying { get; }
+    Worksheet Underlying { get; }
 }
 ```
 
@@ -1828,7 +1824,7 @@ public interface ITable
     IReadOnlyList<string> ColumnNames { get; }
     bool HasTotalsRow { get; }
     string? StyleName { get; set; }
-    NPOI.XSSF.UserModel.XSSFTable Underlying { get; }
+    TableDefinitionPart Underlying { get; }
 }
 
 // On ISheet:
@@ -1855,7 +1851,7 @@ Style is a `string?` keyed against Excel's built-in style names (e.g., `TableSty
 
 `HasTotalsRow` is **read-only** in v1.1 — adding totals requires per-column totals-row functions which is a larger surface; defer to v1.2 or reach through `.Underlying`. `RemoveTable` is also deferred: NPOI 2.7.3's `XSSFSheet` has no `RemoveTable` method, so removal requires package-part manipulation. Defer to v1.2 or NPOI 3.x.
 
-The implementation populates `CT_Table.tableColumns` directly rather than calling `XSSFTable.CreateColumn`, because NPOI 2.7.3's `CreateColumn` throws when the underlying `tableColumn` list is uninitialized (NPOI surprise; captured in `implementation-notes.md`).
+The implementation builds the part directly: `AddNewPart<TableDefinitionPart>()`, appends an `S.TableColumn { Id, Name }` per header to `S.TableColumns`, and sets `tablePart.Table = new S.Table(columns) { Id, Name, DisplayName, Reference }` — emitting the schema-required `<table @id>` (a divergence from NPOI, which omitted it).
 
 ### 6.4.2 Image embedding — I-52
 
@@ -1866,7 +1862,7 @@ public interface IPicture
 {
     ISheet Sheet { get; }
     ImageFormat Format { get; }
-    NPOI.XSSF.UserModel.XSSFPicture Underlying { get; }
+    Picture Underlying { get; }
 }
 
 // On ISheet:
@@ -1878,11 +1874,11 @@ public sealed class UnsupportedImageFormatException : WorkbookException { ... }
 
 **I-52 (added 2026-05-22):** v1.1 image embedding is deliberately narrow:
 
-- **Two formats: PNG and JPEG.** The two formats Excel reads on every platform without theme-color quirks. Other formats (GIF, BMP, TIFF, EMF, WMF) reach through `IWorkbook.Underlying.AddPicture` + `ISheet.Underlying.CreateDrawingPatriarch`.
-- **Single-cell anchor.** The image's top-left corner sits at the supplied A1 cell; the picture is rendered at its **natural pixel size** via NPOI's `XSSFPicture.Resize()`. Multi-cell anchoring, pixel offsets, alt-text, and rotation reach through `IPicture.Underlying`.
+- **Two formats: PNG and JPEG.** The two formats Excel reads on every platform without theme-color quirks. Other formats (GIF, BMP, TIFF, EMF, WMF) reach through `ISheet.Underlying` and the sheet's `DrawingsPart` to add an `ImagePart` + anchor directly.
+- **Single-cell anchor.** The image's top-left corner sits at the supplied A1 cell; the picture is rendered at its **natural pixel size** — the engine reads the dimensions from the image header, converts to EMU (×9525), and emits an `xdr:oneCellAnchor` with an `<xdr:ext>` at that natural size. Multi-cell anchoring, pixel offsets, alt-text, and rotation reach through `IPicture.Underlying`.
 - **Auto-detect from magic bytes.** The 2-arg overload reads the first bytes (`89 50 4E 47 ...` for PNG, `FF D8 FF ...` for JPEG) and dispatches. Unknown formats throw `UnsupportedImageFormatException`. The 3-arg overload accepts an explicit `ImageFormat` and skips detection.
 
-`Resize()` is essential — without it, NPOI anchors the picture to a single-cell extent, stretching/shrinking the image to fit the (typically small) cell. Calling `Resize()` makes the picture's to-cell match the image's pixel dimensions, producing the expected display.
+Emitting the natural-size extent (rather than a bare single-cell anchor) is what makes the picture render at its true pixel dimensions instead of being stretched/shrunk to fit the (typically small) anchor cell. The range overloads use an `xdr:twoCellAnchor` with explicit per-image EMU offsets instead.
 
 ### 6.4.3 Sheet protection — I-53
 
@@ -1916,9 +1912,9 @@ bool IsProtected { get; }
 
 **I-53 (added 2026-05-22):** Sheet protection is a **UX guard, not security**. Excel's sheet-protection password is hashed with a weak algorithm widely known to be brute-forceable. Use for "stop accidental edits", not "stop a determined attacker." Documented in the type's XML doc.
 
-`Protect()` with no arguments enables the protection flag without a password (Excel will block edits but accept any "unprotect" request immediately). `Protect(password: "...")` adds the (weak) password hash. Both forms accept an optional `SheetProtection` record with 15 granular `Lock*` flags mirroring NPOI 2.7.3's `XSSFSheet.Lock*(bool)` methods.
+`Protect()` with no arguments enables the protection flag without a password (Excel will block edits but accept any "unprotect" request immediately). `Protect(password: "...")` adds the (weak) password hash. Both forms accept an optional `SheetProtection` record with 15 granular `Lock*` flags mapping one-to-one onto the boolean attributes of the OOXML `<sheetProtection>` element.
 
-**NPOI surprise:** `XSSFSheet.ProtectSheet(null)` is NPOI's *unprotect* operation, not "protect without password". The no-password path therefore manipulates `CT_SheetProtection` directly (`sp.sheet = true; sp.scenarios = true; sp.objects = true;` — matching the side effects of `ProtectSheet(non-null)`). Captured in `implementation-notes.md`.
+**Implementation:** `Protect` gets-or-creates the `S.SheetProtection` element, sets `Sheet = true`, and writes the 15 boolean attributes (`FormatCells`, `InsertRows`, `Sort`, `Objects`, `Scenarios`, …) explicitly from the options record. The password path stores the legacy 16-bit XOR hash (`LegacyPasswordHash`) in the `password` attribute as a `HexBinaryValue`; the no-password path simply omits it. `Unprotect` removes the `<sheetProtection>` element; `IsProtected` reads its `Sheet` attribute.
 
 ### 6.4.4 Data validation — I-55
 
@@ -1945,11 +1941,11 @@ public sealed class DataValidation
 void AddValidation(string a1Range, DataValidation validation);
 ```
 
-**I-55 (added 2026-05-22):** Data validation is exposed via a single sealed class with static factories — no public constructor, no exposed inheritance hierarchy. Each factory captures the NPOI helper-method call site as a lambda; the captured rule materializes against the sheet's `IDataValidationHelper` at `AddValidation` time.
+**I-55 (added 2026-05-22):** Data validation is exposed via a single sealed class with static factories — no public constructor, no exposed inheritance hierarchy. `AddValidation` builds an `S.DataValidation` element directly (type via the factory, `AllowBlank`, `@sqref`, optional `@operator`, and `S.Formula1`/`S.Formula2` children) and appends it to the sheet's `S.DataValidations` container with its `@count` kept in sync.
 
 **Date validation uses the `DATE(yyyy,m,d)` formula form** rather than a locale-specific literal. Excel evaluates `DATE(...)` deterministically across all locales; a literal like `"5/22/2026"` would be misparsed on machines with European date formats. Captured in `implementation-notes.md`.
 
-**Out of v1.1 scope:** time-of-day validation, "not between" / "not equal" operators, formula-driven decimal/integer constraints, error-style customization (Stop / Warning / Information), per-validation prompt + error messages. These reach through `ISheet.Underlying.GetDataValidationHelper()`.
+**Out of v1.1 scope:** time-of-day validation, "not between" / "not equal" operators, formula-driven decimal/integer constraints, error-style customization (Stop / Warning / Information), per-validation prompt + error messages. These reach through `ISheet.Underlying` to author the `<dataValidations>` DOM directly.
 
 ### 6.4.5 AutoFilter — I-56
 
@@ -1963,9 +1959,9 @@ string? AutoFilterRange { get; }
 
 **I-56 (added 2026-05-22):** Standalone AutoFilter for ranges that are not tables. `SetAutoFilter` applies Excel's dropdown filter over a range (the first row of the range becomes the header); replacing an existing AutoFilter just updates the range. `ClearAutoFilter` removes it.
 
-**Out of v1.1 scope:** per-column filter criteria (filter A="X" AND B>0, etc.). Excel's filter criteria model is rich (text equals/contains, top-N, color, date range, custom expression) — exposing it as a v1.1 surface would be a significant chunk of API. Callers reach through `ISheet.Underlying.GetCTWorksheet().autoFilter.filterColumn` for now.
+**Out of v1.1 scope:** per-column filter criteria (filter A="X" AND B>0, etc.). Excel's filter criteria model is rich (text equals/contains, top-N, color, date range, custom expression) — exposing it as a v1.1 surface would be a significant chunk of API. Callers reach through `ISheet.Underlying` to the `<autoFilter>` / `<filterColumn>` DOM for now.
 
-**NPOI surprise:** `CT_Worksheet` in NPOI 2.7.3 exposes the `autoFilter` element as a direct property, not via `IsSetX` / `UnsetX` accessors. `ClearAutoFilter` therefore assigns `null` to the property to remove the element from the serialized XML. The auxiliary `_FilterDatabase` built-in name (created by NPOI's `SetAutoFilter`) is left in place when clearing — Excel tolerates a stale name pointing at an absent autoFilter, and pruning it would require walking the workbook's name table.
+**Mechanics:** `SetAutoFilter` gets-or-inserts an `S.AutoFilter` element and sets its `Reference`, and writes the `_FilterDatabase` built-in defined name via the workbook helper `SetFilterDatabaseName`. `ClearAutoFilter` is `Worksheet.GetFirstChild<S.AutoFilter>()?.Remove()` — it removes the element but leaves the `_FilterDatabase` name in place (Excel tolerates a stale name pointing at an absent autoFilter, and pruning it would require walking the workbook's name table).
 
 ### 6.4.7 Table totals row — I-64 (v1.2)
 
@@ -1985,9 +1981,9 @@ void SetColumnTotalLabel(string columnName, string label);
 
 **I-64 (added 2026-05-22):** v1.1 slice 2 (decision I-51) made `ITable.HasTotalsRow` read-only because adding totals requires per-column functions and the full surface didn't fit in slice scope. v1.2 closes the gap.
 
-`AddTotalsRow` extends the table's `@ref` by one row downward and sets `CT_Table.totalsRowCount = 1`. When the table has an AutoFilter (auto-applied by NPOI's `SetCellReferences`), the autoFilter range is trimmed back to exclude the totals row — matching Excel's default behavior where filters skip the totals.
+`AddTotalsRow` extends the table's `@ref` by one row downward and sets the table's `totalsRowCount = 1`. When the table has an AutoFilter (tables carry one by default), the autoFilter range is trimmed back to exclude the totals row — matching Excel's default behavior where filters skip the totals.
 
-`SetColumnTotal` writes both the OOXML metadata (`CT_TableColumn.totalsRowFunction`) **and** the actual cell formula (`SUBTOTAL(code, TableName[ColumnName])`). The dual write means the total renders correctly in any conforming viewer, not just one that auto-populates from the function metadata on open. SUBTOTAL is invoked in its **100-series form** (`101..110`) — the variant that skips AutoFilter-hidden rows, matching Excel's table-totals behavior.
+`SetColumnTotal` writes both the OOXML metadata (the `<tableColumn>` `totalsRowFunction`) **and** the actual cell formula (`SUBTOTAL(code, TableName[ColumnName])`). The dual write means the total renders correctly in any conforming viewer, not just one that auto-populates from the function metadata on open. SUBTOTAL is invoked in its **100-series form** (`101..110`) — the variant that skips AutoFilter-hidden rows, matching Excel's table-totals behavior.
 
 The structured-reference form (`TableName[ColumnName]`) is used in the formula rather than an absolute cell range so the totals auto-update when rows are added to the table.
 
@@ -2004,15 +2000,15 @@ The structured-reference form (`TableName[ColumnName]`) is used in the formula r
 void RemoveTable(ITable table);
 ```
 
-**I-63 (added 2026-05-22):** v1.1 slice 2 (decision I-51) deferred `RemoveTable` because NPOI 2.7.3's `XSSFSheet` did not expose a `RemoveTable` method (the upstream source has one; the 2.7.x binary line never published it). v1.2 closes the gap by performing the three-step removal directly:
+**I-63 (added 2026-05-22):** v1.1 slice 2 (decision I-51) deferred `RemoveTable`; v1.2 closes the gap. On the SDK engine the removal is direct and reflection-free:
 
-1. Drop the matching `<tablePart>` entry from `CT_Worksheet.tableParts` (matched by the table's package-relationship id).
-2. Remove the package relationship + part via `POIXMLDocumentPart.RemoveRelation`.
-3. Drop the cached entry from `XSSFSheet`'s internal `tables` dictionary so subsequent `GetTables()` snapshots don't surface the removed entry.
+1. Confirm the table's `TableDefinitionPart` belongs to this sheet (`_worksheetPart.TableDefinitionParts.Contains(part)`); a foreign or already-removed handle is rejected.
+2. Remove the matching `S.TablePart` from `S.TableParts`, dropping the `<tableParts>` container when it empties.
+3. Tear down the part and its relationship via the public `_worksheetPart.DeletePart(part)`, then mark the handle a tombstone (`MarkRemoved`) so subsequent use fails loud.
 
-Steps 2 and 3 require crossing NPOI's protection boundary — `RemoveRelation` is `protected` and the `tables` field is `private`. Both crossings are centralized in `src/NetXlsx/Internal/NpoiInternals.cs`, with `MethodInfo` / `FieldInfo` cached as `static readonly` fields so each reflection lookup happens once. A future NPOI 3.x bump that exposes `RemoveTable` publicly removes both reflection calls; until then, this is the narrowest workable surface.
+(This matches the handle-based removal pattern the I-91 drawing/table-removal family established — see §6.12.3.)
 
-**Validation:** `XssfSheet.RemoveTable` rejects foreign-table handles (the table's relationship id won't resolve on a different sheet) and rejects already-removed handles for the same reason — both throw `ArgumentException`. A second `RemoveTable(t)` on a freshly-removed handle is not idempotent-silent; it surfaces the stale handle loudly. Calling code that wants idempotency should check `sh.Tables.Contains(t)` first.
+**Validation:** `RemoveTable` rejects foreign-table handles (the part is not among this sheet's `TableDefinitionParts`) and rejects already-removed handles for the same reason — both throw `ArgumentException`. A second `RemoveTable(t)` on a freshly-removed handle is not idempotent-silent; it surfaces the stale handle loudly. Calling code that wants idempotency should check `sh.Tables.Contains(t)` first.
 
 ### 6.4.8 Per-column AutoFilter criteria — I-66 (v1.2)
 
@@ -2055,7 +2051,7 @@ void ClearAutoFilterColumn(int columnOffset);
 - **Top-N filter** (`top10` element). Same NPOI 2.7.3 surfacing limitation.
 - **Date-group filter, dynamic filter (relative dates), color filter.** Niche; not in v1.2 scope.
 
-Implementation builds `CT_CustomFilters.customFilter` directly with the operator enum + value. String-pattern factories prefix/suffix the wildcard `*` to encode the pattern; the input string's literal `*` / `?` / `~` are escaped by prefixing with `~` (Excel's filter-language escape).
+Implementation builds `S.CustomFilters` / `S.CustomFilter` directly with the operator enum + value. String-pattern factories prefix/suffix the wildcard `*` to encode the pattern; the input string's literal `*` / `?` / `~` are escaped by prefixing with `~` (Excel's filter-language escape).
 
 Column offset is **0-based within the AutoFilter range** — column 0 is the first column of the range, matching OOXML's `colId`. Negative or out-of-range offsets throw `ArgumentOutOfRangeException` with a friendlier message than NPOI would produce. `SetAutoFilterColumn` requires a prior `SetAutoFilter` call (`InvalidOperationException` otherwise).
 
@@ -2158,7 +2154,7 @@ public interface ICell
     ICell Comment(string text, string? author = null);
     ICell Hyperlink(string target, string? display = null);
 
-    NPOI.XSSF.UserModel.XSSFCell Underlying { get; }
+    Cell Underlying { get; }
 }
 
 public enum CellKind { Empty, String, Number, Date, Bool, Formula, Error }
@@ -2205,7 +2201,7 @@ public interface IRow : IEnumerable<ICell>
     IRow Set(int col, TimeOnly value);
     IRow Set(int col, TimeSpan value);
 
-    NPOI.XSSF.UserModel.XSSFRow Underlying { get; }
+    Row Underlying { get; }
 }
 
 public interface IColumn
@@ -2219,7 +2215,7 @@ public interface IColumn
     double WidthUnits { get; set; }               // Excel column-width units
     IColumn Width(double units);
 
-    IColumn AutoSize();                           // throws MissingFontException — NPOI engine: headless host without fonts (I3); SDK engine: font outside the embedded metric set (I-84)
+    IColumn AutoSize();                           // throws MissingFontException when a needed font is outside the embedded metric set (I-84)
     IColumn ForEachPopulated(Action<ICell> apply);
     IColumn SetDefaultStyle(CellStyle style);     // applies as the column-level default; new cells in this column inherit
 }
@@ -2300,7 +2296,7 @@ public sealed record CellBorders(
     BorderStyle? Left = null, Color? LeftColor = null);
 ```
 
-`CellStyle` is a value record. Equal styles produce the same NPOI `ICellStyle` via the workbook's internal style cache.
+`CellStyle` is a value record. Equal styles dedup to the same `cellXfs` entry via the workbook's internal style pool (`OoxmlStylePool`).
 
 ### 6.8.1 Rich text (multi-run formatted strings) — I-50
 
@@ -2336,13 +2332,13 @@ RichText? GetRichText();              // null for plain SetString cells
 
 **I-50 (added 2026-05-22):** Rich text is modeled as immutable value records mirroring `CellStyle`'s shape, with the per-run style restricted to **font-only** axes. Excel's OOXML run model has no per-run fills, borders, alignment, or number format — exposing the full `CellStyle` on a run would silently drop those axes. Cell-level visual style remains routed through `ICell.Style(CellStyle)`; per-run typography is layered via `SetRichText`.
 
-`GetRichText()` returns non-null only when the cell carries explicit formatting runs (`NumFormattingRuns > 0` in OOXML terms). A cell set via `SetString` returns `null` from `GetRichText()` even though OOXML stores every string cell as an `XSSFRichTextString` internally — the distinction surfaces "this string has run-level formatting" vs "this is a plain string".
+`GetRichText()` returns non-null only when the cell carries explicit formatting runs (`NumFormattingRuns > 0` in OOXML terms). A cell set via `SetString` returns `null` from `GetRichText()` even though OOXML stores every string cell's text through the same string machinery — the distinction surfaces "this string has run-level formatting" vs "this is a plain string".
 
 `CellKind` stays `String` for rich-text cells (no new enum value). `GetString()` continues to return the concatenated plain text.
 
-**Streaming write is intentionally absent.** `IStreamingCell` does **not** carry `SetRichText`. NPOI's SXSSF `SheetDataWriter` (NPOI 2.7.x) constructs a fresh `XSSFRichTextString` from `cell.StringCellValue` at flush time — dropping any in-memory formatting runs. Per decision #7 (type-honesty for streaming), the absence of the method on `IStreamingCell` mirrors the absence of the capability, rather than silently degrading or throwing at runtime. A future NPOI 3.x evaluation may revisit this.
+**Streaming write is intentionally absent.** `IStreamingCell` does **not** carry `SetRichText`. The streaming writer serializes each string cell as a plain inline string (`<is><t>…</t></is>`) the moment the row flushes through `OpenXmlWriter`, before any rich-text run model could be attached. Per decision #7 (type-honesty for streaming), the absence of the method on `IStreamingCell` mirrors the absence of the capability, rather than silently degrading or throwing at runtime.
 
-The font pool used for cell-level styles (decision #4) is reused for run fonts — runs with identical font properties share one `IFont` across the workbook.
+The font pool used for cell-level styles (decision #4) is reused for run fonts — runs with identical font properties share one `<font>` entry across the workbook.
 
 ### 6.9 Typed mapping (source-generated extension methods)
 
@@ -2412,8 +2408,10 @@ A standalone test project `tests/NetXlsx.Fuzz/` (xUnit, opt-in via the
 2. Every input produces **either** a documented NetXlsx exception
    (`WorkbookException` family + `ResourceLimitExceededException`) **or**
    a documented BCL exception (`InvalidDataException`, `IOException`,
-   `FormatException`, `ArgumentException`) **or** an NPOI namespaced
-   exception. Anything else is a finding.
+   `FormatException`, `ArgumentException`, `NotSupportedException`).
+   Anything else is a finding. (Open XML SDK package faults never escape
+   `Workbook.Open` — they are translated to `MalformedFileException`; see
+   below.)
 
 Corpus (decision I-60):
 
@@ -2427,15 +2425,20 @@ Corpus (decision I-60):
   deterministic seeds.
 - 100-iteration bulk random sweep with per-call cancellation timer.
 
-**Driven hardening (post-v1.0):** the initial harness run surfaced
-`IndexOutOfRangeException` leaking from NPOI's parsers on truncated /
-adversarial input. `Workbook.Open` now translates the runtime-exception
-family commonly seen here — `IndexOutOfRangeException`,
-`NullReferenceException`, `OverflowException`,
-`ArgumentOutOfRangeException` — to `MalformedFileException`. The
-underlying NPOI behavior is still arguably a bug there; on our open
-path the right user-visible contract is "this file is malformed", not
-a leaked runtime exception. Captured in `implementation-notes.md`.
+**Driven hardening (post-v1.0):** the harness exists because parsers leak
+low-level runtime faults on truncated / adversarial input (the original
+v1.0 finding was `IndexOutOfRangeException` from the NPOI engine; the SDK
+engine surfaces malformed packages as `OpenXmlPackageException`,
+`FileFormatException`, and assorted IO/XML faults instead). `Workbook.Open`
+classifies the known-malformed set — any `DocumentFormat.OpenXml.*`
+exception plus `InvalidDataException` / `FileFormatException` / `IOException`
+/ `XmlException` / `ArgumentException` / `FormatException` /
+`InvalidOperationException` (`IsKnownMalformedOpenException`) — to
+`MalformedFileException`, while critical faults (`OutOfMemoryException`,
+`StackOverflowException`, `OperationCanceledException`) and NetXlsx's own
+`WorkbookException` family propagate verbatim. On the open path the right
+user-visible contract is "this file is malformed", not a leaked runtime
+exception.
 
 ### 6.10 A1 / range parser grammar
 
@@ -2836,11 +2839,11 @@ All extended benchmarks run under the existing CI regression gate (15% threshold
 
 ### 7.1 Async semantics
 
-NPOI is synchronous. `SaveAsync`/`OpenAsync` use `Task.Run` to offload mixed CPU+I/O work to the thread pool. We do *not* return `Task.FromResult` over trivially-synchronous work; if a method has no async path, it stays synchronous.
+The engine is synchronous. `SaveAsync`/`OpenAsync` use `Task.Run` to offload mixed CPU+I/O work to the thread pool. We do *not* return `Task.FromResult` over trivially-synchronous work; if a method has no async path, it stays synchronous.
 
 Callers in ASP.NET / Blazor contexts should note: `SaveAsync` consumes a thread-pool thread for the duration of the save. If you serialize many workbooks concurrently, throttle.
 
-**Cancellation.** `CancellationToken` is honored only at offload boundaries — before the work is dispatched to the thread pool, and after NPOI returns. Mid-operation cancellation is not supported because NPOI itself is not cancellation-aware. A token cancelled while NPOI is mid-save will not interrupt the save; it will surface as `OperationCanceledException` only on the next async boundary.
+**Cancellation.** `CancellationToken` is honored only at offload boundaries — before the work is dispatched to the thread pool, and after the engine returns. Mid-operation cancellation is not supported because the engine itself is not cancellation-aware. A token cancelled while the engine is mid-save will not interrupt the save; it will surface as `OperationCanceledException` only on the next async boundary.
 
 ### 7.2 Culture handling
 
@@ -2922,7 +2925,7 @@ If `Open → modify → Save` *does* drop an unknown part, that is a bug, not a 
 
 When a formula is written via `cell.SetFormula("=A1+B1")`, the cell is stored with no cached value. Excel, LibreOffice, Google Sheets, and any other competent consumer recalculates on open.
 
-NetXlsx does **not** invoke NPOI's formula evaluator on save. Pre-computation is slow on large workbooks, fragile for any formula touching newer functions, and produces results that may diverge from Excel's own evaluation. Letting the consumer recompute is both faster and more correct.
+NetXlsx does **not** invoke any formula evaluator on save. Pre-computation is slow on large workbooks, fragile for any formula touching newer functions, and produces results that may diverge from Excel's own evaluation. Letting the consumer recompute is both faster and more correct.
 
 The trade: a file briefly viewed by a tool that does not recalculate (rare) will show blank values for formula cells until the user triggers a recalc. We consider this an acceptable cost.
 
