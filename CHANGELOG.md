@@ -122,6 +122,20 @@ changes (decision I19).
   deferral history, the I14 stream-on-open rationale, the I-68 filter deferral,
   and the supporting-decisions table). With the §6.2.x pass this clears the
   carried de-NPOI doc-mechanics flag.
+- **Doc-truth sweep — roadmap matrix + stale engine comments.** Follow-on to
+  the de-NPOI passes. (1) `roadmap.md`: three feature-matrix cells still read
+  "Planned" for work that has shipped to `main` — Themes/I-89, Sheet
+  rename/reorder/delete/I-90, and Benchmark-suite-vs-peers/R-29 — flipped to
+  "Done (…)" with a legend note distinguishing v2.x **Planned** (not built)
+  from **Done** (merged, pending the v2.x release tag); the matching
+  re-baseline verdicts gained "landed @commit (Sxx)" markers. (2) `OoxmlRow.cs`
+  and `OoxmlRange.cs` carried stale header comments claiming row
+  height/hidden and range `Apply`/`ApplyNamedStyle`/`Merge` "throw NotYet" —
+  those members are all implemented (the SDK engine has no live `NotYet`
+  stubs), so the comments now describe the shipped behavior. (3)
+  `v2-ooxml-planning.md`: the "Next gating event: 2026-08-16 Spike 4-Q/5-Q"
+  pointer is annotated — those spikes were retired at the I-82 swap; the live
+  cadence is Spike 6-Q (first due 2026-09-11).
 
 ### Samples / cookbook
 

@@ -245,7 +245,9 @@ gets right and wrong about OOXML to translate effectively).
   binary-frozen for years and the gap from "ideal upstream behavior"
   is growing.
 - **Next gating event:** the 2026-08-16 quarterly spike re-checks
-  (`docs/scheduled-spikes.md` Spike 4-Q + Spike 5-Q). If both come
+  (`docs/scheduled-spikes.md` Spike 4-Q + Spike 5-Q — **both retired at
+  the I-82 engine swap; the live cadence is now Spike 6-Q, SDK posture,
+  first due 2026-09-11**). If both come
   back negative (NPOI still AOT/trim-broken, OSMF still binding),
   the R&D-1 parallel spikes (from-scratch + bind-ClosedXML at
   matched scope) become the next concrete commitment. If either

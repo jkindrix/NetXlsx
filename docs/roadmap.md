@@ -3,7 +3,7 @@
 **Status:** Active — re-baselined 2026-06-11 (post-I-82 engine swap; ledger R-18)
 **Date:** 2026-05-14; matrix re-baselined 2026-06-11
 
-Each capability has a binary answer per release: **Yes** = shipped in that version, blank = not in that version, **No** = explicitly out of scope (never). The **v2.x** column holds work that is design-approved or scheduled but NOT yet shipped — v2.0 itself has shipped, so a "Yes" under a released column is a claim about reality, not intent.
+Each capability has a binary answer per release: **Yes** = shipped in that version, blank = not in that version, **No** = explicitly out of scope (never). The **v2.x** column holds work that is design-approved or scheduled but NOT yet in a released version — v2.0 itself has shipped, so a "Yes" under a released column is a claim about reality, not intent. Within v2.x, **Planned** = design-approved, not yet built; **Done** = implemented and merged to `main`, pending the next v2.x release tag.
 
 > **Re-baseline note (2026-06-11, R-18).** The post-swap audit found four
 > rows falsely marked shipped (sheet rename/reorder/delete; `ILogger`;
@@ -38,11 +38,11 @@ Each capability has a binary answer per release: **Yes** = shipped in that versi
 | Auto style dedup                        | Yes  |      |      |      |      |       |
 | Number format strings                   | Yes  |      |      |      |      |       |
 | Built-in number format constants        | Yes  |      |      |      |      |       |
-| Themes / theme colors                   |      |      |      | Planned (I-89) | |  |
+| Themes / theme colors                   |      |      |      | Done (I-89)    | |  |
 | Named/reusable styles                   |      | Yes  |      |      |      |       |
 | **Structure**                           |      |      |      |      |      |       |
 | Multiple sheets (add, hide)             | Yes  |      |      |      |      |       |
-| Sheet rename / reorder / delete         |      |      |      | Planned (I-90) | |  |
+| Sheet rename / reorder / delete         |      |      |      | Done (I-90)    | |  |
 | Merge cells                             | Yes  |      |      |      |      |       |
 | Freeze panes                            | Yes  |      |      |      |      |       |
 | Split panes                             |      |      | Yes  |      |      |       |
@@ -87,7 +87,7 @@ Each capability has a binary answer per release: **Yes** = shipped in that versi
 | `ILogger` integration                   |      |      |      |      |      | — see note |
 | Public API snapshot tests               | Yes  |      |      |      |      |       |
 | Benchmark suite (internal §4 targets)   | Yes  |      |      |      |      |       |
-| Benchmark suite vs peers                |      |      |      | Planned (R-29) | | |
+| Benchmark suite vs peers                |      |      |      | Done (R-29)    | | |
 | Golden-file test corpus                 | Yes  |      |      |      |      |       |
 | Sample / cookbook project               | Yes  |      |      |      |      |       |
 | Roslyn analyzers (e.g., "date w/o fmt") |      |      |      |      | Hold |       |
@@ -103,7 +103,8 @@ Each capability has a binary answer per release: **Yes** = shipped in that versi
   hide ever shipped; `ISheet.Name` is get-only, no `RemoveSheet`/
   `MoveSheet` exists). PROMOTE: design I-90 signed off 2026-06-11,
   lands as two slices (rename+move, then delete) per the remediation
-  ledger (R-12).
+  ledger (R-12). **Update: landed @81ce04e (S12) + @c004788 (S13) —
+  I-90 complete.**
 - **`ILogger` integration** — was falsely "Yes v1.0": zero references
   in `src/` at HEAD. No design decision ever specified it and no demand
   signal exists; UNSCHEDULED until a numbered decision motivates it
@@ -113,7 +114,8 @@ Each capability has a binary answer per release: **Yes** = shipped in that versi
   competitor references under `benchmarks/`. The internal §4-target
   suite is real; the comparative suite is now an explicit planned item
   (R-29, SpreadCheetah + ClosedXML as comparators). See R-20 decision
-  in the remediation ledger.
+  in the remediation ledger. **Update: landed @f467065 (S16) — R-29
+  done; comparative table in `benchmarks/README.md`.**
 - **Streaming read** — v2.0 shipped without it. PROMOTE (R-33,
   2026-06-11): the dead "no SAX parser in NPOI" blocker is gone — the
   SDK ships `OpenXmlPartReader`; scheduled after the remediation-ledger
@@ -121,7 +123,7 @@ Each capability has a binary answer per release: **Yes** = shipped in that versi
 - **Themes / theme colors** — v2.0 shipped without full theme styling
   (`SetThemeXml`/`GetThemeXml`/`ResolveThemeColor` shipped in v2.0.x;
   `CellStyle` theme-styling symmetry + default-theme embed is I-89,
-  signed off 2026-06-11, lands per the ledger).
+  signed off 2026-06-11. **Update: landed @940164d (S11).**
 - **Threaded / modern comments** — v2.0 shipped without it. DEMOTE/HOLD
   (R-33): SDK-feasible but zero demand signal; revisit on user ask.
 - **Roslyn analyzers** — v2.0 shipped without them (the source

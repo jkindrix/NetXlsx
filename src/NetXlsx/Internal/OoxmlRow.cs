@@ -1,9 +1,9 @@
-// I-82 engine swap — Open XML SDK-backed IRow (cells & rows slice).
+// I-82 engine swap — Open XML SDK-backed IRow.
 //
 // A row handle over a 1-based row index. Cell access and value setters delegate
-// to OoxmlCell. Row height / hidden are layout concerns and throw NotYet until
-// their slice. The DateTime/DateOnly/TimeOnly/TimeSpan Set overloads delegate to
-// the cell's (deferred) date/time setters, so they throw NotYet consistently.
+// to OoxmlCell; HeightInPoints and Hidden write the SDK <row> attributes
+// (ht/customHeight, hidden) directly. The DateTime/DateOnly/TimeOnly/TimeSpan
+// Set overloads delegate to the cell's date/time setters.
 
 using System;
 

@@ -1,9 +1,8 @@
-// I-82 engine swap — Open XML SDK-backed IRange (cells & rows slice).
+// I-82 engine swap — Open XML SDK-backed IRange.
 //
 // Rectangular range with sparse (populated-only) default enumeration and dense
-// EnumerateAll. Value(object?) and ClearContents are cell-value operations and
-// are implemented; Apply / ApplyNamedStyle (styles slice) and Merge (merge
-// slice) throw NotYet. Bounds are normalized 1-based and inclusive.
+// EnumerateAll. Value(object?), ClearContents, Apply / ApplyNamedStyle, and
+// Merge are all implemented. Bounds are normalized 1-based and inclusive.
 
 using System;
 using System.Collections;
