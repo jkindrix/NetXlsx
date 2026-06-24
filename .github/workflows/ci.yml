@@ -21,7 +21,7 @@ jobs:
         # embedded-metrics since I-84, so no font/native setup is needed.
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # MinVer needs full history to resolve the version from tags
 
@@ -91,7 +91,7 @@ jobs:
     name: headless-no-fonts (AutoSize I-84 embedded-metrics gate)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
